@@ -4,23 +4,37 @@ from agent.state import StateCollector
 
 from random import randint
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Dict
 
 
 @dataclass
 class PawnAction:
-    label: str  # Fixed typo from 'Lable' to 'label'
-    x: int
-    y: int
+    label: str = field(metadata={"json_name": "Label"})
+    x: int = field(metadata={"json_name": "X"})
+    y: int = field(metadata={"json_name": "Y"})
 
 
 @dataclass
 class GameAction:
-    pawn_actions: Dict[str, PawnAction]
+    pawn_actions: Dict[str, PawnAction] = field(metadata={"json_name": "PawnActions"})
 
 
-# From another class/function:
+def convert_to_json_format(obj):
+    if hasattr(obj, "__dict__"):
+        result = {}
+        for key, value in obj.__dict__.items():
+            field_info = obj.__dataclass_fields__[key]
+            json_key = field_info.metadata.get("json_name", key)
+            if isinstance(value, dict):
+                value = {k: convert_to_json_format(v) for k, v in value.items()}
+            elif hasattr(value, "__dict__"):
+                value = convert_to_json_format(value)
+            result[json_key] = value
+        return result
+    return obj
+
+
 def random_action_test():
 
     state = StateCollector.current_state
@@ -42,7 +56,10 @@ def random_action_test():
 
     game_action = GameAction(pawn_actions)
     # Convert GameAction to dictionary before sending
-    message = {"Type": "GameAction", "Data": asdict(game_action)}
+    message = {
+        "Type": "GameAction",
+        "Data": convert_to_json_format(game_action),
+    }
     for client in server.clients:
         server.send_to_client(client, message)
 

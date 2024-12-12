@@ -65,7 +65,7 @@ class GameServer:
                         try:
                             # Parse JSON message
                             json_dict = json.loads(message)
-                            self.message_queue.put(json_dict["Data"])
+                            self.message_queue.put(json_dict)
                             logger.debug(f"Received data from {port}\n")
 
                         except json.JSONDecodeError as e:
@@ -100,7 +100,8 @@ class GameServer:
             return False
 
         try:
-            client.send(f"{message}\n".encode(self.ENCODING))
+            json_string = json.dumps(message)
+            client.send(f"{json_string}\n".encode(self.ENCODING))
             return True
         except (ConnectionResetError, ConnectionAbortedError):
             self.clients.remove(client)

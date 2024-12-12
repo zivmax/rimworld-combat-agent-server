@@ -2,3 +2,5 @@ __pycache__/
 .venv/
 src/obj
 env/ref.py
+*.txt
+agent/train_ref.py

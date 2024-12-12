@@ -47,7 +47,6 @@ class GameServer:
                 logger.error(f"Error accepting connection: {e}\n")
 
     def handle_client(self, client: Socket, addr: Tuple[str, int]) -> None:
-        port = addr[-1]
         buffer = ""
         try:
             while self.running:
@@ -55,7 +54,7 @@ class GameServer:
                     data = client.recv(self.BUFFER_SIZE)
 
                     if not data:
-                        logger.info(f"Client {port} disconnected.\n")
+                        logger.info(f"Client {addr} disconnected.\n")
                         break
 
                     buffer += data.decode(self.ENCODING)
@@ -66,18 +65,18 @@ class GameServer:
                             # Parse JSON message
                             json_dict = json.loads(message)
                             self.message_queue.put(json_dict)
-                            logger.debug(f"Received data from {port}\n")
+                            logger.debug(f"Received data from {addr}\n")
 
                         except json.JSONDecodeError as e:
-                            logger.error(f"Invalid JSON from {port}: {e}\n")
+                            logger.error(f"Invalid JSON from {addr}: {e}\n")
                             logger.error(f"Raw String:\n {message}\n")
                             continue
 
                 except (ConnectionResetError, ConnectionAbortedError) as e:
-                    logger.info(f"Client {port} disconnected: {e}\n")
+                    logger.info(f"Client {addr} disconnected: {e}\n")
                     break
                 except Exception as e:
-                    logger.error(f"Unexpected error handling client {port}: {e}\n")
+                    logger.error(f"Unexpected error handling client {addr}: {e}\n")
                     break
         finally:
             self.clients.remove(client)

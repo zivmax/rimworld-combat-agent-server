@@ -4,7 +4,7 @@ from agent.state import StateCollector
 
 from random import randint
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from typing import Dict
 
 

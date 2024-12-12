@@ -2,7 +2,8 @@
     "name": "Combat Agent Dev",
     "image": "torch:latest",
     "features": {
-        "ghcr.io/devcontainers/features/git:1": {}
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/sshd:1": {}
     },
     "customizations": {
         "vscode": {
@@ -20,6 +21,5 @@
             }
         }
     },
-    "postCreateCommand": "git config --global user.name 'Linzheng Tang' && git config --global user.email 'tanglzh2022@shanghaitech.edu.cn'",
-    "remoteUser": "root"
+    "postCreateCommand": "git config --global user.name 'Linzheng Tang' && git config --global user.email 'tanglzh2022@shanghaitech.edu.cn'"
 }

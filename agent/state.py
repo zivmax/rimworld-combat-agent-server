@@ -189,6 +189,9 @@ class StateCollector:
     @classmethod
     def receive_state(cls) -> None:
         while True:
+            if server.client is None:
+                cls.current_state = None
+                continue
             if server.message_queue.qsize() > 0:
                 # Peek at message without removing it
                 message = server.message_queue.queue[0]

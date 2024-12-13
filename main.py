@@ -3,8 +3,12 @@ from utils.logger import logger
 from agent.state import StateCollector, GameStatus
 from agent.random import RandomAgent
 
-from threading import Thread
+from threading import Thread, Event
+import signal
+import sys
 
+# Global flag to indicate if the program should stop
+stop_event = Event()
 
 def create_server_thread():        
     thread = Thread(target=server.start, daemon=True)
@@ -37,16 +41,14 @@ def create_agent_thread():
     return thread
 
 
+def signal_handler(sig, frame):
+    logger.info("Stopping threads...\n")
+    stop_event.set()
+    server.stop()
+    sys.exit(0)
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+
     server_thread = create_server_thread()
     agent_thread = create_agent_thread()
-
-    try:
-        agent_thread.join()
-        server_thread.join()
-    except KeyboardInterrupt:
-        logger.info("Agent stopped\n")
-        server.stop()
-        logger.info("Server stopped\n")
-
-    exit(0)

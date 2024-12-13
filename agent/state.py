@@ -4,6 +4,7 @@ from utils.json import to_json
 
 from dataclasses import dataclass
 from typing import Dict, List
+from enum import Enum
 
 
 @dataclass
@@ -20,11 +21,17 @@ class Loc:
         return cls(x=data["X"], y=data["Y"])
 
 
+class GameStatus(Enum):
+    RUNNING = "running"
+    LOSE = "lose"
+    WIN = "win"
+
+
 @dataclass
 class MapState:
     width: int
     height: int
-    cells: List[List["MapState.CellState"]]
+    cells: List[List["CellState"]]
 
     @dataclass
     class CellState:
@@ -85,8 +92,8 @@ class PawnState:
     is_ally: bool
     loc: Loc
     equipment: str
-    combat_stats: "PawnState.CombatStats"
-    health_stats: "PawnState.HealthStats"
+    combat_stats: "CombatStats"
+    health_stats: "HealthStats"
     is_incapable: bool
 
     @dataclass
@@ -148,27 +155,36 @@ class GameState:
     map_state: MapState
     pawn_states: Dict[str, PawnState]
     tick: int
-    game_ending: bool
-
+    status: "GameStatus"
+    
     def __iter__(self):
         yield ("map_state", dict(self.map_state))
         yield ("pawn_states", {k: dict(v) for k, v in self.pawn_states.items()})
         yield ("tick", self.tick)
-        yield ("game_ending", self.game_ending)
+        yield ("status", self.status)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, dict | int | bool]) -> "GameState":
+    def from_dict(cls, data: Dict[str, dict | int | str]) -> "GameState":
         map_state = MapState.from_dict(data["MapState"])
         pawn_states = {}
+        game_status = ""
 
         for pawn_label, pawn_data in data["PawnStates"].items():
             pawn_states[pawn_label] = PawnState.from_dict(pawn_data)
+
+        match data["Status"]:
+            case 0:
+                game_status = GameStatus.RUNNING
+            case 1:
+                game_status = GameStatus.WIN
+            case 2:
+                game_status = GameStatus.LOSE
 
         return cls(
             map_state=map_state,
             pawn_states=pawn_states,
             tick=data["Tick"],
-            game_ending=data["GameEnding"],
+            status=game_status,
         )
 
 
@@ -195,6 +211,6 @@ class StateCollector:
                         f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}\n"
                     )
                     logger.debug(
-                        f"Game ending (tick {cls.current_state.tick}): {cls.current_state.game_ending}\n"
+                        f"Game ending (tick {cls.current_state.tick}): {cls.current_state.status}\n"
                     )
                     break

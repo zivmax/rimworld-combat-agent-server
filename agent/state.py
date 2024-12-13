@@ -18,12 +18,44 @@ class MapState:
 
 @dataclass
 class PawnState:
+    @dataclass
+    class CombatStats:
+        melee_DPS: float
+        shooting_ACC: float
+        move_speed: float
+
+        @classmethod
+        def from_dict(cls, data: Dict[str, float]) -> "PawnState.CombatStats":
+            return cls(
+                melee_DPS=data["MeleeDPS"],
+                shooting_ACC=data["ShootingACC"],
+                move_speed=data["MoveSpeed"],
+            )
+
+    @dataclass
+    class HealthStats:
+        pain_shock: float
+        blood_loss: float
+
+        @classmethod
+        def from_dict(cls, data: Dict[str, float]) -> "PawnState.HealthStats":
+            return cls(pain_shock=data["PainShock"], blood_loss=data["BloodLoss"])
+
+    @dataclass
+    class Loc:
+        x: int
+        y: int
+
+        @classmethod
+        def from_dict(cls, data: Dict[str, int]) -> "PawnState.Loc":
+            return cls(x=data["X"], y=data["Y"])
+
     label: str
     is_ally: bool
-    loc: Dict[str, int]
+    loc: Loc
     equipment: str
-    combat_stats: Dict[str, float]
-    health_stats: Dict[str, float]
+    combat_stats: CombatStats
+    health_stats: HealthStats
     is_incapable: bool
 
     @classmethod
@@ -31,10 +63,10 @@ class PawnState:
         return cls(
             label=data["Label"],
             is_ally=data["IsAlly"],
-            loc=data["Loc"],
+            loc=cls.Loc.from_dict(data["Loc"]),
             equipment=data["Equipment"],
-            combat_stats=data["CombatStats"],
-            health_stats=data["HealthStats"],
+            combat_stats=cls.CombatStats.from_dict(data["CombatStats"]),
+            health_stats=cls.HealthStats.from_dict(data["HealthStats"]),
             is_incapable=data["IsIncapable"],
         )
 

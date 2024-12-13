@@ -58,5 +58,5 @@ def random_action_test() -> None:
 
     logger.info(f"Sent random actions to clients at tick {state.tick}\n")
     logger.debug(
-        f"Random actions (tick {state.tick}): \n{to_json(game_action, indent=2)}"
+        f"Random actions (tick {state.tick}): \n{to_json(game_action, indent=2)}\n"
     )

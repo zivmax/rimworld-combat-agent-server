@@ -114,7 +114,7 @@ class PawnState:
         yield ("is_incapable", self.is_incapable)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> "PawnState":
+    def from_dict(cls, data: Dict[str, float]) -> "PawnState":
         return cls(
             label=data["Label"],
             is_ally=data["IsAlly"],
@@ -140,7 +140,7 @@ class GameState:
         yield ("game_ending", self.game_ending)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> "GameState":
+    def from_dict(cls, data: Dict[str, dict | int | bool]) -> "GameState":
         map_state = MapState.from_dict(data["MapState"])
         pawn_states = {}
 

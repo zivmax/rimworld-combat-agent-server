@@ -34,9 +34,9 @@ def random_action_test() -> None:
 
     # From GameState to fetch the labels of the ally pawn
     ally_pawn_labels = []
-    for label, pawn in state.pawn_states.items():
+    for pawn in state.pawn_states.values():
         if pawn.is_ally:
-            ally_pawn_labels.append(label)
+            ally_pawn_labels.append(pawn.label)
 
     # For each ally pawn, create a random action
     pawn_actions = {}

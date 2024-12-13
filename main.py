@@ -21,24 +21,25 @@ def create_agent_thread():
 
     def start_agent():
         agent = RandomAgent()
+        reset = False
+        action = None
         while True:
             StateCollector.receive_state()
             if StateCollector.current_state.status == GameStatus.RUNNING:
+                reset = False
                 action = agent.act(StateCollector.current_state)
-                message = {
-                    "Type": "GameAction",
-                    "Data": dict(action),
-                }
-                server.send_to_client(server.client, message)
 
-                logger.info(
-                    f"\tSent actions to clients at tick {StateCollector.current_state.tick}\n"
-                )
             else:
+                reset = True
                 logger.info("\tEpisode Ends.\n")
-                message = {"Type": "Reset", "Data": None}
+
+            message = {"Type": "Response", "Data": {"Action": dict(action), "Reset": reset}}
+            server.send_to_client(server.client, message)
+            logger.info(
+                f"\tSent response to clients at tick {StateCollector.current_state.tick}\n"
+            )
+            if reset:
                 StateCollector.current_state = None
-                server.send_to_client(server.client, message)
 
     thread = Thread(target=start_agent(), daemon=True)
     thread.start()

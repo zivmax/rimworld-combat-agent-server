@@ -54,7 +54,9 @@ class GameServer:
                     data = self.client.recv(self.BUFFER_SIZE)
 
                     if not data:
-                        logger.info(f"Client {addr} disconnected.\n")
+                        self.client.close()
+                        self.client = None
+                        logger.info(f"Client {addr} disconnected\n")
                         break
 
                     buffer += data.decode(self.ENCODING)
@@ -76,6 +78,8 @@ class GameServer:
                             continue
 
                 except (ConnectionResetError, ConnectionAbortedError) as e:
+                    self.client.close()
+                    self.client = None
                     logger.info(f"Client {addr} disconnected: {e}\n")
                     break
                 except Exception as e:

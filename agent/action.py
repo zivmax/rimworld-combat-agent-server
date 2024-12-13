@@ -1,41 +1,34 @@
 from utils.server import server
 from utils.logger import logger
+from utils.json import to_json
 from agent.state import StateCollector
 
 from random import randint
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict
 
 
 @dataclass
 class PawnAction:
-    label: str = field(metadata={"json_name": "Label"})
-    x: int = field(metadata={"json_name": "X"})
-    y: int = field(metadata={"json_name": "Y"})
+    label: str
+    x: int
+    y: int
+
+    def __iter__(self):
+        yield ("Label", self.label)
+        yield ("X", self.x)
+        yield ("Y", self.y)
 
 
 @dataclass
 class GameAction:
-    pawn_actions: Dict[str, PawnAction] = field(metadata={"json_name": "PawnActions"})
+    pawn_actions: Dict[str, PawnAction]
+
+    def __iter__(self):
+        yield ("PawnActions", {k: dict(v) for k, v in self.pawn_actions.items()})
 
 
-def convert_to_json_format(obj):
-    if hasattr(obj, "__dict__"):
-        result = {}
-        for key, value in obj.__dict__.items():
-            field_info = obj.__dataclass_fields__[key]
-            json_key = field_info.metadata.get("json_name", key)
-            if isinstance(value, dict):
-                value = {k: convert_to_json_format(v) for k, v in value.items()}
-            elif hasattr(value, "__dict__"):
-                value = convert_to_json_format(value)
-            result[json_key] = value
-        return result
-    return obj
-
-
-def random_action_test():
+def random_action_test() -> None:
 
     state = StateCollector.current_state
 
@@ -55,12 +48,13 @@ def random_action_test():
         )
 
     game_action = GameAction(pawn_actions)
-    # Convert GameAction to dictionary before sending
+
     message = {
         "Type": "GameAction",
-        "Data": convert_to_json_format(game_action),
+        "Data": dict(game_action),
     }
     for client in server.clients:
         server.send_to_client(client, message)
 
-    logger.debug(f"Sent random actions to clients\n")
+    logger.info(f"Sent random actions to clients\n")
+    logger.debug(f"Random actions: \n{to_json(game_action, indent=2)}")

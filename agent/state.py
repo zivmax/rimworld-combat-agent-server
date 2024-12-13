@@ -21,10 +21,10 @@ class Loc:
         return cls(x=data["X"], y=data["Y"])
 
 
-class GameStatus(Enum):
-    RUNNING = "running"
-    LOSE = "lose"
-    WIN = "win"
+class GameStatus():
+    RUNNING = 0
+    LOSE = 1
+    WIN = 2
 
 
 @dataclass
@@ -154,8 +154,8 @@ class PawnState:
 class GameState:
     map_state: MapState
     pawn_states: Dict[str, PawnState]
-    tick: int
     status: "GameStatus"
+    tick: int
     
     def __iter__(self):
         yield ("map_state", dict(self.map_state))
@@ -167,24 +167,15 @@ class GameState:
     def from_dict(cls, data: Dict[str, dict | int | str]) -> "GameState":
         map_state = MapState.from_dict(data["MapState"])
         pawn_states = {}
-        game_status = ""
 
         for pawn_label, pawn_data in data["PawnStates"].items():
             pawn_states[pawn_label] = PawnState.from_dict(pawn_data)
 
-        match data["Status"]:
-            case 0:
-                game_status = GameStatus.RUNNING
-            case 1:
-                game_status = GameStatus.WIN
-            case 2:
-                game_status = GameStatus.LOSE
-
         return cls(
             map_state=map_state,
             pawn_states=pawn_states,
+            status=data["Status"],
             tick=data["Tick"],
-            status=game_status,
         )
 
 
@@ -192,25 +183,36 @@ class StateCollector:
     current_state = None
 
     @classmethod
-    def collect_state(cls) -> None:
+    def is_new_state(cls, tick: int) -> bool:
+        return cls.current_state is None or tick > cls.current_state.tick 
+
+    @classmethod
+    def receive_state(cls) -> None:
         while True:
             if server.message_queue.qsize() > 0:
                 # Peek at message without removing it
                 message = server.message_queue.queue[0]
                 # Only get the message if it's a state message
-                if "GameState" == message["Type"]:
-                    message = server.message_queue.get()
-                    cls.current_state = GameState.from_dict(message["Data"])
-                    logger.info(
-                        f"Collected game state at tick {cls.current_state.tick}\n"
-                    )
-                    logger.debug(
-                        f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}\n"
-                    )
-                    logger.debug(
-                        f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}\n"
-                    )
-                    logger.debug(
-                        f"Game ending (tick {cls.current_state.tick}): {cls.current_state.status}\n"
-                    )
-                    break
+                if "GameState" != message["Type"]:
+                    continue
+
+                message = server.message_queue.get()
+                
+                if not cls.is_new_state(message["Data"]["Tick"]):
+                    continue
+
+                cls.current_state = GameState.from_dict(message["Data"])
+
+                logger.info(
+                    f"Collected game state at tick {cls.current_state.tick}\n"
+                )
+                # logger.debug(
+                #     f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}\n"
+                # )
+                # logger.debug(
+                #     f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}\n"
+                # )
+                logger.debug(
+                    f"Game status (tick {cls.current_state.tick}): {cls.current_state.status}\n"
+                )
+                break

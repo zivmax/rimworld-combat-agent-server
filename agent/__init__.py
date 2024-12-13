@@ -21,7 +21,7 @@ class Agent(ABC):
         self.save_path = None
 
     @abstractmethod
-    def act(self) -> GameAction:
+    def act(self, obs: GameAction) -> GameAction:
         """
         Select an action based on the current state.
         

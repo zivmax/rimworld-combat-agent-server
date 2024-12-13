@@ -13,6 +13,7 @@ class GameServer:
     PORT: int = 10086
     BUFFER_SIZE: int = 5120
     ENCODING: str = "utf-8"
+    QUEUE_SIZE: int = 10
 
     def __init__(self, host: str = HOST, port: int = PORT) -> None:
         self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -20,8 +21,8 @@ class GameServer:
         self.server.bind((host, port))
         self.server.listen(1)
         self.running: bool = True
-        self.clients: set[Socket] = set()
-        self.message_queue: Queue = Queue()
+        self.client: Socket = None
+        self.message_queue: Queue = Queue(self.QUEUE_SIZE)
         self.message_handlers: Dict[str, Callable] = {}
 
     def register_handler(
@@ -34,12 +35,11 @@ class GameServer:
         logger.info(f"Server starting on {self.HOST}:{self.PORT}\n")
         while self.running:
             try:
-                client, addr = self.server.accept()
+                self.client, addr = self.server.accept()
                 logger.info(f"Connected to client at {addr}\n")
 
-                self.clients.add(client)
                 client_thread = threading.Thread(
-                    target=self.handle_client, args=(client, addr), daemon=True
+                    target=self.handle_client, args=(self.client, addr), daemon=True
                 )
                 client_thread.start()
 
@@ -51,7 +51,7 @@ class GameServer:
         try:
             while self.running:
                 try:
-                    data = client.recv(self.BUFFER_SIZE)
+                    data = self.client.recv(self.BUFFER_SIZE)
 
                     if not data:
                         logger.info(f"Client {addr} disconnected.\n")
@@ -63,9 +63,12 @@ class GameServer:
                         message, buffer = buffer.split("\n", 1)
                         try:
                             # Parse JSON message
-                            json_dict = json.loads(message)
-                            self.message_queue.put(json_dict)
-                            logger.debug(f"Received data from {addr}\n")
+                            data = json.loads(message)
+                            if data["Type"] == "Log":
+                                logger.debug(f"Client {addr}: {data['Data']}\n")
+                                continue
+                            self.message_queue.put(data)
+                            logger.debug(f"Received data from {addr}, type: {data["Type"]}\n")
 
                         except json.JSONDecodeError as e:
                             logger.error(f"Invalid JSON from {addr}: {e}\n")
@@ -79,32 +82,26 @@ class GameServer:
                     logger.error(f"Unexpected error handling client {addr}: {e}\n")
                     break
         finally:
-            self.clients.remove(client)
             client.close()
 
     def stop(self) -> None:
         self.running = False
         # Close all client connections
-        for client in self.clients:
-            try:
-                client.close()
-            except:
-                pass
+        try:
+            self.client.close()
+        except:
+            pass
         self.server.close()
         logger.info("Server stopped\n")
 
     def send_to_client(self, client: Socket, message: str) -> bool:
         """Send a message to a specific client"""
-        if client not in self.clients:
-            return False
-
         try:
             json_string = json.dumps(message)
-            client.send(f"{json_string}\n".encode(self.ENCODING))
+            self.client.send(f"{json_string}\n".encode(self.ENCODING))
             return True
         except (ConnectionResetError, ConnectionAbortedError):
-            self.clients.remove(client)
-            client.close()
+            self.client.close()
             return False
 
 

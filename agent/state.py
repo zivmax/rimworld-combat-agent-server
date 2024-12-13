@@ -1,28 +1,76 @@
 from utils.server import server
 from utils.logger import logger
+from utils.json import to_json
 
-from dataclasses import dataclass, field
-from typing import Dict
+from dataclasses import dataclass
+from typing import Dict, List
+
+
+@dataclass
+class Loc:
+    x: int
+    y: int
+
+    def __iter__(self):
+        yield ("x", self.x)
+        yield ("y", self.y)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, int]) -> "Loc":
+        return cls(x=data["X"], y=data["Y"])
 
 
 @dataclass
 class MapState:
+
+    @dataclass
+    class CellState:
+        is_wall: bool
+        is_tree: bool
+        is_pawn: bool
+
+        def __iter__(self):
+            yield ("is_wall", self.is_wall)
+            yield ("is_tree", self.is_tree)
+            yield ("is_pawn", self.is_pawn)
+
+        @classmethod
+        def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
+            return cls(
+                is_wall=data["IsWall"], is_tree=data["IsTree"], is_pawn=data["IsPawn"]
+            )
+
     width: int
     height: int
-    cells: Dict[str, Dict[str, bool]] = field(default_factory=dict)
+    cells: Dict[str, CellState]
+
+    def __iter__(self):
+        yield ("width", self.width)
+        yield ("height", self.height)
+        yield ("cells", {k: dict(v) for k, v in self.cells.items()})
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "MapState":
-        return cls(width=data["Width"], height=data["Height"], cells=data["Cells"])
+        cells = {}
+        for loc, cell_data in data["Cells"].items():
+            cells[loc] = cls.CellState.from_dict(cell_data)
+
+        return cls(width=data["Width"], height=data["Height"], cells=cells)
 
 
 @dataclass
 class PawnState:
+
     @dataclass
     class CombatStats:
         melee_DPS: float
         shooting_ACC: float
         move_speed: float
+
+        def __iter__(self):
+            yield ("melee_DPS", self.melee_DPS)
+            yield ("shooting_ACC", self.shooting_ACC)
+            yield ("move_speed", self.move_speed)
 
         @classmethod
         def from_dict(cls, data: Dict[str, float]) -> "PawnState.CombatStats":
@@ -37,18 +85,13 @@ class PawnState:
         pain_shock: float
         blood_loss: float
 
+        def __iter__(self):
+            yield ("pain_shock", self.pain_shock)
+            yield ("blood_loss", self.blood_loss)
+
         @classmethod
         def from_dict(cls, data: Dict[str, float]) -> "PawnState.HealthStats":
             return cls(pain_shock=data["PainShock"], blood_loss=data["BloodLoss"])
-
-    @dataclass
-    class Loc:
-        x: int
-        y: int
-
-        @classmethod
-        def from_dict(cls, data: Dict[str, int]) -> "PawnState.Loc":
-            return cls(x=data["X"], y=data["Y"])
 
     label: str
     is_ally: bool
@@ -58,12 +101,21 @@ class PawnState:
     health_stats: HealthStats
     is_incapable: bool
 
+    def __iter__(self):
+        yield ("label", self.label)
+        yield ("is_ally", self.is_ally)
+        yield ("loc", dict(self.loc))
+        yield ("equipment", self.equipment)
+        yield ("combat_stats", dict(self.combat_stats))
+        yield ("health_stats", dict(self.health_stats))
+        yield ("is_incapable", self.is_incapable)
+
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "PawnState":
         return cls(
             label=data["Label"],
             is_ally=data["IsAlly"],
-            loc=cls.Loc.from_dict(data["Loc"]),
+            loc=Loc.from_dict(data["Loc"]),
             equipment=data["Equipment"],
             combat_stats=cls.CombatStats.from_dict(data["CombatStats"]),
             health_stats=cls.HealthStats.from_dict(data["HealthStats"]),
@@ -77,6 +129,12 @@ class GameState:
     pawn_states: Dict[str, PawnState]
     tick: int
     game_ending: bool
+
+    def __iter__(self):
+        yield ("map_state", dict(self.map_state))
+        yield ("pawn_states", {k: dict(v) for k, v in self.pawn_states.items()})
+        yield ("tick", self.tick)
+        yield ("game_ending", self.game_ending)
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "GameState":
@@ -110,7 +168,11 @@ class StateCollector:
                 if "GameState" == message["Type"]:
                     message = server.message_queue.get()
                     cls.current_state = GameState.from_dict(message["Data"])
-                    logger.debug(
+                    logger.info(
                         f"Collected game state at tick {cls.current_state.tick}\n"
                     )
+                    logger.debug(
+                        f"Pawn state: \n{to_json(cls.current_state.pawn_states, indent=2)}"
+                    )
+
                     break

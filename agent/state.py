@@ -172,9 +172,9 @@ class StateCollector:
                         f"Collected game state at tick {cls.current_state.tick}\n"
                     )
                     logger.debug(
-                        f"Map state: \n{to_json(cls.current_state.map_state, indent=2)}"
+                        f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}"
                     )
                     logger.debug(
-                        f"Pawn state: \n{to_json(cls.current_state.pawn_states, indent=2)}"
+                        f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}"
                     )
                     break

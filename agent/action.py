@@ -56,5 +56,7 @@ def random_action_test() -> None:
     for client in server.clients:
         server.send_to_client(client, message)
 
-    logger.info(f"Sent random actions to clients\n")
-    logger.debug(f"Random actions: \n{to_json(game_action, indent=2)}")
+    logger.info(f"Sent random actions to clients at tick {state.tick}\n")
+    logger.debug(
+        f"Random actions (tick {state.tick}): \n{to_json(game_action, indent=2)}"
+    )

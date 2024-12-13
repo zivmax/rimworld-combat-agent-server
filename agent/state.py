@@ -22,14 +22,19 @@ class Loc:
 
 @dataclass
 class MapState:
+    width: int
+    height: int
+    cells: Dict[str, "MapState.CellState"]
 
     @dataclass
     class CellState:
+        loc: Loc
         is_wall: bool
         is_tree: bool
         is_pawn: bool
 
         def __iter__(self):
+            yield ("loc", dict(self.loc))
             yield ("is_wall", self.is_wall)
             yield ("is_tree", self.is_tree)
             yield ("is_pawn", self.is_pawn)
@@ -37,12 +42,11 @@ class MapState:
         @classmethod
         def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
             return cls(
-                is_wall=data["IsWall"], is_tree=data["IsTree"], is_pawn=data["IsPawn"]
+                loc=Loc.from_dict(data["Loc"]),
+                is_wall=data["IsWall"],
+                is_tree=data["IsTree"],
+                is_pawn=data["IsPawn"],
             )
-
-    width: int
-    height: int
-    cells: Dict[str, CellState]
 
     def __iter__(self):
         yield ("width", self.width)
@@ -60,6 +64,13 @@ class MapState:
 
 @dataclass
 class PawnState:
+    label: str
+    is_ally: bool
+    loc: Loc
+    equipment: str
+    combat_stats: "PawnState.CombatStats"
+    health_stats: "PawnState.HealthStats"
+    is_incapable: bool
 
     @dataclass
     class CombatStats:
@@ -92,14 +103,6 @@ class PawnState:
         @classmethod
         def from_dict(cls, data: Dict[str, float]) -> "PawnState.HealthStats":
             return cls(pain_shock=data["PainShock"], blood_loss=data["BloodLoss"])
-
-    label: str
-    is_ally: bool
-    loc: Loc
-    equipment: str
-    combat_stats: CombatStats
-    health_stats: HealthStats
-    is_incapable: bool
 
     def __iter__(self):
         yield ("label", self.label)
@@ -138,12 +141,9 @@ class GameState:
 
     @classmethod
     def from_dict(cls, data: Dict[str, any]) -> "GameState":
-
-        # Create MapState
         map_state = MapState.from_dict(data["MapState"])
-
-        # Create PawnStates
         pawn_states = {}
+
         for pawn_label, pawn_data in data["PawnStates"].items():
             pawn_states[pawn_label] = PawnState.from_dict(pawn_data)
 
@@ -172,7 +172,9 @@ class StateCollector:
                         f"Collected game state at tick {cls.current_state.tick}\n"
                     )
                     logger.debug(
+                        f"Map state: \n{to_json(cls.current_state.map_state, indent=2)}"
+                    )
+                    logger.debug(
                         f"Pawn state: \n{to_json(cls.current_state.pawn_states, indent=2)}"
                     )
-
                     break

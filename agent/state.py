@@ -24,7 +24,7 @@ class Loc:
 class MapState:
     width: int
     height: int
-    cells: Dict[str, "MapState.CellState"]
+    cells: List[List["MapState.CellState"]]
 
     @dataclass
     class CellState:
@@ -51,13 +51,30 @@ class MapState:
     def __iter__(self):
         yield ("width", self.width)
         yield ("height", self.height)
-        yield ("cells", {k: dict(v) for k, v in self.cells.items()})
+        yield (
+            "cells",
+            {
+                f"({x},{y})": dict(self.cells[x][y])
+                for x in range(self.width)
+                for y in range(self.height)
+                if self.cells[x][y] is not None
+            },
+        )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> "MapState":
-        cells = {}
-        for loc, cell_data in data["Cells"].items():
-            cells[loc] = cls.CellState.from_dict(cell_data)
+    def from_dict(cls, data: Dict[str, dict | int]) -> "MapState":
+        # Init a 2D list of CellStates according to the map's width and height
+        cells = []
+        for _ in range(data["Width"]):
+            col = []
+            for _ in range(data["Height"]):
+                col.append(None)
+            cells.append(col)
+
+        # Fill in the CellStates`
+        for loc in data["Cells"].keys():
+            x, y = eval(loc)
+            cells[x][y] = cls.CellState.from_dict(data["Cells"][loc])
 
         return cls(width=data["Width"], height=data["Height"], cells=cells)
 

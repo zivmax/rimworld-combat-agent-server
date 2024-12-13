@@ -110,16 +110,16 @@ class PawnState:
 
     @dataclass
     class HealthStats:
-        pain_shock: float
+        pain_total: float
         blood_loss: float
 
         def __iter__(self):
-            yield ("pain_shock", self.pain_shock)
+            yield ("pain_total", self.pain_total)
             yield ("blood_loss", self.blood_loss)
 
         @classmethod
         def from_dict(cls, data: Dict[str, float]) -> "PawnState.HealthStats":
-            return cls(pain_shock=data["PainShock"], blood_loss=data["BloodLoss"])
+            return cls(pain_total=data["PainTotal"], blood_loss=data["BloodLoss"])
 
     def __iter__(self):
         yield ("label", self.label)
@@ -189,9 +189,12 @@ class StateCollector:
                         f"Collected game state at tick {cls.current_state.tick}\n"
                     )
                     logger.debug(
-                        f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}"
+                        f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}\n"
                     )
                     logger.debug(
-                        f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}"
+                        f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}\n"
+                    )
+                    logger.debug(
+                        f"Game ending (tick {cls.current_state.tick}): {cls.current_state.game_ending}\n"
                     )
                     break

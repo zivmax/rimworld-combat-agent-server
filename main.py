@@ -1,60 +1,31 @@
-from utils.server import server
+import gymnasium as gym
+
+from env import rimworld_env
 from utils.logger import logger
-from agent.state import StateCollector, GameStatus
-from agent.random import RandomAgent
-
-from threading import Thread, Event
-import signal
-import sys
-
-# Global flag to indicate if the program should stop
-stop_event = Event()
+from agents.random import RandomAgent
 
 
-def create_server_thread():
-    thread = Thread(target=server.start, daemon=True)
-    thread.start()
-    return thread
+def main():
+    env = gym.make(rimworld_env)
+    agent = RandomAgent()
+    n_episodes = 100
 
+    for episode in range(n_episodes):
+        obs, info = env.reset()
+        done = False
+        episode_reward = 0
 
-def create_agent_thread():
+        while not done:
+            action = agent.act(obs, info)
+            obs, reward, done, _, info = env.step(action)
+            episode_reward += reward
 
-    def start_agent():
-        agent = RandomAgent()
-        reset = False
-        action = None
-        while True:
-            StateCollector.receive_state()
-            if StateCollector.current_state.status == GameStatus.RUNNING:
-                reset = False
-                action = agent.act(StateCollector.current_state)
+        logger.info(
+            f"\tEpisode {episode + 1}/{n_episodes}, Total Reward: {episode_reward}\n"
+        )
 
-            else:
-                reset = True
-                logger.info("\tEpisode Ends.\n")
-
-            message = {"Type": "Response", "Data": {"Action": dict(action), "Reset": reset}}
-            server.send_to_client(server.client, message)
-            logger.info(
-                f"\tSent response to clients at tick {StateCollector.current_state.tick}\n"
-            )
-            if reset:
-                StateCollector.current_state = None
-
-    thread = Thread(target=start_agent(), daemon=True)
-    thread.start()
-    return thread
-
-
-def signal_handler(sig, frame):
-    logger.info("\tStopping threads...\n")
-    stop_event.set()
-    server.stop()
-    sys.exit(0)
+    env.close()
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal_handler)
-
-    server_thread = create_server_thread()
-    agent_thread = create_agent_thread()
+    main()

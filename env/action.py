@@ -20,4 +20,3 @@ class GameAction:
 
     def __iter__(self):
         yield ("PawnActions", {k: dict(v) for k, v in self.pawn_actions.items()})
-

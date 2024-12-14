@@ -55,8 +55,8 @@ class RimEnv(gym.Env):
         self.reward = 0
 
         return self._get_state()
-    def _eucild_dist(self, loc1:tuple, loc2:tuple)->float:
-        return ((loc1[0] - loc2[0]) ** 2 + (loc1[1] - loc2[1]) ** 2) ** 0.5
+    def _Mannhatan_dist(self, loc1:tuple, loc2:tuple)->float:
+        return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
     def _clamp(self, loc:tuple)->tuple:
         return (max(min(loc[0], HEIGHT - 1), 0), 
                 max(min(loc[1], WIDTH - 1), 0))

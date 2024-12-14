@@ -44,7 +44,7 @@ class RimWorldEnv(gym.Env):
         StateCollector.receive_state()
         self._update_all()
 
-        observation = self._get_observation()
+        observation = self._get_obs()
         info = self._get_info()
 
         return observation, info
@@ -74,7 +74,7 @@ class RimWorldEnv(gym.Env):
         StateCollector.receive_state()
         self._update_all()
 
-        observation = self._get_observation()
+        observation = self._get_obs()
         reward = self._get_reward()
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = False
@@ -116,21 +116,21 @@ class RimWorldEnv(gym.Env):
             max(min(loc.y, self._map.height - 1), 0),
         )
 
-    def _get_obstacles(self) -> List[Loc]:
-        """Get all obstacle locations in the map.
+    def _get_covers(self) -> List[Loc]:
+        """Get all cover locations in the map.
 
-        Returns a list of locations (Loc objects) where there are obstacles in the map.
-        Obstacles are defined as cells that contain either trees or walls.
+        Returns a list of locations (Loc objects) where there are covers in the map.
+        covers are defined as cells that contain either trees or walls.
 
         Returns:
-            `List[Loc]`: A list of location objects representing positions of obstacles
+            `List[Loc]`: A list of location objects representing positions of covers
         """
-        obstacles = []
+        covers = []
         for cell_row in self._map.cells:
             for cell in cell_row:
                 if cell.is_tree or cell.is_wall:
-                    obstacles.append(cell.loc)
-        return obstacles
+                    covers.append(cell.loc)
+        return covers
 
     def _update_action_space(self):
         """
@@ -139,7 +139,7 @@ class RimWorldEnv(gym.Env):
 
         The action mask is now a tuple of invalid Loc positions per ally.
         """
-        obstacles = self._get_obstacles()
+        covers = self._get_covers()
         action_spaces = {}
         action_masks = {}
 
@@ -156,8 +156,8 @@ class RimWorldEnv(gym.Env):
             # Collect invalid positions
             invalid_positions = []
 
-            # Add obstacles within range
-            for obs in obstacles:
+            # Add covers within range
+            for obs in covers:
                 if min_x <= obs.x < max_x and min_y <= obs.y < max_y:
                     invalid_positions.append(obs)
 
@@ -176,14 +176,14 @@ class RimWorldEnv(gym.Env):
         self.action_space = spaces.Dict(action_spaces)
         self.action_mask = action_masks
 
-    def _get_observation(self) -> NDArray:
+    def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a 2D numpy array.
 
         The observation is represented as a grid where each cell contains an integer value:
         - 0: Empty cell
         - 1-3: Allied units (index + 1 corresponds to ally number)
         - 4-6: Enemy units (index + 4 corresponds to enemy number)
-        - 7: Obstacle/Wall
+        - 7: cover/Wall
 
         Returns:
             np.ndarray: A 2D numpy array of shape (height, width) containing integer values
@@ -200,17 +200,17 @@ class RimWorldEnv(gym.Env):
             - Ally 1 at (0,1)
             - Ally 2 at (2,0)
             - Enemy 1 at (1,2)
-            - Obstacle at (1,0)
+            - cover at (1,0)
         """
         grid = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        obstacles = self._get_obstacles()
+        covers = self._get_covers()
 
         for idx, ally in enumerate(self._allies, start=1):
             grid[ally.loc.x][ally.loc.y] = idx
         for idx, enemy in enumerate(self._enemies, start=4):
             grid[enemy.loc.x][enemy.loc.y] = idx
-        for obstacle in obstacles:
-            x, y = obstacle.x, obstacle.y
+        for cover in covers:
+            x, y = cover.x, cover.y
             grid[x][y] = 7
         return grid
 

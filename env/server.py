@@ -1,11 +1,33 @@
 import socket
 import json
-import threading
+from threading import Thread
 from typing import Tuple, Callable, Dict, Any
 from queue import Queue
 from socket import socket as Socket
 
 from utils.logger import logger
+
+import signal
+import sys
+from threading import Event
+
+stop_event = Event()
+
+
+def signal_handler(sig, frame):
+    logger.info("\tStopping threads...\n")
+    stop_event.set()
+    server.stop()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
+def create_server_thread():
+    thread = Thread(target=server.start, daemon=True)
+    thread.start()
+    return thread
 
 
 class GameServer:
@@ -38,7 +60,7 @@ class GameServer:
                 self.client, addr = self.server.accept()
                 logger.info(f"Connected to client at {addr}\n")
 
-                client_thread = threading.Thread(
+                client_thread = Thread(
                     target=self.handle_client, args=(self.client, addr), daemon=True
                 )
                 client_thread.start()
@@ -70,7 +92,9 @@ class GameServer:
                                 logger.debug(f"Client {addr}: {data['Data']}\n")
                                 continue
                             self.message_queue.put(data)
-                            logger.debug(f"Received data from {addr}, type: {data["Type"]}\n")
+                            logger.debug(
+                                f"Received data from {addr}, type: {data["Type"]}\n"
+                            )
 
                         except json.JSONDecodeError as e:
                             logger.error(f"Invalid JSON from {addr}: {e}\n")

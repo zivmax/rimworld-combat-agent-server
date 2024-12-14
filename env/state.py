@@ -1,10 +1,10 @@
-from utils.server import server
-from utils.logger import logger
-from utils.json import to_json
-
 from dataclasses import dataclass
 from typing import Dict, List
-from enum import Enum
+
+from env.server import server
+from utils.logger import logger
+from utils.json import to_json
+from utils.math import sigmoid
 
 
 @dataclass
@@ -21,10 +21,10 @@ class Loc:
         return cls(x=data["X"], y=data["Y"])
 
 
-class GameStatus():
-    RUNNING = 0
-    LOSE = 1
-    WIN = 2
+class GameStatus:
+    RUNNING = "RUNNING"
+    LOSE = "LOSE"
+    WIN = "WIN"
 
 
 @dataclass
@@ -92,8 +92,8 @@ class PawnState:
     is_ally: bool
     loc: Loc
     equipment: str
-    combat_stats: "CombatStats"
-    health_stats: "HealthStats"
+    combat: "CombatStats"
+    health: "HealthStats"
     is_incapable: bool
 
     @dataclass
@@ -117,24 +117,39 @@ class PawnState:
 
     @dataclass
     class HealthStats:
-        pain_total: float
-        blood_loss: float
+        pain: float
+        bleed: float
+        moving: float
+        conciousness: float
 
         def __iter__(self):
-            yield ("pain_total", self.pain_total)
-            yield ("blood_loss", self.blood_loss)
+            yield ("pain", self.pain)
+            yield ("bleed", self.bleed)
+            yield ("moving", self.moving)
+            yield ("conciousness", self.conciousness)
 
         @classmethod
         def from_dict(cls, data: Dict[str, float]) -> "PawnState.HealthStats":
-            return cls(pain_total=data["PainTotal"], blood_loss=data["BloodLoss"])
+            return cls(
+                pain=data["PainTotal"],
+                bleed=data["BloodLoss"],
+                moving=data["MoveAbility"],
+                conciousness=data["Consciousness"],
+            )
+
+    @property
+    def danger(self) -> float:
+        return sigmoid(
+            1 - self.health.conciousness + self.health.pain + self.health.bleed
+        )
 
     def __iter__(self):
         yield ("label", self.label)
         yield ("is_ally", self.is_ally)
         yield ("loc", dict(self.loc))
         yield ("equipment", self.equipment)
-        yield ("combat_stats", dict(self.combat_stats))
-        yield ("health_stats", dict(self.health_stats))
+        yield ("combat_stats", dict(self.combat))
+        yield ("health_stats", dict(self.health))
         yield ("is_incapable", self.is_incapable)
 
     @classmethod
@@ -144,22 +159,22 @@ class PawnState:
             is_ally=data["IsAlly"],
             loc=Loc.from_dict(data["Loc"]),
             equipment=data["Equipment"],
-            combat_stats=cls.CombatStats.from_dict(data["CombatStats"]),
-            health_stats=cls.HealthStats.from_dict(data["HealthStats"]),
+            combat=cls.CombatStats.from_dict(data["CombatStats"]),
+            health=cls.HealthStats.from_dict(data["HealthStats"]),
             is_incapable=data["IsIncapable"],
         )
 
 
 @dataclass
 class GameState:
-    map_state: MapState
-    pawn_states: Dict[str, PawnState]
+    map: MapState
+    pawns: Dict[str, PawnState]
     status: "GameStatus"
     tick: int
-    
+
     def __iter__(self):
-        yield ("map_state", dict(self.map_state))
-        yield ("pawn_states", {k: dict(v) for k, v in self.pawn_states.items()})
+        yield ("map", dict(self.map))
+        yield ("pawns", {k: dict(v) for k, v in self.pawns.items()})
         yield ("tick", self.tick)
         yield ("status", self.status)
 
@@ -172,25 +187,29 @@ class GameState:
             pawn_states[pawn_label] = PawnState.from_dict(pawn_data)
 
         return cls(
-            map_state=map_state,
-            pawn_states=pawn_states,
+            map=map_state,
+            pawns=pawn_states,
             status=data["Status"],
             tick=data["Tick"],
         )
 
 
 class StateCollector:
-    current_state = None
+    state = None
+
+    @classmethod
+    def reset(cls) -> None:
+        cls.state = None
 
     @classmethod
     def is_new_state(cls, tick: int) -> bool:
-        return cls.current_state is None or tick > cls.current_state.tick 
+        return cls.state is None or tick > cls.state.tick
 
     @classmethod
     def receive_state(cls) -> None:
         while True:
             if server.client is None:
-                cls.current_state = None
+                cls.reset()
                 continue
             if server.message_queue.qsize() > 0:
                 # Peek at message without removing it
@@ -200,22 +219,20 @@ class StateCollector:
                     continue
 
                 message = server.message_queue.get()
-                
+
                 if not cls.is_new_state(message["Data"]["Tick"]):
                     continue
 
-                cls.current_state = GameState.from_dict(message["Data"])
+                cls.state = GameState.from_dict(message["Data"])
 
-                logger.info(
-                    f"Collected game state at tick {cls.current_state.tick}\n"
-                )
-                # logger.debug(
-                #     f"Map state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.map_state, indent=2)}\n"
-                # )
-                # logger.debug(
-                #     f"Pawn state (tick {cls.current_state.tick}): \n{to_json(cls.current_state.pawn_states, indent=2)}\n"
-                # )
+                logger.info(f"Collected game state at tick {cls.state.tick}\n")
                 logger.debug(
-                    f"Game status (tick {cls.current_state.tick}): {cls.current_state.status}\n"
+                    f"Map state (tick {cls.state.tick}): \n{to_json(cls.state.map, indent=2)}\n"
+                )
+                logger.debug(
+                    f"Pawn state (tick {cls.state.tick}): \n{to_json(cls.state.pawns, indent=2)}\n"
+                )
+                logger.debug(
+                    f"Game status (tick {cls.state.tick}): {cls.state.status}\n"
                 )
                 break

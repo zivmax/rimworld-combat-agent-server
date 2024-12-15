@@ -56,13 +56,6 @@ class RimWorldEnv(gym.Env):
         truncated = False
         info = None
 
-        if action is None:
-            message = {
-                "Type": "Response",
-                "Data": {"Action": None, "Reset": True},
-            }
-            server.send_to_client(server.client, message)
-            return observation, reward, terminated, truncated, info
 
         message = {
             "Type": "Response",

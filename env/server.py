@@ -93,7 +93,7 @@ class GameServer:
                                 continue
                             self.message_queue.put(data)
                             logger.debug(
-                                f"Received data from {addr}, type: {data["Type"]}\n"
+                                f"Received data from {addr}, type: {data['Type']}\n"
                             )
 
                         except json.JSONDecodeError as e:

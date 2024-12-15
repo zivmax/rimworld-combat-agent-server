@@ -10,7 +10,7 @@ from utils.logger import logger
 from .server import server, create_server_thread
 from .state import StateCollector, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
-
+from hyper_params import REWARD, ACTION_SPACE_RADIUS_FACTOR
 
 class RimWorldEnv(gym.Env):
     def __init__(self):
@@ -138,7 +138,7 @@ class RimWorldEnv(gym.Env):
 
         for idx, ally in enumerate(self._allies, start=1):
             # Calculate max movement range
-            max_move = int(ally.combat.move_speed * ally.health.moving)
+            max_move = int(ACTION_SPACE_RADIUS_FACTOR * ally.combat.move_speed * ally.health.moving)
 
             # Calculate ranges for this ally
             min_x = max(0, ally.loc.x - max_move)
@@ -248,15 +248,15 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
-        reward = 0
+        reward = REWARD['original']
         for ally in self._allies:
             if ally.is_incapable:
-                reward -= 10
+                reward += REWARD['ally_down']
             else:
-                reward += 0.5 * (1 - ally.danger)
+                reward += REWARD['ally_danger_ratio'] * (1 - ally.danger)
         for enemy in self._enemies:
             if enemy.is_incapable:
-                reward += 10
+                reward += REWARD['enemy_down']
             else:
-                reward -= 0.5 * (1 - enemy.danger)
+                reward += REWARD['enemy_danger_ratio'] * (1 - enemy.danger)
         return reward

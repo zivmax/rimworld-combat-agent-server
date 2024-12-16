@@ -10,7 +10,7 @@ from utils.logger import logger
 from .server import server, create_server_thread
 from .state import StateCollector, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
-from hyper_params import REWARD, ACTION_SPACE_RADIUS_FACTOR
+from metadata import REWARD, ACTION_SPACE_RADIUS_FACTOR
 
 class RimWorldEnv(gym.Env):
     def __init__(self):

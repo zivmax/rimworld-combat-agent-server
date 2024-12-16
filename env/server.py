@@ -15,7 +15,7 @@ stop_event = Event()
 
 
 def signal_handler(sig, frame):
-    logger.info("\tStopping threads...\n")
+    logger.info("Stopping threads...\n")
     stop_event.set()
     server.stop()
     sys.exit(0)

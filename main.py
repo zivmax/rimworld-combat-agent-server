@@ -11,7 +11,7 @@ def main():
     n_episodes = 100
 
     for episode in range(n_episodes):
-        obs, info = env.reset()
+        obs, info = env.reset(options=agent.options)
         done = False
         episode_reward = 0
 

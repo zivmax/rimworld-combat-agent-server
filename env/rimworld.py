@@ -7,6 +7,7 @@ from gymnasium.spaces import MultiDiscrete
 from gymnasium import spaces
 
 from utils.logger import logger
+from utils.json import to_json
 from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
@@ -20,6 +21,7 @@ class RimWorldEnv(gym.Env):
         self._map: MapState = None
         self._allies: List[PawnState] = None
         self._enemies: List[PawnState] = None
+        self._options: Dict = {}
         self.action_space: Dict = {}
         self.action_mask: Tuple[Loc] = None
 
@@ -35,10 +37,37 @@ class RimWorldEnv(gym.Env):
             [[8] * self._map.width] * self._map.height
         )
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None | Dict):
+        """Reset the environment to an initial state.
+        This method resets the environment and returns the initial observation and info.
+        The reset can be configured through the options parameter.
+        Args:
+            seed (int, optional): Random seed to use. Defaults to None.
+            options (dict, optional): Configuration options for reset. Defaults to None.
+                Supported options:
+                    - interval (float): Time interval between ticks. Defaults to 1.0.
+        Returns:
+            tuple: A tuple containing:
+                - observation: Initial environment observation
+                - info: Additional information dictionary
+        Note:
+            This will send a reset signal to connected clients and reinitialize the state collector.
+            The state will be updated and new observation will be generated based on the reset state.
+        """
+        self._options["interval"] = (
+            options.get("interval", 1.0) if options is not None else 1.0
+        )
+        self._options["speed"] = options.get("speed", 1) if options is not None else 1
+
+        # Validate options, interval be positive, speed between 0 - 4
+        if self._options["interval"] <= 0:
+            raise ValueError("Interval must be a positive number")
+        if self._options["speed"] < 0 or self._options["speed"] > 4:
+            raise ValueError("Speed must be between 0 and 4")
+
         message = {
             "Type": "Response",
-            "Data": {"Action": None, "Reset": True},
+            "Data": {"Action": None, "Reset": True, "Interval": self._options["interval"], "Speed": self._options["speed"]},
         }
         server.send_to_client(server.client, message)
         logger.info(
@@ -48,6 +77,11 @@ class RimWorldEnv(gym.Env):
         super().reset(seed=seed)  # We need the following line to seed self.np_random
         StateCollector.reset()
         StateCollector.receive_state()
+
+        logger.info(
+            f"Env reset! Current Config: \n{to_json(self._options, indent=2)}\n"
+        )
+
         self._update_all()
 
         observation = self._get_obs()
@@ -62,17 +96,9 @@ class RimWorldEnv(gym.Env):
         truncated = False
         info = None
 
-        if action is None:
-            message = {
-                "Type": "Response",
-                "Data": {"Action": None, "Reset": True},
-            }
-            server.send_to_client(server.client, message)
-            return observation, reward, terminated, truncated, info
-
         message = {
             "Type": "Response",
-            "Data": {"Action": dict(action), "Reset": False},
+            "Data": {"Action": dict(action), "Reset": False, "Interval": self._options["interval"], "Speed": self._options["speed"]},
         }
 
         server.send_to_client(server.client, message)

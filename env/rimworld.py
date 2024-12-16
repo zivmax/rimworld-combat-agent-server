@@ -36,7 +36,7 @@ class RimWorldEnv(gym.Env):
         }
         server.send_to_client(server.client, message)
         logger.info(
-            f"\tSent reset signal to clients at tick {StateCollector.state.tick}\n"
+            f"Sent reset signal to clients at tick {StateCollector.state.tick}\n"
         )
 
         super().reset(seed=seed)  # We need the following line to seed self.np_random

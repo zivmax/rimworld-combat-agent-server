@@ -28,32 +28,33 @@ class GameStatus:
 
 
 @dataclass
+class CellState:
+    loc: Loc
+    is_wall: bool
+    is_tree: bool
+    is_pawn: bool
+
+    def __iter__(self):
+        yield ("loc", dict(self.loc))
+        yield ("is_wall", self.is_wall)
+        yield ("is_tree", self.is_tree)
+        yield ("is_pawn", self.is_pawn)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
+        return cls(
+            loc=Loc.from_dict(data["Loc"]),
+            is_wall=data["IsWall"],
+            is_tree=data["IsTree"],
+            is_pawn=data["IsPawn"],
+        )
+
+
+@dataclass
 class MapState:
     width: int
     height: int
     cells: List[List["CellState"]]
-
-    @dataclass
-    class CellState:
-        loc: Loc
-        is_wall: bool
-        is_tree: bool
-        is_pawn: bool
-
-        def __iter__(self):
-            yield ("loc", dict(self.loc))
-            yield ("is_wall", self.is_wall)
-            yield ("is_tree", self.is_tree)
-            yield ("is_pawn", self.is_pawn)
-
-        @classmethod
-        def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
-            return cls(
-                loc=Loc.from_dict(data["Loc"]),
-                is_wall=data["IsWall"],
-                is_tree=data["IsTree"],
-                is_pawn=data["IsPawn"],
-            )
 
     def __iter__(self):
         yield ("width", self.width)
@@ -81,7 +82,7 @@ class MapState:
         # Fill in the CellStates`
         for loc in data["Cells"].keys():
             x, y = eval(loc)
-            cells[x][y] = cls.CellState.from_dict(data["Cells"][loc])
+            cells[x][y] = CellState.from_dict(data["Cells"][loc])
 
         return cls(width=data["Width"], height=data["Height"], cells=cells)
 

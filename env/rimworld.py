@@ -8,7 +8,7 @@ from gymnasium import spaces
 
 from utils.logger import logger
 from .server import server, create_server_thread
-from .state import StateCollector, MapState, PawnState, GameStatus, Loc
+from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
 
 
@@ -18,13 +18,19 @@ class RimWorldEnv(gym.Env):
 
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
-        self._allies: list[PawnState] = None
-        self._enemies: list[PawnState] = None
-        self.action_space = None
-        self.action_mask = None
+        self._allies: List[PawnState] = None
+        self._enemies: List[PawnState] = None
+        self.action_space: Dict = {}
+        self.action_mask: Tuple[Loc] = None
 
         StateCollector.receive_state()
         self._update_all()
+        for idx in range(1, 4):
+            ally_space = MultiDiscrete(
+                nvec=[self._map.width, self._map.height], start=np.array([0, 0])
+            )
+            self.action_space[idx] = ally_space
+        self.action_space = spaces.Dict(self.action_space)
         self.observation_space = MultiDiscrete(
             [[8] * self._map.width] * self._map.height
         )
@@ -102,7 +108,7 @@ class RimWorldEnv(gym.Env):
         self._map = StateCollector.state.map
         self._update_allies()
         self._update_enemies()
-        self._update_action_space()
+        self._update_action_mask()
 
     def _Mannhatan_dist(self, loc1: Loc, loc2: Loc) -> float:
         return abs(loc1.x - loc2.x) + abs(loc1.y - loc2.y)
@@ -116,7 +122,7 @@ class RimWorldEnv(gym.Env):
             max(min(loc.y, self._map.height - 1), 0),
         )
 
-    def _get_covers(self) -> List[Loc]:
+    def _get_covers(self) -> List[CellState]:
         """Get all cover locations in the map.
 
         Returns a list of locations (Loc objects) where there are covers in the map.
@@ -129,52 +135,33 @@ class RimWorldEnv(gym.Env):
         for cell_row in self._map.cells:
             for cell in cell_row:
                 if cell.is_tree or cell.is_wall:
-                    covers.append(cell.loc)
+                    covers.append(cell)
         return covers
 
-    def _update_action_space(self):
+    def _update_action_mask(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
-        Each ally's space is a MultiDiscrete for (x,y) movement within their max_move range.
+        Each ally's space is a MultiDiscrete for (x,y) movement across the entire map.
 
-        The action mask is now a tuple of invalid Loc positions per ally.
+        The action mask is a tuple of invalid Loc positions per ally.
         """
         covers = self._get_covers()
-        action_spaces = {}
-        action_masks = {}
+        mask = {}
 
-        for idx, ally in enumerate(self._allies, start=1):
-            # Calculate max movement range
-            max_move = int(ally.combat.move_speed * ally.health.moving)
+        # Collect invalid positions
+        invalid_positions = []
 
-            # Calculate ranges for this ally
-            min_x = max(0, ally.loc.x - max_move)
-            max_x = min(self._map.width, ally.loc.x + max_move + 1)
-            min_y = max(0, ally.loc.y - max_move)
-            max_y = min(self._map.height, ally.loc.y + max_move + 1)
+        # Add covers
+        for cover in covers:
+            invalid_positions.append(cover.loc)
 
-            # Collect invalid positions
-            invalid_positions = []
+        # Add enemy positions
+        for enemy in self._enemies:
+            invalid_positions.append(enemy.loc)
 
-            # Add covers within range
-            for obs in covers:
-                if min_x <= obs.x < max_x and min_y <= obs.y < max_y:
-                    invalid_positions.append(obs)
+        mask = tuple(invalid_positions)
 
-            # Add enemy positions within range
-            for enemy in self._enemies:
-                if min_x <= enemy.loc.x < max_x and min_y <= enemy.loc.y < max_y:
-                    invalid_positions.append(enemy.loc)
-
-            ally_space = MultiDiscrete(
-                nvec=[max_x - min_x, max_y - min_y], start=np.array([min_x, min_y])
-            )
-
-            action_spaces[idx] = ally_space
-            action_masks[idx] = tuple(invalid_positions)
-
-        self.action_space = spaces.Dict(action_spaces)
-        self.action_mask = action_masks
+        self.action_mask = mask
 
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a 2D numpy array.
@@ -210,7 +197,7 @@ class RimWorldEnv(gym.Env):
         for idx, enemy in enumerate(self._enemies, start=4):
             grid[enemy.loc.x][enemy.loc.y] = idx
         for cover in covers:
-            x, y = cover.x, cover.y
+            x, y = cover.loc.x, cover.loc.y
             grid[x][y] = 7
         return grid
 

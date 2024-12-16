@@ -183,7 +183,7 @@ class RimWorldEnv(gym.Env):
         - 0: Empty cell
         - 1-3: Allied units (index + 1 corresponds to ally number)
         - 4-6: Enemy units (index + 4 corresponds to enemy number)
-        - 7: cover/Wall
+        - 7: Cover
 
         Returns:
             np.ndarray: A 2D numpy array of shape (height, width) containing integer values

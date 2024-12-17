@@ -4,10 +4,12 @@ from collections import deque
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
+from .hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
 
 
 class DQN(nn.Module):
-    def __init__(self, state_size, action_size, hidden_size=128):
+    def __init__(self, state_size, action_size, hidden_size=HIDDEN_SIZE):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(state_size, hidden_size)
         self.relu = nn.ReLU()
@@ -21,19 +23,19 @@ class DQN(nn.Module):
         return x
 
 
-class DQNAgent:
+class DQNModel:
     def __init__(
         self,
         state_size,
         action_size,
-        batch_size=64,
-        gamma=0.99,
-        lr=0.001,
-        epsilon_start=1.0,
-        epsilon_end=0.01,
-        epsilon_decay=0.995,
-        target_update=10,
-        memory_size=10000,
+        batch_size=BATCH_SIZE,
+        gamma=GAMMA,
+        lr=LEARNING_RATE,
+        epsilon_start=EPSILON["START"],
+        epsilon_end=EPSILON["FINAL"],
+        epsilon_decay=EPSILON["DECAY"],
+        target_update=TARGET_UPDATE,
+        memory_size=MEMORY_SIZE,
     ):
         self.state_size = state_size
         self.action_size = action_size

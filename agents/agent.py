@@ -10,7 +10,9 @@ from env.state import PawnState, MapState
 class Agent(ABC):
     """Abstract base class for reinforcement learning agents."""
 
-    def __init__(self, action_space: Dict, observation_space: MultiDiscrete):
+    def __init__(
+        self, action_space: Dict[int, MultiDiscrete], observation_space: MultiDiscrete
+    ):
         """
         Initialize the agent.
 

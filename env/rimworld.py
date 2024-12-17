@@ -14,14 +14,20 @@ from .action import GameAction
 
 
 class RimWorldEnv(gym.Env):
-    def __init__(self, is_remote: bool = False):
+    def __init__(self, options: Dict=None,is_remote: bool = False):
         self._server_thread: Thread = create_server_thread(is_remote)
 
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
         self._allies: List[PawnState] = None
         self._enemies: List[PawnState] = None
-        self._options: Dict = {}
+        if options is None:
+            self._options: Dict = {
+                "interval": 1.0,
+                "speed": 1,
+            }
+        else:
+            self._options = options
         self.action_space: Dict = {}
         self.action_mask: Tuple[Loc] = None
 
@@ -37,7 +43,7 @@ class RimWorldEnv(gym.Env):
             [[8] * self._map.width] * self._map.height
         )
 
-    def reset(self, seed=None, options=None | Dict):
+    def reset(self, seed=None, options:Dict=None):
         """Reset the environment to an initial state.
         This method resets the environment and returns the initial observation and info.
         The reset can be configured through the options parameter.
@@ -55,9 +61,9 @@ class RimWorldEnv(gym.Env):
             The state will be updated and new observation will be generated based on the reset state.
         """
         self._options["interval"] = (
-            options.get("interval", 1.0) if options is not None else 1.0
+            options.get("interval", self._options["interval"]) if options is not None else self._options["interval"]
         )
-        self._options["speed"] = options.get("speed", 1) if options is not None else 1
+        self._options["speed"] = options.get("speed", self._options["speed"]) if options is not None else self._options["speed"]
 
         # Validate options, interval be positive, speed between 0 - 4
         if self._options["interval"] <= 0:

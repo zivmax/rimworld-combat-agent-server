@@ -1,10 +1,6 @@
 # this page is explicitly used fr storing trainning hyperparams
 
-EPSILON = {
-    "START": 1,
-    "FINAL": 0.01,
-    "DECAY": 0.999
-}
+EPSILON = {"START": 1, "FINAL": 0.01, "DECAY": 0.999}
 HIDDEN_SIZE = 128
 TARGET_UPDATE = 10
 

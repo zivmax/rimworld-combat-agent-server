@@ -1,4 +1,3 @@
-
 import numpy as np
 import gymnasium as gym
 from typing import Tuple, Dict
@@ -15,11 +14,7 @@ from .hyper_params import RE_TRAIN
 
 
 class DQNAgent(Agent):
-    def __init__(
-        self,
-        state_dim: Tuple[int, int],
-        action_space: MultiDiscrete
-    ):
+    def __init__(self, state_dim: Tuple[int, int], action_space: MultiDiscrete):
         """
         Initialize the DQNAgent.
 
@@ -32,9 +27,11 @@ class DQNAgent(Agent):
         self.state_dim = state_dim
         self.action_space = action_space
 
-
         self.action_dim = self._get_action_dim()
 
+        logger.info(
+            f"Initializing DQNModel with state_size={self._get_state_size()}, action_size={self.action_dim}"
+        )
         self.model = DQNModel(
             state_size=self._get_state_size(),
             action_size=self.action_dim,
@@ -49,6 +46,7 @@ class DQNAgent(Agent):
         action_dim = 1
         for space in self.action_space.spaces.values():
             action_dim *= space.nvec.prod()
+        logger.info(f"Computed action_dim: {action_dim}")
         return action_dim
 
     def _index_to_action(self, index: int) -> Dict[int, Tuple[int, int]]:
@@ -150,12 +148,18 @@ class DQNAgent(Agent):
         """
         self.model.load(path)
 
+
 class DQNTrainer:
     def __init__(self) -> None:
         self.env = gym.make(rimworld_env)
-        self.agent = DQNAgent(state_dim=(self.env.observation_space.shape[0], self.env.observation_space.shape[1]), 
-                              action_space=self.env.action_space)
-        
+        self.agent = DQNAgent(
+            state_dim=(
+                self.env.observation_space.shape[0],
+                self.env.observation_space.shape[1],
+            ),
+            action_space=self.env.action_space,
+        )
+
     def train(self):
         """
         Main function to train the DQNAgent.
@@ -169,7 +173,9 @@ class DQNTrainer:
 
                 while not done:
                     action = self.agent.act(obs, info)
-                    next_obs, reward, terminated, truncated, info = self.env.step(action)
+                    next_obs, reward, terminated, truncated, info = self.env.step(
+                        action
+                    )
                     done = terminated or truncated
 
                     self.agent.step(obs, action, reward, next_obs, done)
@@ -178,7 +184,9 @@ class DQNTrainer:
                     if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
                         logger.info(f"for episode {episode + 1}, reward: {reward}")
 
-                logger.info(F"Episode {episode + 1}/{num_episodes}, Total Reward: {total_reward}")
+                logger.info(
+                    f"Episode {episode + 1}/{num_episodes}, Total Reward: {total_reward}"
+                )
 
                 if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
                     self.agent.save(f"./model_pth/dqn_model_episode_{episode + 1}.pth")
@@ -186,6 +194,6 @@ class DQNTrainer:
             self.agent.load(f"./model_pth/dqn_model_episode_{N_EPISODES}.pth")
 
         self.close()
+
     def close(self):
         self.env.close()
-

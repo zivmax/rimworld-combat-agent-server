@@ -60,7 +60,10 @@ class RimWorldEnv(gym.Env):
         self.action_space = {}
         for idx in range(1, 4):
             ally_space = MultiDiscrete(
-                nvec=[self._options["action_range"], self._options["action_range"]],
+                nvec=[
+                    2 * self._options["action_range"] + 1,
+                    2 * self._options["action_range"] + 1,
+                ],
                 start=np.array(
                     [-self._options["action_range"], -self._options["action_range"]],
                     dtype=np.int32,

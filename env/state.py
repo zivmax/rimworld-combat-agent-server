@@ -28,32 +28,33 @@ class GameStatus:
 
 
 @dataclass
+class CellState:
+    loc: Loc
+    is_wall: bool
+    is_tree: bool
+    is_pawn: bool
+
+    def __iter__(self):
+        yield ("loc", dict(self.loc))
+        yield ("is_wall", self.is_wall)
+        yield ("is_tree", self.is_tree)
+        yield ("is_pawn", self.is_pawn)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
+        return cls(
+            loc=Loc.from_dict(data["Loc"]),
+            is_wall=data["IsWall"],
+            is_tree=data["IsTree"],
+            is_pawn=data["IsPawn"],
+        )
+
+
+@dataclass
 class MapState:
     width: int
     height: int
     cells: List[List["CellState"]]
-
-    @dataclass
-    class CellState:
-        loc: Loc
-        is_wall: bool
-        is_tree: bool
-        is_pawn: bool
-
-        def __iter__(self):
-            yield ("loc", dict(self.loc))
-            yield ("is_wall", self.is_wall)
-            yield ("is_tree", self.is_tree)
-            yield ("is_pawn", self.is_pawn)
-
-        @classmethod
-        def from_dict(cls, data: Dict[str, bool]) -> "MapState.CellState":
-            return cls(
-                loc=Loc.from_dict(data["Loc"]),
-                is_wall=data["IsWall"],
-                is_tree=data["IsTree"],
-                is_pawn=data["IsPawn"],
-            )
 
     def __iter__(self):
         yield ("width", self.width)
@@ -81,7 +82,7 @@ class MapState:
         # Fill in the CellStates`
         for loc in data["Cells"].keys():
             x, y = eval(loc)
-            cells[x][y] = cls.CellState.from_dict(data["Cells"][loc])
+            cells[x][y] = CellState.from_dict(data["Cells"][loc])
 
         return cls(width=data["Width"], height=data["Height"], cells=cells)
 
@@ -89,12 +90,13 @@ class MapState:
 @dataclass
 class PawnState:
     label: str
-    is_ally: bool
     loc: Loc
+    is_ally: bool
+    is_incapable: bool
+    is_aiming: bool
     equipment: str
     combat: "CombatStats"
     health: "HealthStats"
-    is_incapable: bool
 
     @dataclass
     class CombatStats:
@@ -145,23 +147,25 @@ class PawnState:
 
     def __iter__(self):
         yield ("label", self.label)
-        yield ("is_ally", self.is_ally)
         yield ("loc", dict(self.loc))
+        yield ("is_ally", self.is_ally)
+        yield ("is_incapable", self.is_incapable)
+        yield ("is_aiming", self.is_aiming)
         yield ("equipment", self.equipment)
         yield ("combat_stats", dict(self.combat))
         yield ("health_stats", dict(self.health))
-        yield ("is_incapable", self.is_incapable)
 
     @classmethod
     def from_dict(cls, data: Dict[str, float]) -> "PawnState":
         return cls(
             label=data["Label"],
-            is_ally=data["IsAlly"],
             loc=Loc.from_dict(data["Loc"]),
+            is_ally=data["IsAlly"],
+            is_incapable=data["IsIncapable"],
+            is_aiming=data["IsAiming"],
             equipment=data["Equipment"],
             combat=cls.CombatStats.from_dict(data["CombatStats"]),
             health=cls.HealthStats.from_dict(data["HealthStats"]),
-            is_incapable=data["IsIncapable"],
         )
 
 

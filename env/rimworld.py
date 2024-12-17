@@ -7,10 +7,12 @@ from gymnasium.spaces import MultiDiscrete
 from gymnasium import spaces
 
 from utils.logger import logger
+from utils.json import to_json
 from .server import server, create_server_thread
-from .state import StateCollector, MapState, PawnState, GameStatus, Loc
+from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
-from .metadata import REWARD, ACTION_SPACE_RADIUS_FACTOR
+from .metadata import REWARD
+
 
 class RimWorldEnv(gym.Env):
     def __init__(self):
@@ -18,21 +20,60 @@ class RimWorldEnv(gym.Env):
 
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
-        self._allies: list[PawnState] = None
-        self._enemies: list[PawnState] = None
-        self.action_space = None
-        self.action_mask = None
+        self._allies: List[PawnState] = None
+        self._enemies: List[PawnState] = None
+        self._options: Dict = {}
+        self.action_space: Dict = {}
+        self.action_mask: Tuple[Loc] = None
 
         StateCollector.receive_state()
         self._update_all()
+        for idx in range(1, 4):
+            ally_space = MultiDiscrete(
+                nvec=[self._map.width, self._map.height], start=np.array([0, 0])
+            )
+            self.action_space[idx] = ally_space
+        self.action_space = spaces.Dict(self.action_space)
         self.observation_space = MultiDiscrete(
             [[8] * self._map.width] * self._map.height
         )
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None | Dict):
+        """Reset the environment to an initial state.
+        This method resets the environment and returns the initial observation and info.
+        The reset can be configured through the options parameter.
+        Args:
+            seed (int, optional): Random seed to use. Defaults to None.
+            options (dict, optional): Configuration options for reset. Defaults to None.
+                Supported options:
+                    - interval (float): Time interval between ticks. Defaults to 1.0.
+        Returns:
+            tuple: A tuple containing:
+                - observation: Initial environment observation
+                - info: Additional information dictionary
+        Note:
+            This will send a reset signal to connected clients and reinitialize the state collector.
+            The state will be updated and new observation will be generated based on the reset state.
+        """
+        self._options["interval"] = (
+            options.get("interval", 1.0) if options is not None else 1.0
+        )
+        self._options["speed"] = options.get("speed", 1) if options is not None else 1
+
+        # Validate options, interval be positive, speed between 0 - 4
+        if self._options["interval"] <= 0:
+            raise ValueError("Interval must be a positive number")
+        if self._options["speed"] < 0 or self._options["speed"] > 4:
+            raise ValueError("Speed must be between 0 and 4")
+
         message = {
             "Type": "Response",
-            "Data": {"Action": None, "Reset": True},
+            "Data": {
+                "Action": None,
+                "Reset": True,
+                "Interval": self._options["interval"],
+                "Speed": self._options["speed"],
+            },
         }
         server.send_to_client(server.client, message)
         logger.info(
@@ -42,6 +83,11 @@ class RimWorldEnv(gym.Env):
         super().reset(seed=seed)  # We need the following line to seed self.np_random
         StateCollector.reset()
         StateCollector.receive_state()
+
+        logger.info(
+            f"Env reset! Current Config: \n{to_json(self._options, indent=2)}\n"
+        )
+
         self._update_all()
 
         observation = self._get_obs()
@@ -56,10 +102,14 @@ class RimWorldEnv(gym.Env):
         truncated = False
         info = None
 
-
         message = {
             "Type": "Response",
-            "Data": {"Action": dict(action), "Reset": False},
+            "Data": {
+                "Action": dict(action),
+                "Reset": False,
+                "Interval": self._options["interval"],
+                "Speed": self._options["speed"],
+            },
         }
 
         server.send_to_client(server.client, message)
@@ -95,8 +145,13 @@ class RimWorldEnv(gym.Env):
         self._map = StateCollector.state.map
         self._update_allies()
         self._update_enemies()
-        self._update_action_space()
+        self._update_action_mask()
 
+    def _Mannhatan_dist(self, loc1: Loc, loc2: Loc) -> float:
+        return abs(loc1.x - loc2.x) + abs(loc1.y - loc2.y)
+
+    def _Eclidean_dist(self, loc1: Loc, loc2: Loc) -> float:
+        return np.sqrt((loc1.x - loc2.x) ** 2 + (loc1.y - loc2.y) ** 2)
 
     def _clamp(self, loc: Loc) -> Loc:
         return Loc(
@@ -104,7 +159,7 @@ class RimWorldEnv(gym.Env):
             max(min(loc.y, self._map.height - 1), 0),
         )
 
-    def _get_covers(self) -> List[Loc]:
+    def _get_covers(self) -> List[CellState]:
         """Get all cover locations in the map.
 
         Returns a list of locations (Loc objects) where there are covers in the map.
@@ -117,52 +172,33 @@ class RimWorldEnv(gym.Env):
         for cell_row in self._map.cells:
             for cell in cell_row:
                 if cell.is_tree or cell.is_wall:
-                    covers.append(cell.loc)
+                    covers.append(cell)
         return covers
 
-    def _update_action_space(self):
+    def _update_action_mask(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
-        Each ally's space is a MultiDiscrete for (x,y) movement within their max_move range.
+        Each ally's space is a MultiDiscrete for (x,y) movement across the entire map.
 
-        The action mask is now a tuple of invalid Loc positions per ally.
+        The action mask is a tuple of invalid Loc positions per ally.
         """
         covers = self._get_covers()
-        action_spaces = {}
-        action_masks = {}
+        mask = {}
 
-        for idx, ally in enumerate(self._allies, start=1):
-            # Calculate max movement range
-            max_move = int(ACTION_SPACE_RADIUS_FACTOR * ally.combat.move_speed * ally.health.moving)
+        # Collect invalid positions
+        invalid_positions = []
 
-            # Calculate ranges for this ally
-            min_x = max(0, ally.loc.x - max_move)
-            max_x = min(self._map.width, ally.loc.x + max_move + 1)
-            min_y = max(0, ally.loc.y - max_move)
-            max_y = min(self._map.height, ally.loc.y + max_move + 1)
+        # Add covers
+        for cover in covers:
+            invalid_positions.append(cover.loc)
 
-            # Collect invalid positions
-            invalid_positions = []
+        # Add enemy positions
+        for enemy in self._enemies:
+            invalid_positions.append(enemy.loc)
 
-            # Add covers within range
-            for obs in covers:
-                if min_x <= obs.x < max_x and min_y <= obs.y < max_y:
-                    invalid_positions.append(obs)
+        mask = tuple(invalid_positions)
 
-            # Add enemy positions within range
-            for enemy in self._enemies:
-                if min_x <= enemy.loc.x < max_x and min_y <= enemy.loc.y < max_y:
-                    invalid_positions.append(enemy.loc)
-
-            ally_space = MultiDiscrete(
-                nvec=[max_x - min_x, max_y - min_y], start=np.array([min_x, min_y])
-            )
-
-            action_spaces[idx] = ally_space
-            action_masks[idx] = tuple(invalid_positions)
-
-        self.action_space = spaces.Dict(action_spaces)
-        self.action_mask = action_masks
+        self.action_mask = mask
 
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a 2D numpy array.
@@ -198,7 +234,7 @@ class RimWorldEnv(gym.Env):
         for idx, enemy in enumerate(self._enemies, start=4):
             grid[enemy.loc.x][enemy.loc.y] = idx
         for cover in covers:
-            x, y = cover.x, cover.y
+            x, y = cover.loc.x, cover.loc.y
             grid[x][y] = 7
         return grid
 
@@ -243,21 +279,23 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
-        reward = REWARD['original']
+        reward = REWARD["original"]
         for ally in self._allies:
             if ally.is_incapable:
-                reward += REWARD['ally_down']
+                reward += REWARD["ally_down"]
             else:
-                reward += REWARD['ally_danger_ratio'] * (1 - ally.danger)
+                reward += REWARD["ally_danger_ratio"] * (1 - ally.danger)
         for enemy in self._enemies:
             if enemy.is_incapable:
-                reward += REWARD['enemy_down']
+                reward += REWARD["enemy_down"]
             else:
-                reward += REWARD['enemy_danger_ratio'] * (1 - enemy.danger)
+                reward += REWARD["enemy_danger_ratio"] * (1 - enemy.danger)
         return reward
+
 
 def Mannhatan_dist(self, loc1: Loc, loc2: Loc) -> float:
     return abs(loc1.x - loc2.x) + abs(loc1.y - loc2.y)
+
 
 def Eclidean_dist(self, loc1: Loc, loc2: Loc) -> float:
     return np.sqrt((loc1.x - loc2.x) ** 2 + (loc1.y - loc2.y) ** 2)

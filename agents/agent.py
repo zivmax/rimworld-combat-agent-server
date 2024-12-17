@@ -18,6 +18,7 @@ class Agent(ABC):
             state_dim: Dimension of the state space
             action_dim: Dimension of the action space
         """
+        self.options = {}
 
     @abstractmethod
     def act(

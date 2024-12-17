@@ -14,6 +14,10 @@ class RandomAgent(Agent):
 
     def __init__(self):
         super().__init__()
+        self.options = {
+            "interval": 3.0,
+            "speed": 4,
+        }
 
     def act(
         self,
@@ -48,7 +52,7 @@ class RandomAgent(Agent):
                 y=int(act[1]),
             )
 
-        logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}\n")
+        logger.info(f"Random actions: \n{to_json(ally_actions, indent=2)}\n")
 
         return GameAction(ally_actions)
 

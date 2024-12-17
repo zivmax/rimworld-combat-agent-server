@@ -137,6 +137,7 @@ class RimWorldEnv(gym.Env):
         for ally in self._allies:
             if ally.label in action.pawn_actions.keys():
                 action.pawn_actions[ally.label].x += ally.loc.x
+                action.pawn_actions[ally.label].y += ally.loc.y
 
         message = {
             "Type": "Response",

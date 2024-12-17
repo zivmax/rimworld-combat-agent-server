@@ -4,5 +4,5 @@ src/obj
 env/ref.py
 *.txt
 agent/train_ref.py
-.devcontainer/.gitconfig
+.devcontainer/git.sh
 

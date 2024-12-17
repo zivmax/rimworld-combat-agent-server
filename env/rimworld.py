@@ -14,8 +14,7 @@ from .action import GameAction
 
 
 class RimWorldEnv(gym.Env):
-    def __init__(self, options: Dict=None,is_remote: bool = False):
-        self._server_thread: Thread = create_server_thread(is_remote)
+    def __init__(self, options: Dict = None):
 
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
@@ -25,17 +24,30 @@ class RimWorldEnv(gym.Env):
             self._options: Dict = {
                 "interval": 1.0,
                 "speed": 1,
+                "action_range": 4,
+                "is_remote": False,
             }
         else:
-            self._options = options
-        self.action_space: Dict = {}
-        self.action_mask: Tuple[Loc] = None
+            self._options: Dict = {
+                "interval": options.get("interval", 1.0),
+                "speed": options.get("speed", 1),
+                "action_range": options.get("action_range", 4),
+                "is_remote": options.get("is_remote", False),
+            }
 
+        self._server_thread: Thread = create_server_thread(self._options["is_remote"])
         StateCollector.receive_state()
+
         self._update_all()
+
+        self.action_space = {}
         for idx in range(1, 4):
             ally_space = MultiDiscrete(
-                nvec=[self._map.width, self._map.height], start=np.array([0, 0])
+                nvec=[self._options["action_range"], self._options["action_range"]],
+                start=np.array(
+                    [-self._options["action_range"], -self._options["action_range"]],
+                    dtype=np.int32,
+                ),
             )
             self.action_space[idx] = ally_space
         self.action_space = spaces.Dict(self.action_space)
@@ -43,7 +55,7 @@ class RimWorldEnv(gym.Env):
             [[8] * self._map.width] * self._map.height
         )
 
-    def reset(self, seed=None, options:Dict=None):
+    def reset(self, seed=None, options: Dict = None):
         """Reset the environment to an initial state.
         This method resets the environment and returns the initial observation and info.
         The reset can be configured through the options parameter.
@@ -60,10 +72,17 @@ class RimWorldEnv(gym.Env):
             This will send a reset signal to connected clients and reinitialize the state collector.
             The state will be updated and new observation will be generated based on the reset state.
         """
-        self._options["interval"] = (
-            options.get("interval", self._options["interval"]) if options is not None else self._options["interval"]
-        )
-        self._options["speed"] = options.get("speed", self._options["speed"]) if options is not None else self._options["speed"]
+        if options is not None:
+            self._options["interval"] = (
+                options.get("interval", self._options["interval"])
+                if options is not None
+                else self._options["interval"]
+            )
+            self._options["speed"] = (
+                options.get("speed", self._options["speed"])
+                if options is not None
+                else self._options["speed"]
+            )
 
         # Validate options, interval be positive, speed between 0 - 4
         if self._options["interval"] <= 0:
@@ -106,6 +125,11 @@ class RimWorldEnv(gym.Env):
         terminated = False
         truncated = False
         info = None
+
+        # Transform the GameAction's relative target position refer to pawn itself, to absolute position on the map
+        for ally in self._allies:
+            if ally.label in action.pawn_actions.keys():
+                action.pawn_actions[ally.label].x += ally.loc.x
 
         message = {
             "Type": "Response",

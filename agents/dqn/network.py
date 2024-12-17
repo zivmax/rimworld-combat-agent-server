@@ -4,8 +4,8 @@ from collections import deque
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
-from hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
+from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
+from .hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
 class DQN(nn.Module):
     def __init__(self, state_size, action_size, hidden_size=HIDDEN_SIZE):
         super(DQN, self).__init__()

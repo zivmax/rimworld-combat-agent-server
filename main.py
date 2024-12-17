@@ -1,4 +1,5 @@
 import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
 
 from env import rimworld_env
 from utils.logger import logger
@@ -22,10 +23,11 @@ OPTIONS = {
 
 def main():
     env = gym.make(rimworld_env, options=OPTIONS)
+    env = RecordEpisodeStatistics(env, buffer_length=4)
     agent = RandomAgent(
         action_space=env.action_space, observation_space=env.observation_space
     )
-    n_episodes = 100
+    n_episodes = 3
 
     for episode in range(n_episodes):
         obs, info = env.reset()
@@ -37,11 +39,10 @@ def main():
             obs, reward, done, _, info = env.step(action)
             episode_reward += reward
 
-        logger.info(
-            f"\tEpisode {episode + 1}/{n_episodes}, Total Reward: {episode_reward}\n"
-        )
-
     env.close()
+    print(f"Episode time taken: {env.time_queue}")
+    print(f"Episode total rewards: {env.return_queue}")
+    print(f"Episode lengths: {env.length_queue}")
 
 
 if __name__ == "__main__":

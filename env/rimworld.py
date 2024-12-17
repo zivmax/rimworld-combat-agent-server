@@ -114,7 +114,7 @@ class RimWorldEnv(gym.Env):
         StateCollector.reset()
         StateCollector.receive_state()
 
-        logger.info(
+        logger.debug(
             f"Env reset! Current Config: \n{to_json(self._options, indent=2)}\n"
         )
 
@@ -136,6 +136,7 @@ class RimWorldEnv(gym.Env):
         for ally in self._allies:
             if ally.label in action.pawn_actions.keys():
                 action.pawn_actions[ally.label].x += ally.loc.x
+                action.pawn_actions[ally.label].y += ally.loc.y
 
         message = {
             "Type": "Response",
@@ -162,7 +163,6 @@ class RimWorldEnv(gym.Env):
 
     def close(self):
         server.stop()
-        self._server_thread.join()
         super().close()
 
     def _update_allies(self):

@@ -6,7 +6,6 @@ from agents import Agent
 from env.action import GameAction, PawnAction
 from env.state import PawnState, MapState, Loc
 from gymnasium.spaces import MultiDiscrete
-
 from .network import DQNModel
 
 
@@ -28,7 +27,7 @@ class DQNAgent(Agent):
         self.state_dim = observation_space.shape
         self.action_dim = self._get_action_dim()
 
-        logger.info(
+        logger.debug(
             f"Initializing DQNModel with state_size={self._get_state_size()}, action_size={self.action_dim}"
         )
         self.model = DQNModel(
@@ -43,9 +42,9 @@ class DQNAgent(Agent):
     def _get_action_dim(self) -> int:
         """Calculate the total number of possible actions."""
         action_dim = 1
-        for space in self.action_space.spaces.values():
+        for space in self.action_space.values():
             action_dim *= space.nvec.prod()
-        logger.info(f"Computed action_dim: {action_dim}")
+        logger.debug(f"Computed action_dim: {action_dim}")
         return action_dim
 
     def _index_to_action(self, index: int) -> Dict[int, Tuple[int, int]]:
@@ -59,10 +58,10 @@ class DQNAgent(Agent):
             Dict[int, Tuple[int, int]]: Structured action dictionary.
         """
         action = {}
-        for ally_id, space in self.action_space.spaces.items():
+        for ally_id, space in self.action_space.items():
             n = space.nvec.prod()
             action_part = index % n
-            action[ally_id] = PawnAction(
+            action[self.pawns[ally_id].label] = PawnAction(
                 label=self.pawns[ally_id].label,
                 x=int(action_part // space.nvec[1]),
                 y=int(action_part % space.nvec[1]),
@@ -89,7 +88,11 @@ class DQNAgent(Agent):
                     ally_id = idx
                     break
 
-            space = self.action_space.spaces[ally_id]
+            if ally_id is None:
+                raise ValueError(f"No pawn found with label {label}")
+
+            # Access action space directly from the Dict
+            space = self.action_space[ally_id]
             n = space.nvec.prod()
             part = x[1] * space.nvec[1] + y[1]
             index = index * n + part

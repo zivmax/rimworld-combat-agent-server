@@ -11,6 +11,7 @@ file_handler.setFormatter(
 logger.addHandler(file_handler)
 
 import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
 
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN
@@ -36,6 +37,7 @@ def main():
     """
 
     env = gym.make(rimworld_env, options=OPTIONS)
+    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
     agent = DQNAgent(
         observation_space=env.observation_space,
         action_space=env.action_space,
@@ -65,6 +67,10 @@ def main():
         agent.load(f"agents/dqn/model_pth/dqn_model_episode_{N_EPISODES}.pth")
 
     env.close()
+
+    print(f"Episode time taken: {env.time_queue}")
+    print(f"Episode total rewards: {env.return_queue}")
+    print(f"Episode lengths: {env.length_queue}")
 
 
 if __name__ == "__main__":

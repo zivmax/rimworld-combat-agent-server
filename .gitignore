@@ -6,3 +6,4 @@ env/ref.py
 agent/train_ref.py
 .devcontainer/git.sh
 plot/
+*.log

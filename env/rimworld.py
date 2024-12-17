@@ -115,7 +115,7 @@ class RimWorldEnv(gym.Env):
         StateCollector.reset()
         StateCollector.receive_state()
 
-        logger.info(
+        logger.debug(
             f"Env reset! Current Config: \n{to_json(self._options, indent=2)}\n"
         )
 

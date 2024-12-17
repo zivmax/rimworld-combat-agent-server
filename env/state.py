@@ -229,7 +229,7 @@ class StateCollector:
 
                 cls.state = GameState.from_dict(message["Data"])
 
-                logger.info(f"Collected game state at tick {cls.state.tick}\n")
+                logger.debug(f"Collected game state at tick {cls.state.tick}\n")
                 logger.debug(
                     f"Map state (tick {cls.state.tick}): \n{to_json(cls.state.map, indent=2)}\n"
                 )

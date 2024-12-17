@@ -51,7 +51,7 @@ def main():
                     logger.info(f"for episode {episode + 1}, reward: {reward}")
 
             logger.info(
-                f"Episode {episode + 1}/{num_episodes}, Total Reward: {total_reward}"
+                f"\tEpisode {episode + 1}/{num_episodes}, Total Reward: {total_reward}"
             )
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:

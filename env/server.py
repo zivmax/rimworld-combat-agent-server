@@ -38,10 +38,8 @@ class GameServer:
     QUEUE_SIZE: int = 10
 
     def __init__(self, host: str = HOST, port: int = PORT) -> None:
-        self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((host, port))
-        self.server.listen(1)
+        self.HOST = host
+        self.PORT = port
         self.running: bool = True
         self.client: Socket = None
         self.message_queue: Queue = Queue(self.QUEUE_SIZE)
@@ -56,6 +54,11 @@ class GameServer:
     def start(self, is_remote: bool) -> None:
         if is_remote:
             self.HOST = "0.0.0.0"
+
+        self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server.bind((self.HOST, self.PORT))
+        self.server.listen(1)
         logger.info(f"Server starting on {self.HOST}:{self.PORT}\n")
         while self.running:
             try:

@@ -67,7 +67,12 @@ class RimWorldEnv(gym.Env):
 
         message = {
             "Type": "Response",
-            "Data": {"Action": None, "Reset": True, "Interval": self._options["interval"], "Speed": self._options["speed"]},
+            "Data": {
+                "Action": None,
+                "Reset": True,
+                "Interval": self._options["interval"],
+                "Speed": self._options["speed"],
+            },
         }
         server.send_to_client(server.client, message)
         logger.info(
@@ -98,7 +103,12 @@ class RimWorldEnv(gym.Env):
 
         message = {
             "Type": "Response",
-            "Data": {"Action": dict(action), "Reset": False, "Interval": self._options["interval"], "Speed": self._options["speed"]},
+            "Data": {
+                "Action": dict(action),
+                "Reset": False,
+                "Interval": self._options["interval"],
+                "Speed": self._options["speed"],
+            },
         }
 
         server.send_to_client(server.client, message)

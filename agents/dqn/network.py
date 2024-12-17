@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+
 class DQN(nn.Module):
     def __init__(self, state_size, action_size, hidden_size=128):
         super(DQN, self).__init__()
@@ -12,18 +13,28 @@ class DQN(nn.Module):
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, action_size)
-    
+
     def forward(self, x):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
+
 class DQNAgent:
-    def __init__(self, state_size, action_size, batch_size=64,
-                 gamma=0.99, lr=0.001, epsilon_start=1.0,
-                 epsilon_end=0.01, epsilon_decay=0.995,
-                 target_update=10, memory_size=10000):
+    def __init__(
+        self,
+        state_size,
+        action_size,
+        batch_size=64,
+        gamma=0.99,
+        lr=0.001,
+        epsilon_start=1.0,
+        epsilon_end=0.01,
+        epsilon_decay=0.995,
+        target_update=10,
+        memory_size=10000,
+    ):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=memory_size)
@@ -48,7 +59,7 @@ class DQNAgent:
         self.steps_done = 0
 
     def remember(self, state, action, reward, next_state, done):
-        self.memory.append( (state, action, reward, next_state, done) )
+        self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
         # exploration

@@ -20,37 +20,23 @@ class RimWorldEnv(gym.Env):
         self._map: MapState = None
         self._allies: List[PawnState] = None
         self._enemies: List[PawnState] = None
-        if options is None:
-            self._options: Dict = {
-                "interval": 1.0,
-                "speed": 1,
-                "action_range": 4,
-                "is_remote": False,
-                "rewarding": {
+
+        self._options: Dict = {
+            "interval": options.get("interval", 1.0),
+            "speed": options.get("speed", 1),
+            "action_range": options.get("action_range", 4),
+            "is_remote": options.get("is_remote", False),
+            "rewarding": options.get(
+                "rewarding",
+                {
                     "original": 0,
                     "ally_down": -10,
                     "enemy_down": 10,
                     "ally_danger_ratio": 0.5,
                     "enemy_danger_ratio": -0.5,
                 },
-            }
-        else:
-            self._options: Dict = {
-                "interval": options.get("interval", 1.0),
-                "speed": options.get("speed", 1),
-                "action_range": options.get("action_range", 4),
-                "is_remote": options.get("is_remote", False),
-                "rewarding": options.get(
-                    "rewarding",
-                    {
-                        "original": 0,
-                        "ally_down": -10,
-                        "enemy_down": 10,
-                        "ally_danger_ratio": 0.5,
-                        "enemy_danger_ratio": -0.5,
-                    },
-                ),
-            }
+            ),
+        }
 
         self._server_thread: Thread = create_server_thread(self._options["is_remote"])
         StateCollector.receive_state()
@@ -60,7 +46,10 @@ class RimWorldEnv(gym.Env):
         self.action_space = {}
         for idx in range(1, 4):
             ally_space = MultiDiscrete(
-                nvec=[self._options["action_range"], self._options["action_range"]],
+                nvec=[
+                    2 * self._options["action_range"] + 1,
+                    2 * self._options["action_range"] + 1,
+                ],
                 start=np.array(
                     [-self._options["action_range"], -self._options["action_range"]],
                     dtype=np.int32,

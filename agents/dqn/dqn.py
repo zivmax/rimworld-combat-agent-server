@@ -6,7 +6,7 @@ from agents import Agent
 from env.action import GameAction, PawnAction
 from env.state import PawnState
 from gymnasium.spaces import MultiDiscrete
-from env import rimworld_env
+
 from .network import DQNModel
 
 

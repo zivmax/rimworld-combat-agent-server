@@ -107,3 +107,22 @@ class DQNModel:
 
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def save(self, path: str):
+        """
+        Save the model parameters to the specified path.
+
+        Args:
+            path (str): Path to save the model parameters.
+        """
+        torch.save(self.policy_net.state_dict(), path)
+
+    def load(self, path: str):
+        """
+        Load the model parameters from the specified path.
+
+        Args:
+            path (str): Path to load the model parameters from.
+        """
+        self.policy_net.load_state_dict(torch.load(path))
+        self.eval()

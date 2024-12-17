@@ -30,7 +30,7 @@ class RimWorldEnv(gym.Env):
                 "rewarding",
                 {
                     "original": 0,
-                    "ally_down": -10,
+                    "ally_down": -7,
                     "enemy_down": 10,
                     "ally_danger_ratio": 0.5,
                     "enemy_danger_ratio": -0.5,

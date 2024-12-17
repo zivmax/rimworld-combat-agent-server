@@ -43,7 +43,7 @@ class RimWorldEnv(gym.Env):
 
         self._update_all()
 
-        self.action_space = {}
+        self.action_space: Dict[int, MultiDiscrete] = {}
         for idx in range(1, 4):
             ally_space = MultiDiscrete(
                 nvec=[

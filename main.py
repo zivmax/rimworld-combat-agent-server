@@ -5,13 +5,23 @@ from utils.logger import logger
 from agents.random import RandomAgent
 
 
+OPTIONS = {
+    "interval": 3.0,
+    "speed": 4,
+    "action_range": 4,
+    "is_remote": True,
+}
+
+
 def main():
-    env = gym.make(rimworld_env, is_remote=False)
-    agent = RandomAgent()
+    env = gym.make(rimworld_env, options=OPTIONS)
+    agent = RandomAgent(
+        action_space=env.action_space, observation_space=env.observation_space
+    )
     n_episodes = 100
 
     for episode in range(n_episodes):
-        obs, info = env.reset(options=agent.options)
+        obs, info = env.reset()
         done = False
         episode_reward = 0
 

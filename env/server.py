@@ -25,7 +25,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def create_server_thread(is_remote: bool = False) -> Thread:
-    thread = Thread(target=server.start(is_remote), daemon=True)
+    thread = Thread(target=server.start, daemon=True, args=([is_remote]))
     thread.start()
     return thread
 
@@ -42,23 +42,17 @@ class GameServer:
         self.PORT = port
         self.running: bool = True
         self.client: Socket = None
-        self.message_queue: Queue = Queue(self.QUEUE_SIZE)
-        self.message_handlers: Dict[str, Callable] = {}
-
-    def register_handler(
-        self, message_type: str, handler: Callable[[Dict[str, Any]], None]
-    ) -> None:
-        """Register a handler for a specific message type"""
-        self.message_handlers[message_type] = handler
-
-    def start(self, is_remote: bool) -> None:
-        if is_remote:
-            self.HOST = "0.0.0.0"
-
         self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        self.message_queue: Queue = Queue(self.QUEUE_SIZE)
+
+    def start(self, is_remote: bool = False) -> None:
+        if is_remote:
+            self.HOST = "0.0.0.0"
         self.server.bind((self.HOST, self.PORT))
         self.server.listen(1)
+
         logger.info(f"Server starting on {self.HOST}:{self.PORT}\n")
         while self.running:
             try:

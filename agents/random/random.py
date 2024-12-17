@@ -12,12 +12,8 @@ from agents import Agent
 
 class RandomAgent(Agent):
 
-    def __init__(self):
-        super().__init__()
-        self.options = {
-            "interval": 3.0,
-            "speed": 4,
-        }
+    def __init__(self, action_space: Dict, observation_space: spaces.MultiDiscrete):
+        super().__init__(action_space, observation_space)
 
     def act(
         self,
@@ -30,9 +26,9 @@ class RandomAgent(Agent):
             | Dict[int, tuple[Loc]],
         ],
     ) -> GameAction:
+        space = self.action_space
         map = info["map"]
         pawns = info["pawns"]
-        space = info["action_space"]
         mask = info["action_mask"]
 
         allies = [p for p in pawns.values() if p.is_ally]

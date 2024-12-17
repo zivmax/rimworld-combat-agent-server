@@ -1,4 +1,4 @@
-from agents.dqn.dqn import DQNAgent
+from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.logger import logger
 import gymnasium as gym

@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
 from .hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
+import os
 
 
 class DQN(nn.Module):
@@ -87,6 +88,11 @@ class DQNModel:
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(np.array(dones)).unsqueeze(1).to(self.device)
 
+        if actions.max() >= self.action_size or actions.min() < 0:
+            raise ValueError(
+                f"Action indices out of bounds: valid indices are between 0 and {self.action_size - 1}"
+            )
+
         # Q value iteration
         current_q = self.policy_net(states).gather(1, actions)
 
@@ -107,3 +113,23 @@ class DQNModel:
 
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def save(self, path: str):
+        """
+        Save the model parameters to the specified path.
+
+        Args:
+            path (str): Path to save the model parameters.
+        """
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(self.policy_net.state_dict(), path)
+
+    def load(self, path: str):
+        """
+        Load the model parameters from the specified path.
+
+        Args:
+            path (str): Path to load the model parameters from.
+        """
+        self.policy_net.load_state_dict(torch.load(path))
+        self.eval()

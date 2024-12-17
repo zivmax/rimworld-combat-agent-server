@@ -1,7 +1,7 @@
 from random import randint
 from numpy.typing import NDArray
 from typing import Dict, Tuple
-from gymnasium import spaces
+from gymnasium.spaces import MultiDiscrete
 
 from utils.json import to_json
 from utils.logger import logger
@@ -12,7 +12,7 @@ from agents import Agent
 
 class RandomAgent(Agent):
 
-    def __init__(self, action_space: Dict, observation_space: spaces.MultiDiscrete):
+    def __init__(self, action_space: Dict, observation_space: MultiDiscrete):
         super().__init__(action_space, observation_space)
 
     def act(
@@ -22,7 +22,7 @@ class RandomAgent(Agent):
             str,
             MapState
             | Dict[int, PawnState]
-            | Dict[int, spaces.MultiDiscrete]
+            | Dict[int, MultiDiscrete]
             | Dict[int, tuple[Loc]],
         ],
     ) -> GameAction:

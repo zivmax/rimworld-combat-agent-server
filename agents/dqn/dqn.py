@@ -1,10 +1,10 @@
-import numpy as np
+from numpy.typing import NDArray
 from typing import Tuple, Dict
 from utils.logger import logger
 
 from agents import Agent
 from env.action import GameAction, PawnAction
-from env.state import PawnState
+from env.state import PawnState, MapState, Loc
 from gymnasium.spaces import MultiDiscrete
 from .network import DQNModel
 
@@ -80,12 +80,13 @@ class DQNAgent(Agent):
             int: Flat action index.
         """
         index = 0
-        for _, action in action.pawn_actions.items():
-            label, x, y = action
+        for label, action in action.pawn_actions.items():
+            _, x, y = action
             ally_id = None
-            for idx, pawn in dict(self.pawns).items():
-                if pawn.label == label[1]:
+            for idx, pawn in self.pawns.items():
+                if pawn.label == label:
                     ally_id = idx
+                    break
 
             if ally_id is None:
                 raise ValueError(f"No pawn found with label {label}")
@@ -97,7 +98,17 @@ class DQNAgent(Agent):
             index = index * n + part
         return index
 
-    def act(self, obs: np.ndarray, info: Dict[int, PawnState]) -> GameAction:
+    def act(
+        self,
+        obs: NDArray,
+        info: Dict[
+            str,
+            MapState
+            | Dict[int, PawnState]
+            | Dict[int, MultiDiscrete]
+            | Dict[int, tuple[Loc]],
+        ],
+    ) -> GameAction:
         """
         Select an action based on the current observation.
 

@@ -2,7 +2,6 @@ import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 from env import rimworld_env
-from utils.logger import logger
 from agents.random import RandomAgent
 
 

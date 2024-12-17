@@ -17,6 +17,13 @@
             "request": "launch",
             "module": "agents.dqn.main",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Random",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "agents.random.main",
+            "console": "integratedTerminal"
         }
     ]
 }

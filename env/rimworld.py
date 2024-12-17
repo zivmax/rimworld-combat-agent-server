@@ -10,7 +10,7 @@ from utils.logger import logger
 from .server import server, create_server_thread
 from .state import StateCollector, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
-from metadata import REWARD, ACTION_SPACE_RADIUS_FACTOR
+from .metadata import REWARD, ACTION_SPACE_RADIUS_FACTOR
 
 class RimWorldEnv(gym.Env):
     def __init__(self):
@@ -255,3 +255,9 @@ class RimWorldEnv(gym.Env):
             else:
                 reward += REWARD['enemy_danger_ratio'] * (1 - enemy.danger)
         return reward
+
+def Mannhatan_dist(self, loc1: Loc, loc2: Loc) -> float:
+    return abs(loc1.x - loc2.x) + abs(loc1.y - loc2.y)
+
+def Eclidean_dist(self, loc1: Loc, loc2: Loc) -> float:
+    return np.sqrt((loc1.x - loc2.x) ** 2 + (loc1.y - loc2.y) ** 2)

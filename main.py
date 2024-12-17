@@ -2,7 +2,6 @@ import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 from env import rimworld_env
-from utils.logger import logger
 from agents.random import RandomAgent
 
 
@@ -40,9 +39,6 @@ def main():
             episode_reward += reward
 
     env.close()
-    print(f"Episode time taken: {env.time_queue}")
-    print(f"Episode total rewards: {env.return_queue}")
-    print(f"Episode lengths: {env.length_queue}")
 
 
 if __name__ == "__main__":

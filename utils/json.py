@@ -57,7 +57,7 @@ def to_json(
     """
 
     if type(obj) is dict:
-        obj = {k: dict(v) for k, v in obj.items()}
+        obj = {k: dict(v) if hasattr(v, '__iter__') and not isinstance(v, (str, bytes)) else v for k, v in obj.items()}
     else:
         obj = dict(obj)
 

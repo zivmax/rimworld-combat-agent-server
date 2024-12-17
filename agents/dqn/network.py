@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.optim as optim
 from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
 from .hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
+
+
 class DQN(nn.Module):
     def __init__(self, state_size, action_size, hidden_size=HIDDEN_SIZE):
         super(DQN, self).__init__()
@@ -13,23 +15,28 @@ class DQN(nn.Module):
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, action_size)
-    
+
     def forward(self, x):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
+
 class DQNModel:
-    def __init__(self, state_size, action_size, 
-                 batch_size=BATCH_SIZE,
-                 gamma=GAMMA, 
-                 lr=LEARNING_RATE, 
-                 epsilon_start=EPSILON["START"],
-                 epsilon_end=EPSILON["FINAL"], 
-                 epsilon_decay=EPSILON["DECAY"],
-                 target_update=TARGET_UPDATE, 
-                 memory_size=MEMORY_SIZE):
+    def __init__(
+        self,
+        state_size,
+        action_size,
+        batch_size=BATCH_SIZE,
+        gamma=GAMMA,
+        lr=LEARNING_RATE,
+        epsilon_start=EPSILON["START"],
+        epsilon_end=EPSILON["FINAL"],
+        epsilon_decay=EPSILON["DECAY"],
+        target_update=TARGET_UPDATE,
+        memory_size=MEMORY_SIZE,
+    ):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=memory_size)
@@ -54,7 +61,7 @@ class DQNModel:
         self.steps_done = 0
 
     def remember(self, state, action, reward, next_state, done):
-        self.memory.append( (state, action, reward, next_state, done) )
+        self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
         # exploration

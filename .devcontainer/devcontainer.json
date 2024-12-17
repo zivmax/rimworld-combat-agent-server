@@ -1,6 +1,9 @@
 {
     "name": "Combat Agent Dev",
-    "image": "torch:latest",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/sshd:1": {}
@@ -21,5 +24,5 @@
             }
         }
     },
-    "postCreateCommand": "pip install -r requirements.txt && bash .devcontainer/git.sh"
+    "postCreateCommand": "pip install -r requirements.txt"
 }

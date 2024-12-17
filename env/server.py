@@ -14,7 +14,7 @@ from threading import Event
 stop_event = Event()
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig, frame) -> None:
     logger.info("Stopping threads...\n")
     stop_event.set()
     server.stop()
@@ -24,8 +24,8 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def create_server_thread():
-    thread = Thread(target=server.start, daemon=True)
+def create_server_thread(is_remote: bool = False) -> Thread:
+    thread = Thread(target=server.start, daemon=True, args=([is_remote]))
     thread.start()
     return thread
 
@@ -38,22 +38,21 @@ class GameServer:
     QUEUE_SIZE: int = 10
 
     def __init__(self, host: str = HOST, port: int = PORT) -> None:
-        self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((host, port))
-        self.server.listen(1)
+        self.HOST = host
+        self.PORT = port
         self.running: bool = True
         self.client: Socket = None
+        self.server: Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         self.message_queue: Queue = Queue(self.QUEUE_SIZE)
-        self.message_handlers: Dict[str, Callable] = {}
 
-    def register_handler(
-        self, message_type: str, handler: Callable[[Dict[str, Any]], None]
-    ) -> None:
-        """Register a handler for a specific message type"""
-        self.message_handlers[message_type] = handler
+    def start(self, is_remote: bool = False) -> None:
+        if is_remote:
+            self.HOST = "0.0.0.0"
+        self.server.bind((self.HOST, self.PORT))
+        self.server.listen(1)
 
-    def start(self) -> None:
         logger.info(f"Server starting on {self.HOST}:{self.PORT}\n")
         while self.running:
             try:

@@ -1,20 +1,21 @@
 import numpy as np
-import gymnasium as gym
 from typing import Tuple, Dict
 from utils.logger import logger
 
-from agents.agent import Agent
-from env.action import GameAction
+from agents import Agent
+from env.action import GameAction, PawnAction
 from env.state import PawnState
 from gymnasium.spaces import MultiDiscrete
 from env import rimworld_env
 from .network import DQNModel
-from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import RE_TRAIN
 
 
 class DQNAgent(Agent):
-    def __init__(self, state_dim: Tuple[int, int], action_space: MultiDiscrete):
+    def __init__(
+        self,
+        observation_space: MultiDiscrete,
+        action_space: Dict[int, MultiDiscrete],
+    ):
         """
         Initialize the DQNAgent.
 
@@ -23,10 +24,8 @@ class DQNAgent(Agent):
             action_space (MultiDiscrete): Action space.
             ... [Other Args]
         """
-        super().__init__()
-        self.state_dim = state_dim
-        self.action_space = action_space
-
+        super().__init__(action_space=action_space, observation_space=observation_space)
+        self.state_dim = observation_space.shape
         self.action_dim = self._get_action_dim()
 
         logger.info(
@@ -63,9 +62,10 @@ class DQNAgent(Agent):
         for ally_id, space in self.action_space.spaces.items():
             n = space.nvec.prod()
             action_part = index % n
-            action[ally_id] = (
-                action_part // space.nvec[1],
-                action_part % space.nvec[1],
+            action[ally_id] = PawnAction(
+                label=self.pawns[ally_id].label,
+                x=int(action_part // space.nvec[1]),
+                y=int(action_part % space.nvec[1]),
             )
             index = index // n
         return action
@@ -81,10 +81,16 @@ class DQNAgent(Agent):
             int: Flat action index.
         """
         index = 0
-        for ally_id, (x, y) in action.action_dict.items():
+        for _, action in action.pawn_actions.items():
+            label, x, y = action
+            ally_id = None
+            for idx, pawn in dict(self.pawns).items():
+                if pawn.label == label[1]:
+                    ally_id = idx
+
             space = self.action_space.spaces[ally_id]
             n = space.nvec.prod()
-            part = x * space.nvec[1] + y
+            part = x[1] * space.nvec[1] + y[1]
             index = index * n + part
         return index
 
@@ -99,6 +105,7 @@ class DQNAgent(Agent):
         Returns:
             GameAction: Selected action encapsulated in GameAction.
         """
+        self.pawns = info["pawns"]
         state = obs.flatten()
         action_idx = self.model.act(state)
         action = self._index_to_action(action_idx)
@@ -147,53 +154,3 @@ class DQNAgent(Agent):
             path (str): Path to load the model from.
         """
         self.model.load(path)
-
-
-class DQNTrainer:
-    def __init__(self) -> None:
-        self.env = gym.make(rimworld_env)
-        self.agent = DQNAgent(
-            state_dim=(
-                self.env.observation_space.shape[0],
-                self.env.observation_space.shape[1],
-            ),
-            action_space=self.env.action_space,
-        )
-
-    def train(self):
-        """
-        Main function to train the DQNAgent.
-        """
-        if RE_TRAIN:
-            num_episodes = N_EPISODES
-            for episode in range(num_episodes):
-                obs, info = self.env.reset()
-                done = False
-                total_reward = 0
-
-                while not done:
-                    action = self.agent.act(obs, info)
-                    next_obs, reward, terminated, truncated, info = self.env.step(
-                        action
-                    )
-                    done = terminated or truncated
-
-                    self.agent.step(obs, action, reward, next_obs, done)
-                    obs = next_obs
-                    total_reward += reward
-                    if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-                        logger.info(f"for episode {episode + 1}, reward: {reward}")
-
-                logger.info(
-                    f"Episode {episode + 1}/{num_episodes}, Total Reward: {total_reward}"
-                )
-
-                if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-                    self.agent.save(f"./model_pth/dqn_model_episode_{episode + 1}.pth")
-        else:
-            self.agent.load(f"./model_pth/dqn_model_episode_{N_EPISODES}.pth")
-
-        self.close()
-
-    def close(self):
-        self.env.close()

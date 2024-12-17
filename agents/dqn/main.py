@@ -1,9 +1,10 @@
 from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.logger import logger
+from utils.draw import draw
 import logging
 
-file_handler = logging.FileHandler("./agents/dqn/train.log")
+file_handler = logging.FileHandler("agents/dqn/train.log")
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(
     logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
@@ -15,6 +16,7 @@ from gymnasium.wrappers import RecordEpisodeStatistics
 
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN
+
 
 OPTIONS = {
     "interval": 3.0,
@@ -68,9 +70,7 @@ def main():
 
     env.close()
 
-    print(f"Episode time taken: {env.time_queue}")
-    print(f"Episode total rewards: {env.return_queue}")
-    print(f"Episode lengths: {env.length_queue}")
+    draw(env, "agents/dqn/plot/episode_stats.png")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 from gymnasium.spaces import MultiDiscrete
 
 from env.action import GameAction
-from env.state import PawnState, MapState
+from env.state import PawnState, MapState, Loc
 
 
 class Agent(ABC):
@@ -27,10 +27,12 @@ class Agent(ABC):
     def act(
         self,
         obs: NDArray,
-        info: Tuple[
-            MapState,
-            Dict[int, PawnState],
-            Dict[int, Dict[str, Tuple[NDArray] | MultiDiscrete]],
+        info: Dict[
+            str,
+            MapState
+            | Dict[int, PawnState]
+            | Dict[int, MultiDiscrete]
+            | Dict[int, tuple[Loc]],
         ],
     ) -> GameAction:
         """

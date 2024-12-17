@@ -1,10 +1,22 @@
 from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.logger import logger
+from utils.draw import draw
+import logging
+
+file_handler = logging.FileHandler("agents/dqn/train.log")
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
+)
+logger.addHandler(file_handler)
+
 import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
 
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN
+
 
 OPTIONS = {
     "interval": 3.0,
@@ -27,6 +39,7 @@ def main():
     """
 
     env = gym.make(rimworld_env, options=OPTIONS)
+    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
     agent = DQNAgent(
         observation_space=env.observation_space,
         action_space=env.action_space,
@@ -47,19 +60,17 @@ def main():
                 agent.step(obs, action, reward, next_obs, done)
                 obs = next_obs
                 total_reward += reward
-                if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-                    logger.info(f"for episode {episode + 1}, reward: {reward}")
-
-            logger.info(
-                f"\tEpisode {episode + 1}/{num_episodes}, Total Reward: {total_reward}"
-            )
+            if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
+                logger.info(f"for episode {episode + 1}, reward: {total_reward}")
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-                agent.save(f"./model_pth/dqn_model_episode_{episode + 1}.pth")
+                agent.save(f"agents/dqn/model_pth/dqn_model_episode_{episode + 1}.pth")
     else:
-        agent.load(f"./model_pth/dqn_model_episode_{N_EPISODES}.pth")
+        agent.load(f"agents/dqn/model_pth/dqn_model_episode_{N_EPISODES}.pth")
 
     env.close()
+
+    draw(env, "agents/dqn/plot/episode_stats.png")
 
 
 if __name__ == "__main__":

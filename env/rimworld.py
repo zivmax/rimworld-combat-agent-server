@@ -164,7 +164,6 @@ class RimWorldEnv(gym.Env):
 
     def close(self):
         server.stop()
-        self._server_thread.join()
         super().close()
 
     def _update_allies(self):

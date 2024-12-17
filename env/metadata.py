@@ -4,10 +4,10 @@ this page is speceficlly for storing hyperparameters and rewards used in trainni
 
 REWARD = {
     "original": 0,
-    "ally_down":-10,
-    "enemy_down":10,
-    "ally_danger_ratio":0.5,
-    "enemy_danger_ratio":-0.5
+    "ally_down": -10,
+    "enemy_down": 10,
+    "ally_danger_ratio": 0.5,
+    "enemy_danger_ratio": -0.5,
 }
 
-ACTION_SPACE_RADIUS_FACTOR = 1.
+ACTION_SPACE_RADIUS_FACTOR = 1.0

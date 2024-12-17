@@ -24,5 +24,6 @@
             }
         }
     },
+    "runArgs": ["--gpus", "all"],
     "postCreateCommand": "bash git.sh && pip install -r requirements.txt"
 }

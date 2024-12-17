@@ -10,6 +10,13 @@ OPTIONS = {
     "speed": 4,
     "action_range": 4,
     "is_remote": True,
+    "rewarding": {
+        "original": 0,
+        "ally_down": -10,
+        "enemy_down": 10,
+        "ally_danger_ratio": 0.5,
+        "enemy_danger_ratio": -0.5,
+    },
 }
 
 

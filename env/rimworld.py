@@ -26,6 +26,13 @@ class RimWorldEnv(gym.Env):
                 "speed": 1,
                 "action_range": 4,
                 "is_remote": False,
+                "rewarding": {
+                    "original": 0,
+                    "ally_down": -10,
+                    "enemy_down": 10,
+                    "ally_danger_ratio": 0.5,
+                    "enemy_danger_ratio": -0.5,
+                },
             }
         else:
             self._options: Dict = {
@@ -33,6 +40,16 @@ class RimWorldEnv(gym.Env):
                 "speed": options.get("speed", 1),
                 "action_range": options.get("action_range", 4),
                 "is_remote": options.get("is_remote", False),
+                "rewarding": options.get(
+                    "rewarding",
+                    {
+                        "original": 0,
+                        "ally_down": -10,
+                        "enemy_down": 10,
+                        "ally_danger_ratio": 0.5,
+                        "enemy_danger_ratio": -0.5,
+                    },
+                ),
             }
 
         self._server_thread: Thread = create_server_thread(self._options["is_remote"])
@@ -308,15 +325,19 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
-        reward = 0
+        reward = self._options["rewarding"]["original"]
         for ally in self._allies:
             if ally.is_incapable:
-                reward -= 10
+                reward += self._options["rewarding"]["ally_down"]
             else:
-                reward += 0.5 * (1 - ally.danger)
+                reward += self._options["rewarding"]["ally_danger_ratio"] * (
+                    1 - ally.danger
+                )
         for enemy in self._enemies:
             if enemy.is_incapable:
-                reward += 10
+                reward += self._options["rewarding"]["enemy_down"]
             else:
-                reward -= 0.5 * (1 - enemy.danger)
+                reward += self._options["rewarding"]["enemy_danger_ratio"] * (
+                    1 - enemy.danger
+                )
         return reward

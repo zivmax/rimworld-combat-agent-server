@@ -10,7 +10,7 @@ OPTIONS = {
     "interval": 3.0,
     "speed": 4,
     "action_range": 4,
-    "is_remote": True,
+    "is_remote": False,
     "rewarding": {
         "original": 0,
         "ally_down": -10,

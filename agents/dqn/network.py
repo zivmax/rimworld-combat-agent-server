@@ -87,6 +87,11 @@ class DQNModel:
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(np.array(dones)).unsqueeze(1).to(self.device)
 
+        if actions.max() >= self.action_size or actions.min() < 0:
+            raise ValueError(
+                f"Action indices out of bounds: valid indices are between 0 and {self.action_size - 1}"
+            )
+
         # Q value iteration
         current_q = self.policy_net(states).gather(1, actions)
 

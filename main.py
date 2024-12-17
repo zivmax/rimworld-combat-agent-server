@@ -6,7 +6,7 @@ from agents.random import RandomAgent
 
 
 def main():
-    env = gym.make(rimworld_env)
+    env = gym.make(rimworld_env, is_remote=False)
     agent = RandomAgent()
     n_episodes = 100
 

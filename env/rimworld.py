@@ -14,8 +14,8 @@ from .action import GameAction
 
 
 class RimWorldEnv(gym.Env):
-    def __init__(self):
-        self._server_thread: Thread = create_server_thread()
+    def __init__(self, is_remote: bool = False):
+        self._server_thread: Thread = create_server_thread(is_remote)
 
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None

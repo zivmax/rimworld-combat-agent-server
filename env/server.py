@@ -14,7 +14,7 @@ from threading import Event
 stop_event = Event()
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig, frame) -> None:
     logger.info("Stopping threads...\n")
     stop_event.set()
     server.stop()
@@ -24,8 +24,8 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def create_server_thread():
-    thread = Thread(target=server.start, daemon=True)
+def create_server_thread(is_remote: bool = False) -> Thread:
+    thread = Thread(target=server.start(is_remote), daemon=True)
     thread.start()
     return thread
 
@@ -53,7 +53,9 @@ class GameServer:
         """Register a handler for a specific message type"""
         self.message_handlers[message_type] = handler
 
-    def start(self) -> None:
+    def start(self, is_remote: bool) -> None:
+        if is_remote:
+            self.HOST = "0.0.0.0"
         logger.info(f"Server starting on {self.HOST}:{self.PORT}\n")
         while self.running:
             try:

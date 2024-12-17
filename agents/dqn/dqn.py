@@ -1,10 +1,9 @@
 import numpy as np
-import gymnasium as gym
 from typing import Tuple, Dict
 from utils.logger import logger
 
-from agents.agent import Agent
-from env.action import GameAction
+from agents import Agent
+from env.action import GameAction, PawnAction
 from env.state import PawnState
 from gymnasium.spaces import MultiDiscrete
 from env import rimworld_env
@@ -63,9 +62,10 @@ class DQNAgent(Agent):
         for ally_id, space in self.action_space.spaces.items():
             n = space.nvec.prod()
             action_part = index % n
-            action[ally_id] = (
-                action_part // space.nvec[1],
-                action_part % space.nvec[1],
+            action[ally_id] = PawnAction(
+                label=self.pawns[ally_id].label,
+                x=int(action_part // space.nvec[1]),
+                y=int(action_part % space.nvec[1]),
             )
             index = index // n
         return action
@@ -81,10 +81,16 @@ class DQNAgent(Agent):
             int: Flat action index.
         """
         index = 0
-        for ally_id, (x, y) in action.action_dict.items():
+        for _, action in action.pawn_actions.items():
+            label, x, y = action
+            ally_id = None
+            for idx, pawn in dict(self.pawns).items():
+                if pawn.label == label[1]:
+                    ally_id = idx
+
             space = self.action_space.spaces[ally_id]
             n = space.nvec.prod()
-            part = x * space.nvec[1] + y
+            part = x[1] * space.nvec[1] + y[1]
             index = index * n + part
         return index
 
@@ -99,6 +105,7 @@ class DQNAgent(Agent):
         Returns:
             GameAction: Selected action encapsulated in GameAction.
         """
+        self.pawns = info["pawns"]
         state = obs.flatten()
         action_idx = self.model.act(state)
         action = self._index_to_action(action_idx)

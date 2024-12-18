@@ -7,6 +7,8 @@ from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp
+from utils.json import to_json
+
 from .logger import logger
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
@@ -16,7 +18,7 @@ def main():
     """
     Main function to train the DQNAgent.
     """
-
+    logger.info("Configs: \n" + to_json(OPTIONS))
     env = gym.make(rimworld_env, options=OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
     agent = DQNAgent(

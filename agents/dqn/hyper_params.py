@@ -27,15 +27,15 @@ RE_TRAIN = True
 LOAD_PATH = "agents/dqn/model_pth/dqn_model_episode_1000.pth"
 
 OPTIONS = {
-    "interval": 3.0,
+    "interval": 1.5,
     "speed": 4,
     "action_range": 4,
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "ally_down": -10,
+        "ally_down": -7,
         "enemy_down": 10,
-        "ally_danger_ratio": 0.5,
+        "ally_danger": 0.3,
         "enemy_danger_ratio": -0.5,
     },
 }

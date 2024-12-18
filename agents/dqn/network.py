@@ -1,6 +1,8 @@
 import random
 import numpy as np
 from collections import deque
+from env.action import GameAction, PawnAction
+from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -29,6 +31,7 @@ class DQNModel:
         self,
         state_size,
         action_size,
+        action_space,
         batch_size=BATCH_SIZE,
         gamma=GAMMA,
         lr=LEARNING_RATE,
@@ -40,6 +43,7 @@ class DQNModel:
     ):
         self.state_size = state_size
         self.action_size = action_size
+        self.action_space = action_space
         self.memory = deque(maxlen=memory_size)
 
         self.gamma = gamma
@@ -74,6 +78,28 @@ class DQNModel:
             q_values = self.policy_net(state)
         return q_values.argmax().item()
 
+    def _index_to_action(self, index: int) -> Dict[int, Tuple[int, int]]:
+        """
+        Convert a flat action index back to a structured action per ally.
+
+        Args:
+            index (int): Flat action index.
+
+        Returns:
+            Dict[int, Tuple[int, int]]: Structured action dictionary.
+        """
+        action = {}
+        for ally_id, space in self.action_space.items():
+            n = space.nvec.prod()
+            action_part = index % n
+            action[ally_id] = PawnAction(
+                label=str(ally_id),
+                x=int(action_part // space.nvec[1]),
+                y=int(action_part % space.nvec[1]),
+            )
+            index = index // n
+        return action
+
     # memory sample estimation
     def replay(self):
         if len(self.memory) < self.batch_size:
@@ -81,20 +107,23 @@ class DQNModel:
 
         minibatch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*minibatch)
-
+        best_reward_index = np.argmax(rewards)
         states = torch.FloatTensor(np.array(states)).to(self.device)
-        actions = torch.LongTensor(np.array(actions)).unsqueeze(1).to(self.device)
         rewards = torch.FloatTensor(np.array(rewards)).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(np.array(dones)).unsqueeze(1).to(self.device)
-
-        if actions.max() >= self.action_size or actions.min() < 0:
-            raise ValueError(
-                f"Action indices out of bounds: valid indices are between 0 and {self.action_size - 1}"
-            )
+        actions = torch.LongTensor(np.array(actions)).unsqueeze(1).to(self.device)
 
         # Q value iteration
-        current_q = self.policy_net(states).gather(1, actions)
+        best_action = actions[best_reward_index]
+        acts = []
+        for action in actions:
+            act = self._index_to_action(action)
+            _, x, y = act
+            act_policy_index = x + y * 8
+            acts.append(act_policy_index)
+        acts = torch.LongTensor(acts).unsqueeze(1).to(self.device)
+        current_q = self.policy_net(states).gather(1, acts)
 
         with torch.no_grad():
             max_next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)

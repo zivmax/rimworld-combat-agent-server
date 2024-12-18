@@ -54,7 +54,7 @@ def main():
                 total_reward += reward
 
             if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-                logger.info(f"for episode {episode + 1}, reward: {total_reward}")
+                logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
                 agent.save(f"agents/dqn/model_pth/dqn_model_episode_{episode + 1}.pth")

@@ -12,10 +12,10 @@ OPTIONS = {
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "ally_down": -7,
+        "ally_down": -8,
         "enemy_down": 10,
-        "ally_danger_ratio": 0.5,
-        "enemy_danger_ratio": -0.5,
+        "ally_danger_ratio": -0.7,
+        "enemy_danger_ratio": 0.9,
     },
 }
 

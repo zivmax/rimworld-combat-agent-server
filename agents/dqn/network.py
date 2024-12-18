@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
-from .hyper_params import BATCH_X, BATCH_SIZE, GAMMA, LEARNING_RATE
+from .hyper_params import BATCH_X, BATCH_SIZE, GAMMA, LEARNING_RATE, DEVICE
 import os
 
 
@@ -52,7 +52,7 @@ class DQNModel:
         self.epsilon_decay = epsilon_decay
 
         self.batch_size = batch_size
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(DEVICE if torch.cuda.is_available() else "cpu")
 
         self.policy_net = DQN(state_size, action_size).to(self.device)
         self.target_net = DQN(state_size, action_size).to(self.device)

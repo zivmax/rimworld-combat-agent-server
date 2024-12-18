@@ -1,12 +1,12 @@
 import gymnasium as gym
 import os
 from tqdm import tqdm
-from datetime import datetime
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.draw import draw
+from utils.timestamp import timestamp
 from .logger import logger
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH

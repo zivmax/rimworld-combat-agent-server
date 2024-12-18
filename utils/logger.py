@@ -1,10 +1,7 @@
 import os
 import logging
-from datetime import datetime
 
 from utils.color import ColoredFormatter
-
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def get_cli_logger(level) -> logging.Logger:

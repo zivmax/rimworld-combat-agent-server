@@ -7,7 +7,8 @@ from typing import Dict, List
 from gymnasium.spaces import MultiDiscrete
 from gymnasium import spaces
 
-from utils.logger import get_cli_logger, get_file_logger, timestamp
+from utils.logger import get_cli_logger, get_file_logger
+from utils.timestamp import timestamp
 from utils.json import to_json
 from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc

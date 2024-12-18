@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 from env.server import server
-from utils.logger import get_cli_logger, get_file_logger, timestamp
+from utils.logger import get_cli_logger, get_file_logger
+from utils.timestamp import timestamp
 from utils.json import to_json
 from utils.math import sigmoid
 

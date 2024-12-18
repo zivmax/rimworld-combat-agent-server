@@ -5,6 +5,7 @@ from env import rimworld_env
 from agents.random import RandomAgent
 from utils.draw import draw
 
+
 OPTIONS = {
     "interval": 3.0,
     "speed": 4,

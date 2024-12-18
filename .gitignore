@@ -7,4 +7,5 @@ agent/train_ref.py
 .devcontainer/git.sh
 plot/
 *.log
-model_pth/
+models/
+logs/

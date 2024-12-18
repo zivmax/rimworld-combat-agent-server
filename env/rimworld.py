@@ -326,13 +326,13 @@ class RimWorldEnv(gym.Env):
                 reward += self._options["rewarding"]["ally_down"]
             else:
                 reward += self._options["rewarding"]["ally_danger_ratio"] * (
-                    1 - ally.danger
+                    ally.danger - 0.75
                 )
         for enemy in self._enemies:
             if enemy.is_incapable:
                 reward += self._options["rewarding"]["enemy_down"]
             else:
                 reward += self._options["rewarding"]["enemy_danger_ratio"] * (
-                    1 - enemy.danger
+                    enemy.danger - 0.75
                 )
         return reward

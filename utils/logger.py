@@ -1,7 +1,13 @@
 import os
 import logging
+from pytz import timezone
+from datetime import datetime
 
 from utils.color import ColoredFormatter
+
+
+tz = timezone("Asia/Shanghai")
+logging.Formatter.converter = lambda *args: datetime.now(tz).timetuple()
 
 
 def get_cli_logger(logger_name: str, level) -> logging.Logger:

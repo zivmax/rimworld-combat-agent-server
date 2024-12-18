@@ -1,5 +1,7 @@
-from tqdm import tqdm
 import gymnasium as gym
+import os
+from tqdm import tqdm
+from datetime import datetime
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 from agents.dqn import DQNAgent
@@ -7,22 +9,7 @@ from env import rimworld_env
 from utils.logger import logger
 from utils.draw import draw
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import RE_TRAIN
-
-
-OPTIONS = {
-    "interval": 3.0,
-    "speed": 4,
-    "action_range": 4,
-    "is_remote": False,
-    "rewarding": {
-        "original": 0,
-        "ally_down": -10,
-        "enemy_down": 10,
-        "ally_danger_ratio": 0.5,
-        "enemy_danger_ratio": -0.5,
-    },
-}
+from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
 
 
 def main():
@@ -38,6 +25,9 @@ def main():
     )
 
     if RE_TRAIN:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        save_dir = f"agents/dqn/model/{timestamp}"
+
         num_episodes = N_EPISODES
         for episode in tqdm(range(num_episodes), desc="Training Episodes"):
             obs, info = env.reset()
@@ -57,9 +47,9 @@ def main():
                 logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-                agent.save(f"agents/dqn/model_pth/dqn_model_episode_{episode + 1}.pth")
+                agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
     else:
-        agent.load(f"agents/dqn/model_pth/dqn_model_episode_{N_EPISODES}.pth")
+        agent.load(LOAD_PATH)
 
     env.close()
 

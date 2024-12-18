@@ -28,7 +28,7 @@ class DQNAgent(Agent):
         self.action_dim = self._get_action_dim()
 
         logger.debug(
-            f"Initializing DQNModel with state_size={self._get_state_size()}, action_size={self.action_dim}"
+            f"\tInitializing DQNModel with state_size={self._get_state_size()}, action_size={self.action_dim}"
         )
         self.model = DQNModel(
             state_size=self._get_state_size(),
@@ -45,7 +45,7 @@ class DQNAgent(Agent):
         action_dim = 1
         for space in self.action_space.values():
             action_dim *= space.nvec.prod()
-        logger.debug(f"Computed action_dim: {action_dim}")
+        logger.debug(f"\tComputed action_dim: {action_dim}")
         return action_dim
 
     def _index_to_action(self, index: int) -> Dict[int, Tuple[int, int]]:

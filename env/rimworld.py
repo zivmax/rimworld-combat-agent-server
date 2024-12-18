@@ -116,15 +116,13 @@ class RimWorldEnv(gym.Env):
             },
         }
         server.send_to_client(server.client, message)
-        logger.debug(
-            f"Sent reset signal to clients at tick {StateCollector.state.tick}"
-        )
+        logger.info(f"Sent reset signal to clients at tick {StateCollector.state.tick}")
 
         super().reset(seed=seed)  # We need the following line to seed self.np_random
         StateCollector.reset()
         StateCollector.receive_state()
 
-        logger.debug(f"Env reset! Current Config: \n{to_json(self._options, indent=2)}")
+        logger.info(f"Env reset! Current Config: \n{to_json(self._options, indent=2)}")
 
         self._update_all()
 

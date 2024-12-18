@@ -7,6 +7,7 @@
         {
             "name": "Evalutate",
             "type": "debugpy",
+            "args": ["-O"],
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal"
@@ -14,12 +15,35 @@
         {
             "name": "DQN",
             "type": "debugpy",
+            "args": ["-O"],
             "request": "launch",
             "module": "agents.dqn.main",
             "console": "integratedTerminal"
         },
         {
             "name": "Random",
+            "type": "debugpy",
+            "args": ["-O"],
+            "request": "launch",
+            "module": "agents.random.main",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Evalutate (Debug)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "DQN (Debug)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "agents.dqn.main",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Random (Debug)",
             "type": "debugpy",
             "request": "launch",
             "module": "agents.random.main",

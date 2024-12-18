@@ -11,6 +11,8 @@ from utils.draw import draw
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
 
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 def main():
     """
@@ -25,8 +27,8 @@ def main():
     )
 
     if RE_TRAIN:
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        save_dir = f"agents/dqn/model/{timestamp}"
+
+        save_dir = f"agents/dqn/models/{timestamp}"
 
         num_episodes = N_EPISODES
         for episode in tqdm(range(num_episodes), desc="Training Episodes"):
@@ -59,7 +61,7 @@ def main():
 if __name__ == "__main__":
     import logging
 
-    file_handler = logging.FileHandler("agents/dqn/train.log")
+    file_handler = logging.FileHandler(f"agents/dqn/logs/{timestamp}.log")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")

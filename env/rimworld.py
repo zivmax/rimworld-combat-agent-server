@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 from threading import Thread
 from numpy.typing import NDArray
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from gymnasium.spaces import MultiDiscrete
 from gymnasium import spaces
 
@@ -11,7 +11,6 @@ from utils.json import to_json
 from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
-from .metadata import REWARD
 
 
 class RimWorldEnv(gym.Env):

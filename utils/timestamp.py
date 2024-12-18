@@ -1,3 +1,5 @@
 from datetime import datetime
+import pytz
 
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+tz = pytz.timezone("Asia/Shanghai")
+timestamp = datetime.now(tz).strftime("%Y-%m-%d_%H:%M:%S")

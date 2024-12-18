@@ -6,7 +6,8 @@ from typing import Tuple, Callable, Dict, Any
 from queue import Queue
 from socket import socket as Socket
 
-from utils.logger import get_file_logger, get_cli_logger, timestamp
+from utils.logger import get_file_logger, get_cli_logger
+from utils.timestamp import timestamp
 
 import signal
 import sys

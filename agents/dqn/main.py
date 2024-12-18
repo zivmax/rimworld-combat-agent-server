@@ -18,7 +18,7 @@ def main():
     """
     Main function to train the DQNAgent.
     """
-    logger.info("Configs: \n" + to_json(OPTIONS))
+    logger.info("\tConfigs: \n" + to_json(OPTIONS, indent=2))
     env = gym.make(rimworld_env, options=OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
     agent = DQNAgent(

@@ -4,7 +4,7 @@ import logging
 from utils.color import ColoredFormatter
 
 
-def get_cli_logger(level) -> logging.Logger:
+def get_cli_logger(logger_name: str, level) -> logging.Logger:
     """
     Create a logger that prints logs to the console.
     """
@@ -15,12 +15,12 @@ def get_cli_logger(level) -> logging.Logger:
         ColoredFormatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
     )
     logging.basicConfig(level=logging.INFO, handlers=[handler])
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("cli-" + logger_name)
     logger.setLevel(level)
     return logger
 
 
-def get_file_logger(path: str, level) -> logging.Logger:
+def get_file_logger(logger_name: str, path: str, level) -> logging.Logger:
     """
     Create a logger that saves logs to a file.
     """
@@ -30,6 +30,6 @@ def get_file_logger(path: str, level) -> logging.Logger:
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
     )
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("file-" + logger_name)
     logger.addHandler(file_handler)
     return logger

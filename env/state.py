@@ -9,8 +9,8 @@ from utils.json import to_json
 from utils.math import sigmoid
 
 logging_level = logging.INFO
-f_logger = get_file_logger(f"env/logs/server/{timestamp}.log", logging_level)
-cli_logger = get_cli_logger(logging_level)
+f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
+cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = cli_logger
 

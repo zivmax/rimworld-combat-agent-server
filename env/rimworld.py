@@ -14,9 +14,11 @@ from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
 
-logging_level = logging.DEBUG
-f_logger = get_file_logger(f"env/logs/rimworld/{timestamp}.log", logging_level)
-cli_logger = get_cli_logger(logging_level)
+logging_level = logging.INFO
+f_logger = get_file_logger(
+    __name__, f"env/logs/rimworld/{timestamp}.log", logging_level
+)
+cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = f_logger
 

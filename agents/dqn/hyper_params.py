@@ -16,10 +16,26 @@ GAMMA = 0.99
 
 LEARNING_RATE = 0.001
 
-N_EPISODES = 500
+N_EPISODES = 1000
 
-EPISOLD_SAVE_INTERVAL = 50
+EPISOLD_SAVE_INTERVAL = 200
 
 EPISOLD_LOG_INTERVAL = 10
 
 RE_TRAIN = True
+
+LOAD_PATH = "agents/dqn/model_pth/dqn_model_episode_1000.pth"
+
+OPTIONS = {
+    "interval": 3.0,
+    "speed": 4,
+    "action_range": 4,
+    "is_remote": False,
+    "rewarding": {
+        "original": 0,
+        "ally_down": -10,
+        "enemy_down": 10,
+        "ally_danger_ratio": 0.5,
+        "enemy_danger_ratio": -0.5,
+    },
+}

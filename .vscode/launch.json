@@ -7,7 +7,7 @@
         {
             "name": "Evalutate",
             "type": "debugpy",
-            "pythonArgs": ["-O"],
+            "args": ["-O"],
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal"
@@ -15,7 +15,7 @@
         {
             "name": "DQN",
             "type": "debugpy",
-            "pythonArgs": ["-O"],
+            "args": ["-O"],
             "request": "launch",
             "module": "agents.dqn.main",
             "console": "integratedTerminal"
@@ -23,7 +23,7 @@
         {
             "name": "Random",
             "type": "debugpy",
-            "pythonArgs": ["-O"],
+            "args": ["-O"],
             "request": "launch",
             "module": "agents.random.main",
             "console": "integratedTerminal"

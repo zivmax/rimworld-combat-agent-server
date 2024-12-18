@@ -14,8 +14,8 @@ OPTIONS = {
         "original": 0,
         "ally_down": -8,
         "enemy_down": 10,
-        "ally_danger_ratio": -0.7,
-        "enemy_danger_ratio": 0.9,
+        "ally_danger": -0.7,
+        "enemy_danger": 0.9,
     },
 }
 

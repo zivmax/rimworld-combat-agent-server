@@ -33,6 +33,7 @@ class DQNAgent(Agent):
         self.model = DQNModel(
             state_size=self._get_state_size(),
             action_size=self.action_dim,
+            action_space=action_space,
         )
 
     def _get_state_size(self) -> int:

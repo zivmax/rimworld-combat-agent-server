@@ -1,36 +1,15 @@
+import gymnasium as gym
+import os
+from tqdm import tqdm
+from datetime import datetime
+from gymnasium.wrappers import RecordEpisodeStatistics
+
 from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.logger import logger
 from utils.draw import draw
-import logging
-
-file_handler = logging.FileHandler("agents/dqn/train.log")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
-)
-logger.addHandler(file_handler)
-
-import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
-
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import RE_TRAIN
-
-
-OPTIONS = {
-    "interval": 3.0,
-    "speed": 4,
-    "action_range": 4,
-    "is_remote": False,
-    "rewarding": {
-        "original": 0,
-        "ally_down": -10,
-        "enemy_down": 10,
-        "ally_danger_ratio": 0.5,
-        "enemy_danger_ratio": -0.5,
-    },
-}
+from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
 
 
 def main():
@@ -46,8 +25,11 @@ def main():
     )
 
     if RE_TRAIN:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        save_dir = f"agents/dqn/model/{timestamp}"
+
         num_episodes = N_EPISODES
-        for episode in range(num_episodes):
+        for episode in tqdm(range(num_episodes), desc="Training Episodes"):
             obs, info = env.reset()
             done = False
             total_reward = 0
@@ -60,13 +42,14 @@ def main():
                 agent.step(obs, action, reward, next_obs, done)
                 obs = next_obs
                 total_reward += reward
+
             if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
                 logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-                agent.save(f"agents/dqn/model_pth/dqn_model_episode_{episode + 1}.pth")
+                agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
     else:
-        agent.load(f"agents/dqn/model_pth/dqn_model_episode_{N_EPISODES}.pth")
+        agent.load(LOAD_PATH)
 
     env.close()
 
@@ -74,4 +57,12 @@ def main():
 
 
 if __name__ == "__main__":
+    import logging
+
+    file_handler = logging.FileHandler("agents/dqn/train.log")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
+    )
+    logger.addHandler(file_handler)
     main()

@@ -4,7 +4,7 @@ EPSILON = {"START": 1, "FINAL": 0.01, "DECAY": 0.999}
 HIDDEN_SIZE = 128
 TARGET_UPDATE = 10
 
-MEMORY_SIZE = 100000
+MEMORY_SIZE = 1000000
 DEVICE = "cuda:1"
 
 BATCH_SIZE = 64
@@ -33,9 +33,9 @@ OPTIONS = {
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "ally_down": -10,
+        "ally_down": -8,
         "enemy_down": 10,
-        "ally_danger_ratio": 0.5,
-        "enemy_danger_ratio": -0.5,
+        "ally_danger_ratio": -0.7,
+        "enemy_danger_ratio": 0.9,
     },
 }

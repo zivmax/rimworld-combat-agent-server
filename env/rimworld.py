@@ -1,16 +1,23 @@
 import gymnasium as gym
 import numpy as np
+import logging
 from threading import Thread
 from numpy.typing import NDArray
 from typing import Dict, List
 from gymnasium.spaces import MultiDiscrete
 from gymnasium import spaces
 
-from utils.logger import logger
+from utils.logger import get_cli_logger, get_file_logger, timestamp
 from utils.json import to_json
 from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction
+
+logging_level = logging.DEBUG
+f_logger = get_file_logger(f"env/logs/rimworld/{timestamp}.log", logging_level)
+cli_logger = get_cli_logger(logging_level)
+
+logger = f_logger
 
 
 class RimWorldEnv(gym.Env):

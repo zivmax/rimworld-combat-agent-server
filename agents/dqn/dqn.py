@@ -1,6 +1,6 @@
 from numpy.typing import NDArray
 from typing import Tuple, Dict
-from utils.logger import logger
+from .logger import logger
 
 from agents import Agent
 from env.action import GameAction, PawnAction

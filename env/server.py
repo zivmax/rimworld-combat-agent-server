@@ -1,17 +1,25 @@
 import socket
 import json
+import logging
 from threading import Thread
 from typing import Tuple, Callable, Dict, Any
 from queue import Queue
 from socket import socket as Socket
 
-from utils.logger import logger
+from utils.logger import get_file_logger, get_cli_logger, timestamp
 
 import signal
 import sys
 from threading import Event
 
 stop_event = Event()
+
+
+logging_level = logging.INFO
+f_logger = get_file_logger(f"env/logs/server/{timestamp}.log", logging_level)
+cli_logger = get_cli_logger(logging_level)
+
+logger = cli_logger
 
 
 def signal_handler(sig, frame) -> None:

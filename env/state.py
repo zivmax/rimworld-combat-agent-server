@@ -229,14 +229,12 @@ class StateCollector:
 
                 cls.state = GameState.from_dict(message["Data"])
 
-                logger.debug(f"Collected game state at tick {cls.state.tick}\n")
+                logger.debug(f"Collected game state at tick {cls.state.tick}")
                 logger.debug(
-                    f"Map state (tick {cls.state.tick}): \n{to_json(cls.state.map, indent=2)}\n"
+                    f"Map state (tick {cls.state.tick}): \n{to_json(cls.state.map, indent=2)}"
                 )
                 logger.debug(
-                    f"Pawn state (tick {cls.state.tick}): \n{to_json(cls.state.pawns, indent=2)}\n"
+                    f"Pawn state (tick {cls.state.tick}): \n{to_json(cls.state.pawns, indent=2)}"
                 )
-                logger.debug(
-                    f"Game status (tick {cls.state.tick}): {cls.state.status}\n"
-                )
+                logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
                 break

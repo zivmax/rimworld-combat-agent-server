@@ -107,7 +107,7 @@ class RimWorldEnv(gym.Env):
             },
         }
         server.send_to_client(server.client, message)
-        logger.info(
+        logger.debug(
             f"Sent reset signal to clients at tick {StateCollector.state.tick}\n"
         )
 

@@ -24,10 +24,6 @@
             }
         }
     },
-<<<<<<< HEAD
     "runArgs": ["--gpus", "all"],
-    "postCreateCommand": "bash git.sh && pip install -r requirements.txt"
-=======
-    "postCreateCommand": "bash .devcontainer/git.sh && pip install -r requirements.txt"
->>>>>>> 945610ca9ffac0a55eaf6fc302e75ee174a5217e
+    "postCreateCommand": "bash .devcontainer/git.sh"
 }

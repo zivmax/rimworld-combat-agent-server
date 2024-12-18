@@ -152,4 +152,3 @@ class DQNModel:
             path (str): Path to load the model parameters from.
         """
         self.policy_net.load_state_dict(torch.load(path))
-        self.eval()

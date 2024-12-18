@@ -9,6 +9,9 @@ DEVICE = "cuda"
 
 BATCH_SIZE = 64
 
+BATCH_X = 8
+BATCH_Y = 8
+
 GAMMA = 0.99
 
 LEARNING_RATE = 0.001

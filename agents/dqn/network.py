@@ -88,17 +88,11 @@ class DQNModel:
         Returns:
             Dict[int, Tuple[int, int]]: Structured action dictionary.
         """
-        action = {}
-        for ally_id, space in self.action_space.items():
+        for _, space in self.action_space.items():
             n = space.nvec.prod()
             action_part = index % n
-            action[ally_id] = PawnAction(
-                label=str(ally_id),
-                x=int(action_part // space.nvec[1]),
-                y=int(action_part % space.nvec[1]),
-            )
             index = index // n
-        return action
+        return int(action_part // space.nvec[1]), int(action_part % space.nvec[1])
 
     # memory sample estimation
     def replay(self):
@@ -107,7 +101,6 @@ class DQNModel:
 
         minibatch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*minibatch)
-        best_reward_index = np.argmax(rewards)
         states = torch.FloatTensor(np.array(states)).to(self.device)
         rewards = torch.FloatTensor(np.array(rewards)).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
@@ -117,8 +110,7 @@ class DQNModel:
         # Q value iteration
         acts = []
         for action in actions:
-            act = self._index_to_action(action)
-            _, x, y = act
+            x, y = self._index_to_action(action)
             act_policy_index = x + y * BATCH_X
             acts.append(act_policy_index)
         acts = torch.LongTensor(acts).unsqueeze(1).to(self.device)

@@ -6,12 +6,14 @@ from gymnasium.wrappers import RecordEpisodeStatistics
 
 from agents.dqn import DQNAgent
 from env import rimworld_env
-from utils.logger import logger
+import logging
 from utils.draw import draw
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def main():
@@ -59,10 +61,9 @@ def main():
 
 
 if __name__ == "__main__":
-    import logging
 
     file_handler = logging.FileHandler(f"agents/dqn/logs/{timestamp}.log")
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
     )

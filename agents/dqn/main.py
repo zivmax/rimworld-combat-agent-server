@@ -1,19 +1,11 @@
+from tqdm import tqdm
+import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
+
 from agents.dqn import DQNAgent
 from env import rimworld_env
 from utils.logger import logger
 from utils.draw import draw
-import logging
-
-file_handler = logging.FileHandler("agents/dqn/train.log")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
-)
-logger.addHandler(file_handler)
-
-import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
-
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN
 
@@ -47,7 +39,7 @@ def main():
 
     if RE_TRAIN:
         num_episodes = N_EPISODES
-        for episode in range(num_episodes):
+        for episode in tqdm(range(num_episodes), desc="Training Episodes"):
             obs, info = env.reset()
             done = False
             total_reward = 0
@@ -60,6 +52,7 @@ def main():
                 agent.step(obs, action, reward, next_obs, done)
                 obs = next_obs
                 total_reward += reward
+
             if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
                 logger.info(f"for episode {episode + 1}, reward: {total_reward}")
 
@@ -74,4 +67,12 @@ def main():
 
 
 if __name__ == "__main__":
+    import logging
+
+    file_handler = logging.FileHandler("agents/dqn/train.log")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s\t%(levelname)s\t%(filename)s\t%(message)s")
+    )
+    logger.addHandler(file_handler)
     main()

@@ -48,7 +48,7 @@ class RandomAgent(Agent):
                 y=int(act[1]),
             )
 
-        logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}\n")
+        logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}")
 
         return GameAction(ally_actions)
 

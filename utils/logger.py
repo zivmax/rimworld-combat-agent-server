@@ -1,7 +1,10 @@
+import os
 import logging
-from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
+from datetime import datetime
 
 from utils.color import ColoredFormatter
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def get_cli_logger(level) -> logging.Logger:
@@ -24,6 +27,7 @@ def get_file_logger(path: str, level) -> logging.Logger:
     """
     Create a logger that saves logs to a file.
     """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     file_handler = logging.FileHandler(path)
     file_handler.setLevel(level)
     file_handler.setFormatter(

@@ -1,20 +1,15 @@
 import gymnasium as gym
 import os
-import logging
 from tqdm import tqdm
 from datetime import datetime
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 from agents.dqn import DQNAgent
 from env import rimworld_env
-from utils.logger import get_file_logger
 from utils.draw import draw
+from .logger import logger
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
 from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
-
-
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-f_logger = get_file_logger(f"agents/dqn/logs/{timestamp}.log", logging.DEBUG)
 
 
 def main():
@@ -49,7 +44,7 @@ def main():
                 total_reward += reward
 
             if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-                f_logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
+                logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
 
             if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
                 agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
@@ -66,7 +61,7 @@ def main():
             agent.step(obs, action, reward, next_obs, done)
             obs = next_obs
             total_reward += reward
-        f_logger.info(f"\tTotal reward after loading: {total_reward}")
+        logger.info(f"\tTotal reward after loading: {total_reward}")
     env.close()
 
     draw(env, "agents/dqn/plot/episode_stats.png")

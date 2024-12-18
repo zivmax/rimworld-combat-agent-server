@@ -22,7 +22,7 @@ EPISOLD_SAVE_INTERVAL = 1
 
 EPISOLD_LOG_INTERVAL = 1
 
-RE_TRAIN = False
+RE_TRAIN = True
 
 LOAD_PATH = "agents/dqn/model_pth/dqn_model_episode_1000.pth"
 

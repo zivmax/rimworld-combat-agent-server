@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
-from .hyper_params import DEVICE, BATCH_SIZE, GAMMA, LEARNING_RATE
+from .hyper_params import BATCH_X, BATCH_SIZE, GAMMA, LEARNING_RATE
 import os
 
 
@@ -115,12 +115,11 @@ class DQNModel:
         actions = torch.LongTensor(np.array(actions)).unsqueeze(1).to(self.device)
 
         # Q value iteration
-        best_action = actions[best_reward_index]
         acts = []
         for action in actions:
             act = self._index_to_action(action)
             _, x, y = act
-            act_policy_index = x + y * 8
+            act_policy_index = x + y * BATCH_X
             acts.append(act_policy_index)
         acts = torch.LongTensor(acts).unsqueeze(1).to(self.device)
         current_q = self.policy_net(states).gather(1, acts)

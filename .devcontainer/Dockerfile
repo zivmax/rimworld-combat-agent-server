@@ -20,5 +20,8 @@ RUN pip install --upgrade pip
 # Install PyTorch and torchvision
 RUN pip install torch torchvision torchaudio
 
-# Set the default command to check CUDA availability
-CMD ["nvidia-smi", "&&", "python3", "-c", "import torch; print(torch.cuda.is_available())"]
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install -r requirements.txt

@@ -54,7 +54,7 @@ class RimWorldEnv(gym.Env):
         self._update_all()
 
         self.action_space: Dict[int, MultiDiscrete] = {}
-        for idx in range(1, 4):
+        for idx, ally in enumerate(self._allies, start=1):
             ally_space = MultiDiscrete(
                 nvec=[
                     2 * self._options["action_range"] + 1,
@@ -330,7 +330,7 @@ class RimWorldEnv(gym.Env):
                     reward += self._options["rewarding"]["ally_down"]
                 else:
                     reward += self._options["rewarding"]["ally_danger"] * (
-                    ally.danger - last_ally.danger
+                        ally.danger - last_ally.danger
                     )
         for idx, enemy in enumerate(self._enemies):
             last_enemy = self._last_enemies[idx] if self._last_enemies else None

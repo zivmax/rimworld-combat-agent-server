@@ -7,7 +7,7 @@ from env.action import GameAction, PawnAction
 from env.state import PawnState, MapState, Loc
 from gymnasium.spaces import MultiDiscrete
 from .network import DQNModel
-from .hyper_params import RE_TRAIN
+from .hyper_params import TRAINING
 
 
 class DQNAgent(Agent):
@@ -147,7 +147,7 @@ class DQNAgent(Agent):
 
         # Store experience and perform replay
         self.model.remember(state, action_idx, reward, next_state, done)
-        self.model.replay() if RE_TRAIN else None
+        self.model.replay() if TRAINING else None
 
     def save(self, path: str):
         """

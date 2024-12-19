@@ -1,28 +1,32 @@
 import random
 import numpy as np
 from collections import deque
-from env.action import GameAction, PawnAction
 from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE
+from .hyper_params import EPSILON, TARGET_UPDATE, MEMORY_SIZE, HIDDEN_SIZE1, HIDDEN_SIZE2
 from .hyper_params import BATCH_X, BATCH_SIZE, GAMMA, LEARNING_RATE, DEVICE
 import os
 
 
 class DQN(nn.Module):
-    def __init__(self, state_size, action_size, hidden_size=HIDDEN_SIZE):
+    def __init__(self, state_size, action_size, hidden_size1=HIDDEN_SIZE1,
+                 hidden_size2=HIDDEN_SIZE2):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_size, hidden_size)
+        self.fc1 = nn.Linear(state_size, hidden_size1)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, action_size)
+        self.fc2 = nn.Linear(hidden_size1, hidden_size1)
+        self.fc3 = nn.Linear(hidden_size1, hidden_size2)
+        self.fc4 = nn.Linear(hidden_size2, hidden_size2)
+        self.fc5 = nn.Linear(hidden_size2, action_size)
 
     def forward(self, x):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.relu(self.fc3(x))
+        x = self.relu(self.fc4(x))
+        x = self.fc5(x)
         return x
 
 
@@ -130,6 +134,9 @@ class DQNModel:
         # Epsilon decay
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+        self.steps_done += 1
+        if self.steps_done % self.target_update == 0:
+            self.update_target_network()
 
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())

@@ -148,10 +148,6 @@ class DQNAgent(Agent):
         self.model.remember(state, action_idx, reward, next_state, done)
         self.model.replay()
 
-        # update
-        if self.model.steps_done % self.model.target_update == 0:
-            self.model.update_target_network()
-
     def save(self, path: str):
         """
         Save the policy network parameters.

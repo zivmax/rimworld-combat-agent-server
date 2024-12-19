@@ -16,11 +16,11 @@ from threading import Event
 stop_event = Event()
 
 
-logging_level = logging.INFO
+logging_level = logging.DEBUG
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
 cli_logger = get_cli_logger(__name__, logging_level)
 
-logger = cli_logger
+logger = f_logger
 
 
 def signal_handler(sig, frame) -> None:

@@ -54,10 +54,9 @@ def main():
             logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
             agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
+            draw(env, f"agents/dqn/plot/episode_stats_{timestamp}.png")
 
     env.close()
-
-    draw(env, "agents/dqn/plot/episode_stats.png")
 
 
 if __name__ == "__main__":

@@ -172,10 +172,12 @@ class RimWorldEnv(gym.Env):
         super().close()
 
     def _update_allies(self):
+        self._last_allies = self._allies.copy() if self._allies else None
         self._allies: list[PawnState] = [p for p in self._pawns.values() if p.is_ally]
         self._allies.sort(key=lambda x: x.label)
 
     def _update_enemies(self):
+        self._last_enemies = self._enemies.copy() if self._enemies else None
         self._enemies: list[PawnState] = [
             p for p in self._pawns.values() if not p.is_ally
         ]
@@ -321,18 +323,22 @@ class RimWorldEnv(gym.Env):
                      while negative values indicate unfavorable situations.
         """
         reward = self._options["rewarding"]["original"]
-        for ally in self._allies:
-            if ally.is_incapable:
-                reward += self._options["rewarding"]["ally_down"]
-            else:
-                reward += self._options["rewarding"]["ally_danger"] * (
-                    ally.danger - 0.75
-                )
-        for enemy in self._enemies:
-            if enemy.is_incapable:
-                reward += self._options["rewarding"]["enemy_down"]
-            else:
-                reward += self._options["rewarding"]["enemy_danger"] * (
-                    enemy.danger - 0.6
-                )
+        for idx, ally in enumerate(self._allies):
+            last_ally = self._last_allies[idx] if self._last_allies else None
+            if last_ally:
+                if ally.is_incapable and not last_ally.is_incapable:
+                    reward += self._options["rewarding"]["ally_down"]
+                else:
+                    reward += self._options["rewarding"]["ally_danger"] * (
+                    ally.danger - last_ally.danger
+                    )
+        for idx, enemy in enumerate(self._enemies):
+            last_enemy = self._last_enemies[idx] if self._last_enemies else None
+            if last_enemy:
+                if enemy.is_incapable and not last_enemy.is_incapable:
+                    reward += self._options["rewarding"]["enemy_down"]
+                else:
+                    reward += self._options["rewarding"]["enemy_danger"] * (
+                        enemy.danger - last_enemy.danger
+                    )
         return reward

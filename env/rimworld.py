@@ -22,6 +22,7 @@ cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = f_logger
 
+DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
 class RimWorldEnv(gym.Env):
     def __init__(self, options: Dict = None):
@@ -30,6 +31,8 @@ class RimWorldEnv(gym.Env):
         self._map: MapState = None
         self._allies: List[PawnState] = None
         self._enemies: List[PawnState] = None
+        self._obstacles: Dict[str, List[Loc]] = {}
+        self._last_obstacles: Dict[str, List[Loc]] = {}
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -160,7 +163,7 @@ class RimWorldEnv(gym.Env):
         self._update_all()
 
         observation = self._get_obs()
-        reward = self._get_reward()
+        reward = self._get_reward(observation) if StateCollector.state.status == GameStatus.RUNNING else 0
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = False
         info = self._get_info()
@@ -242,7 +245,23 @@ class RimWorldEnv(gym.Env):
         mask = tuple(invalid_positions)
 
         self.action_mask = mask
-
+    def _search_neighbor_obstacles(self, loc: Loc, obs: NDArray, name:str) -> List[Loc]:
+        neighbors = []
+        for dx, dy in DIRECTIONS:
+            neighbor = Loc(loc.x + dx, loc.y + dy)
+            if 0 <= neighbor.x < self._map.width and 0 <= neighbor.y < self._map.height and obs[neighbor.x][neighbor.y] != 7:
+                neighbors.append(neighbor)
+        if name in self._obstacles.keys():
+            self._last_obstacles[name] = self._obstacles[name]
+        self._obstacles[name] = neighbors if neighbors else None
+        return neighbors
+    
+    def _compare_obs(self, obs: List[Loc], last_obs: List[Loc]) -> NDArray:
+        changes = []
+        for current, last in zip(obs, last_obs):
+            if current != last:
+                changes.append(current)
+        return changes
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a 2D numpy array.
 
@@ -305,8 +324,13 @@ class RimWorldEnv(gym.Env):
             "action_space": self.action_space,
             "action_mask": self.action_mask,
         }
-
-    def _get_reward(self) -> float:
+    def _search_covers(self, loc: Loc) -> bool:
+        covers = self._get_covers()
+        for cover in covers:
+            if cover.loc == loc:
+                return True
+        return False
+    def _get_reward(self, obs:NDArray) -> float:
         """
         Calculate the reward based on the state of allies and enemies.
 
@@ -324,7 +348,8 @@ class RimWorldEnv(gym.Env):
         """
         reward = self._options["rewarding"]["original"]
         for idx, ally in enumerate(self._allies):
-            last_ally = self._last_allies[idx] if self._last_allies else None
+            last_ally = self._last_allies[idx] if (self._last_allies and idx < len(self._last_allies)) else None
+
             if last_ally:
                 if ally.is_incapable and not last_ally.is_incapable:
                     reward += self._options["rewarding"]["ally_down"]
@@ -332,6 +357,11 @@ class RimWorldEnv(gym.Env):
                     reward += self._options["rewarding"]["ally_danger"] * (
                         ally.danger - last_ally.danger
                     )
+                # search for close covers
+                obstacles = self._search_neighbor_obstacles(ally.loc, obs, ally.label)
+                difference = self._compare_obs(obstacles, self._last_obstacles[ally.label]) if ally.label in self._last_obstacles.keys() else obstacles
+                if difference:
+                    reward += self._options["rewarding"]["ally_cover"] * len(difference)
         for idx, enemy in enumerate(self._enemies):
             last_enemy = self._last_enemies[idx] if self._last_enemies else None
             if last_enemy:

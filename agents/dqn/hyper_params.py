@@ -15,7 +15,7 @@ BATCH_Y = 8
 
 GAMMA = 0.96
 
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.03
 
 N_EPISODES = 1000
 
@@ -39,7 +39,8 @@ OPTIONS = {
         "original": 0,
         "ally_down": -8,
         "enemy_down": 15,
-        "ally_danger": 0.2,
-        "enemy_danger": 1.5,
+        "ally_danger": 0.9,
+        "enemy_danger": 1.2,
+        "ally_cover": 1.0,
     },
 }

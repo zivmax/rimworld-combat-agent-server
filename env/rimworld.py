@@ -31,7 +31,9 @@ class RimWorldEnv(gym.Env):
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
         self._allies: List[PawnState] = None
+        self._allies_prev: List[PawnState] = None
         self._enemies: List[PawnState] = None
+        self._enemies_prev: List[PawnState] = None
         self._covers: Dict[str, List[Loc]] = {}
         self._covers_prev: Dict[str, List[Loc]] = {}
 
@@ -44,8 +46,8 @@ class RimWorldEnv(gym.Env):
                 "rewarding",
                 {
                     "original": 0,
-                    "ally_down": -7,
-                    "enemy_down": 10,
+                    "ally_defeated": -7,
+                    "enemy_defeated": 10,
                     "ally_danger": 0.5,
                     "enemy_danger": -0.5,
                 },
@@ -361,15 +363,15 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
-        ally_down_num = 0
-        enemy_down_num = 0
+        ally_defeated_num = 0
+        enemy_defeated_num = 0
         reward = self._options["rewarding"]["original"]
         for idx, ally in enumerate(self._allies):
             ally_prev = self._allies_prev[idx] if self._allies_prev else None
 
             if ally_prev:
                 if ally.is_incapable and not ally_prev.is_incapable:
-                    reward += self._options["rewarding"]["ally_down"]
+                    reward += self._options["rewarding"]["ally_defeated"]
                 else:
                     reward += self._options["rewarding"]["ally_danger"] * (
                         ally.danger - ally_prev.danger
@@ -384,21 +386,21 @@ class RimWorldEnv(gym.Env):
                 if difference:
                     reward += self._options["rewarding"]["ally_cover"] * len(difference)
             if ally.is_incapable:
-                ally_down_num += 1
+                ally_defeated_num += 1
         for idx, enemy in enumerate(self._enemies):
             enemy_prev = self._enemies_prev[idx] if self._enemies_prev else None
 
             if enemy_prev:
                 if enemy.is_incapable and not enemy_prev.is_incapable:
-                    reward += self._options["rewarding"]["enemy_down"]
+                    reward += self._options["rewarding"]["enemy_defeated"]
                 else:
                     reward += self._options["rewarding"]["enemy_danger"] * (
                         enemy.danger - enemy_prev.danger
                     )
             if enemy.is_incapable:
-                enemy_down_num += 1
-        if ally_down_num == len(self._allies):
+                enemy_defeated_num += 1
+        if ally_defeated_num == len(self._allies):
             reward += self._options["rewarding"]["ally_all_down"]
-        if enemy_down_num == len(self._enemies):
+        if enemy_defeated_num == len(self._enemies):
             reward += self._options["rewarding"]["enemy_all_down"]
         return reward

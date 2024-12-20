@@ -11,7 +11,14 @@ from utils.json import to_json
 
 from .logger import logger
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import TRAINING, OPTIONS, LOAD_PATH, LOAD_TEST_EPISODES, CONTINUE_TRAINING_PATH, CONTINUE_NUM
+from .hyper_params import (
+    TRAINING,
+    OPTIONS,
+    LOAD_PATH,
+    LOAD_TEST_EPISODES,
+    CONTINUE_TRAINING_PATH,
+    CONTINUE_NUM,
+)
 
 
 def main():
@@ -51,9 +58,8 @@ def main():
         if not TRAINING:
             logger.info(f"\tTotal reward for episode {episode + 1}: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-            logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
+            logger.debug(f"\tTotal reward for episode {episode + 1}: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-
             agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
             draw(env, f"agents/dqn/plot/episode_stats_{timestamp}.png")
 

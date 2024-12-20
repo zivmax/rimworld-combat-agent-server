@@ -257,6 +257,8 @@ class RimWorldEnv(gym.Env):
         return neighbors
     
     def _compare_obs(self, obs: List[Loc], last_obs: List[Loc]) -> NDArray:
+        if not last_obs:
+            return obs
         changes = []
         for current, last in zip(obs, last_obs):
             if current != last:

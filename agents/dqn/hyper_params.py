@@ -37,12 +37,12 @@ OPTIONS = {
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "ally_down": -20,
-        "enemy_down": 15,
+        "win": 100,
+        "lose": -100,
+        "ally_defeated": -20,
+        "enemy_defeated": 15,
         "ally_danger": -1.6,
         "enemy_danger": 1.2,
         "ally_cover": 0.8,
-        "ally_all_down": -100,
-        "enemy_all_down": 100,
     },
 }

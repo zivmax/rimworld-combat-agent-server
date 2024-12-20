@@ -24,6 +24,7 @@ logger = f_logger
 
 DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
+
 class RimWorldEnv(gym.Env):
     def __init__(self, options: Dict = None):
 
@@ -31,8 +32,8 @@ class RimWorldEnv(gym.Env):
         self._map: MapState = None
         self._allies: List[PawnState] = None
         self._enemies: List[PawnState] = None
-        self._obstacles: Dict[str, List[Loc]] = {}
-        self._last_obstacles: Dict[str, List[Loc]] = {}
+        self._covers: Dict[str, List[Loc]] = {}
+        self._covers_prev: Dict[str, List[Loc]] = {}
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -163,7 +164,11 @@ class RimWorldEnv(gym.Env):
         self._update_all()
 
         observation = self._get_obs()
-        reward = self._get_reward(observation) if StateCollector.state.status == GameStatus.RUNNING else 0
+        reward = (
+            self._get_reward(observation)
+            if StateCollector.state.status == GameStatus.RUNNING
+            else 0
+        )
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = False
         info = self._get_info()
@@ -175,12 +180,12 @@ class RimWorldEnv(gym.Env):
         super().close()
 
     def _update_allies(self):
-        self._last_allies = self._allies.copy() if self._allies else None
+        self._allies_prev = self._allies.copy() if self._allies else None
         self._allies: list[PawnState] = [p for p in self._pawns.values() if p.is_ally]
         self._allies.sort(key=lambda x: x.label)
 
     def _update_enemies(self):
-        self._last_enemies = self._enemies.copy() if self._enemies else None
+        self._enemies_prev = self._enemies.copy() if self._enemies else None
         self._enemies: list[PawnState] = [
             p for p in self._pawns.values() if not p.is_ally
         ]
@@ -245,17 +250,22 @@ class RimWorldEnv(gym.Env):
         mask = tuple(invalid_positions)
 
         self.action_mask = mask
-    def _search_neighbor_obstacles(self, loc: Loc, obs: NDArray, name:str) -> List[Loc]:
+
+    def _search_neighbor_cover(self, loc: Loc, obs: NDArray, name: str) -> List[Loc]:
         neighbors = []
         for dx, dy in DIRECTIONS:
             neighbor = Loc(loc.x + dx, loc.y + dy)
-            if 0 <= neighbor.x < self._map.width and 0 <= neighbor.y < self._map.height and obs[neighbor.x][neighbor.y] != 7:
+            if (
+                0 <= neighbor.x < self._map.width
+                and 0 <= neighbor.y < self._map.height
+                and obs[neighbor.x][neighbor.y] != 7
+            ):
                 neighbors.append(neighbor)
-        if name in self._obstacles.keys():
-            self._last_obstacles[name] = self._obstacles[name]
-        self._obstacles[name] = neighbors if neighbors else None
+        if name in self._covers.keys():
+            self._covers_prev[name] = self._covers[name]
+        self._covers[name] = neighbors if neighbors else None
         return neighbors
-    
+
     def _compare_obs(self, obs: List[Loc], last_obs: List[Loc]) -> NDArray:
         if not last_obs:
             return obs
@@ -264,6 +274,7 @@ class RimWorldEnv(gym.Env):
             if current != last:
                 changes.append(current)
         return changes
+
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a 2D numpy array.
 
@@ -326,13 +337,15 @@ class RimWorldEnv(gym.Env):
             "action_space": self.action_space,
             "action_mask": self.action_mask,
         }
+
     def _search_covers(self, loc: Loc) -> bool:
         covers = self._get_covers()
         for cover in covers:
             if cover.loc == loc:
                 return True
         return False
-    def _get_reward(self, obs:NDArray) -> float:
+
+    def _get_reward(self, obs: NDArray) -> float:
         """
         Calculate the reward based on the state of allies and enemies.
 
@@ -352,30 +365,35 @@ class RimWorldEnv(gym.Env):
         enemy_down_num = 0
         reward = self._options["rewarding"]["original"]
         for idx, ally in enumerate(self._allies):
-            last_ally = self._last_allies[idx] if (self._last_allies and idx < len(self._last_allies)) else None
+            ally_prev = self._allies_prev[idx] if self._allies_prev else None
 
-            if last_ally:
-                if ally.is_incapable and not last_ally.is_incapable:
+            if ally_prev:
+                if ally.is_incapable and not ally_prev.is_incapable:
                     reward += self._options["rewarding"]["ally_down"]
                 else:
                     reward += self._options["rewarding"]["ally_danger"] * (
-                        ally.danger - last_ally.danger
+                        ally.danger - ally_prev.danger
                     )
                 # search for close covers
-                obstacles = self._search_neighbor_obstacles(ally.loc, obs, ally.label)
-                difference = self._compare_obs(obstacles, self._last_obstacles[ally.label]) if ally.label in self._last_obstacles.keys() else obstacles
+                obstacles = self._search_neighbor_cover(ally.loc, obs, ally.label)
+                difference = (
+                    self._compare_obs(obstacles, self._covers_prev[ally.label])
+                    if ally.label in self._covers_prev.keys()
+                    else obstacles
+                )
                 if difference:
                     reward += self._options["rewarding"]["ally_cover"] * len(difference)
             if ally.is_incapable:
                 ally_down_num += 1
         for idx, enemy in enumerate(self._enemies):
-            last_enemy = self._last_enemies[idx] if self._last_enemies else None
-            if last_enemy:
-                if enemy.is_incapable and not last_enemy.is_incapable:
+            enemy_prev = self._enemies_prev[idx] if self._enemies_prev else None
+
+            if enemy_prev:
+                if enemy.is_incapable and not enemy_prev.is_incapable:
                     reward += self._options["rewarding"]["enemy_down"]
                 else:
                     reward += self._options["rewarding"]["enemy_danger"] * (
-                        enemy.danger - last_enemy.danger
+                        enemy.danger - enemy_prev.danger
                     )
             if enemy.is_incapable:
                 enemy_down_num += 1

@@ -363,44 +363,54 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
-        ally_defeated_num = 0
-        enemy_defeated_num = 0
+
         reward = self._options["rewarding"]["original"]
-        for idx, ally in enumerate(self._allies):
-            ally_prev = self._allies_prev[idx] if self._allies_prev else None
+        match StateCollector.state.status:
+            case GameStatus.RUNNING:
+                ally_step_defeated_num = 0
+                enemy_step_defeated_num = 0
+                for idx, ally in enumerate(self._allies):
+                    ally_prev = self._allies_prev[idx] if self._allies_prev else None
 
-            if ally_prev:
-                if ally.is_incapable and not ally_prev.is_incapable:
-                    reward += self._options["rewarding"]["ally_defeated"]
-                else:
-                    reward += self._options["rewarding"]["ally_danger"] * (
-                        ally.danger - ally_prev.danger
-                    )
-                # search for close covers
-                obstacles = self._search_neighbor_cover(ally.loc, obs, ally.label)
-                difference = (
-                    self._compare_obs(obstacles, self._covers_prev[ally.label])
-                    if ally.label in self._covers_prev.keys()
-                    else obstacles
-                )
-                if difference:
-                    reward += self._options["rewarding"]["ally_cover"] * len(difference)
-            if ally.is_incapable:
-                ally_defeated_num += 1
-        for idx, enemy in enumerate(self._enemies):
-            enemy_prev = self._enemies_prev[idx] if self._enemies_prev else None
+                    if ally_prev:
+                        if ally.is_incapable and not ally_prev.is_incapable:
+                            reward += self._options["rewarding"]["ally_defeated"]
+                        else:
+                            reward += self._options["rewarding"]["ally_danger"] * (
+                                ally.danger - ally_prev.danger
+                            )
+                        # search for close covers
+                        obstacles = self._search_neighbor_cover(
+                            ally.loc, obs, ally.label
+                        )
+                        difference = (
+                            self._compare_obs(obstacles, self._covers_prev[ally.label])
+                            if ally.label in self._covers_prev.keys()
+                            else obstacles
+                        )
+                        if difference:
+                            reward += self._options["rewarding"]["ally_cover"] * len(
+                                difference
+                            )
+                    if ally.is_incapable:
+                        ally_step_defeated_num += 1
+                for idx, enemy in enumerate(self._enemies):
+                    enemy_prev = self._enemies_prev[idx] if self._enemies_prev else None
 
-            if enemy_prev:
-                if enemy.is_incapable and not enemy_prev.is_incapable:
-                    reward += self._options["rewarding"]["enemy_defeated"]
-                else:
-                    reward += self._options["rewarding"]["enemy_danger"] * (
-                        enemy.danger - enemy_prev.danger
-                    )
-            if enemy.is_incapable:
-                enemy_defeated_num += 1
-        if ally_defeated_num == len(self._allies):
-            reward += self._options["rewarding"]["ally_all_down"]
-        if enemy_defeated_num == len(self._enemies):
-            reward += self._options["rewarding"]["enemy_all_down"]
+                    if enemy_prev:
+                        if enemy.is_incapable and not enemy_prev.is_incapable:
+                            reward += self._options["rewarding"]["enemy_defeated"]
+                        else:
+                            reward += self._options["rewarding"]["enemy_danger"] * (
+                                enemy.danger - enemy_prev.danger
+                            )
+                    if enemy.is_incapable:
+                        enemy_step_defeated_num += 1
+
+            case GameStatus.WIN:
+                reward += self._options["rewarding"]["win"]
+
+            case GameStatus.LOSE:
+                reward += self._options["rewarding"]["lose"]
+
         return reward

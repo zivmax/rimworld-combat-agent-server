@@ -28,21 +28,21 @@ LOAD_TEST_EPISODES = 50
 TRAINING = True
 
 LOAD_PATH = "agents/dqn/models/2024-12-19_22:58:36/episode_400.pth"
-CONTINUE_TRAINING_PATH = "agents/dqn/models/2024-12-19_22:58:36/episode_400.pth"
+CONTINUE_TRAINING_PATH = None
 CONTINUE_NUM = 400
 OPTIONS = {
     "interval": 1.0,
     "speed": 3,
-    "action_range": 3,
+    "action_range": 4,
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "win": 100,
-        "lose": -100,
-        "ally_defeated": -20,
+        "win": 50,
+        "lose": -50,
+        "ally_defeated": -12,
         "enemy_defeated": 15,
-        "ally_danger": -1.6,
+        "ally_danger": -0.8,
         "enemy_danger": 1.2,
-        "ally_cover": 0.8,
+        "ally_cover": 1.0,
     },
 }

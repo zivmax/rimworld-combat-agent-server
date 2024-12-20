@@ -11,7 +11,7 @@ from utils.json import to_json
 
 from .logger import logger
 from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import TRAINING, OPTIONS, LOAD_PATH, LOAD_TEST_EPISODES
+from .hyper_params import TRAINING, OPTIONS, LOAD_PATH, LOAD_TEST_EPISODES, CONTINUE_TRAINING_PATH, CONTINUE_NUM
 
 
 def main():
@@ -31,9 +31,10 @@ def main():
     num_episodes = N_EPISODES if TRAINING else LOAD_TEST_EPISODES
     if not TRAINING:
         agent.load(LOAD_PATH)
-
+    if CONTINUE_TRAINING_PATH:
+        agent.load(CONTINUE_TRAINING_PATH)
     for episode in tqdm(
-        range(num_episodes),
+        range(CONTINUE_NUM + 1, num_episodes + CONTINUE_NUM + 1),
         desc="Training Episodes" if TRAINING else "Testing Episodes",
     ):
         obs, info = env.reset()
@@ -47,12 +48,12 @@ def main():
                 agent.step(obs, action, reward, next_obs, done)
             obs = next_obs
             total_reward += reward
-
         if not TRAINING:
             logger.info(f"\tTotal reward for episode {episode + 1}: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
             logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
+
             agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
             draw(env, f"agents/dqn/plot/episode_stats_{timestamp}.png")
 

@@ -17,7 +17,7 @@ GAMMA = 0.96
 
 LEARNING_RATE = 0.03
 
-N_EPISODES = 1000
+N_EPISODES = 600
 
 EPISOLD_SAVE_INTERVAL = 100
 
@@ -37,10 +37,12 @@ OPTIONS = {
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "ally_down": -8,
+        "ally_down": -20,
         "enemy_down": 15,
-        "ally_danger": 0.9,
+        "ally_danger": -1.6,
         "enemy_danger": 1.2,
-        "ally_cover": 1.0,
+        "ally_cover": 0.8,
+        "ally_all_down": -100,
+        "enemy_all_down": 100,
     },
 }

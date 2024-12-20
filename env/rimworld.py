@@ -348,6 +348,8 @@ class RimWorldEnv(gym.Env):
              float: The calculated reward value. Positive values indicate favorable situations,
                      while negative values indicate unfavorable situations.
         """
+        ally_down_num = 0
+        enemy_down_num = 0
         reward = self._options["rewarding"]["original"]
         for idx, ally in enumerate(self._allies):
             last_ally = self._last_allies[idx] if (self._last_allies and idx < len(self._last_allies)) else None
@@ -364,6 +366,8 @@ class RimWorldEnv(gym.Env):
                 difference = self._compare_obs(obstacles, self._last_obstacles[ally.label]) if ally.label in self._last_obstacles.keys() else obstacles
                 if difference:
                     reward += self._options["rewarding"]["ally_cover"] * len(difference)
+            if ally.is_incapable:
+                ally_down_num += 1
         for idx, enemy in enumerate(self._enemies):
             last_enemy = self._last_enemies[idx] if self._last_enemies else None
             if last_enemy:
@@ -373,4 +377,10 @@ class RimWorldEnv(gym.Env):
                     reward += self._options["rewarding"]["enemy_danger"] * (
                         enemy.danger - last_enemy.danger
                     )
+            if enemy.is_incapable:
+                enemy_down_num += 1
+        if ally_down_num == len(self._allies):
+            reward += self._options["rewarding"]["ally_all_down"]
+        if enemy_down_num == len(self._enemies):
+            reward += self._options["rewarding"]["enemy_all_down"]
         return reward

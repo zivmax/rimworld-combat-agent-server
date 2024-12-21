@@ -376,7 +376,7 @@ class RimWorldEnv(gym.Env):
                         if ally.is_incapable and not ally_prev.is_incapable:
                             reward += self._options["rewarding"]["ally_defeated"]
                         else:
-                            reward += self._options["rewarding"]["ally_danger"] * (
+                            reward += self._options["rewarding"]["ally_danger"] * abs(
                                 ally.danger - ally_prev.danger
                             )
                         # search for close covers
@@ -401,7 +401,7 @@ class RimWorldEnv(gym.Env):
                         if enemy.is_incapable and not enemy_prev.is_incapable:
                             reward += self._options["rewarding"]["enemy_defeated"]
                         else:
-                            reward += self._options["rewarding"]["enemy_danger"] * (
+                            reward += self._options["rewarding"]["enemy_danger"] * abs(
                                 enemy.danger - enemy_prev.danger
                             )
                     if enemy.is_incapable:

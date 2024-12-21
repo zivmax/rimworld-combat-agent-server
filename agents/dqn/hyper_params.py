@@ -23,16 +23,17 @@ EPISOLD_SAVE_INTERVAL = 100
 
 EPISOLD_LOG_INTERVAL = 10
 
-LOAD_TEST_EPISODES = 50
+TEST_EPISODES = 50
 
 TRAINING = True
+CONTINUE = False
 
 LOAD_PATH = "agents/dqn/models/2024-12-19_22:58:36/episode_400.pth"
-CONTINUE_TRAINING_PATH = None
 CONTINUE_NUM = 400
-OPTIONS = {
+
+ENV_OPTIONS = {
     "interval": 1.0,
-    "speed": 3,
+    "speed": 2,
     "action_range": 4,
     "is_remote": False,
     "rewarding": {

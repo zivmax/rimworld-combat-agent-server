@@ -4,10 +4,20 @@ from typing import Dict, Tuple
 from gymnasium.spaces import MultiDiscrete
 
 from utils.json import to_json
-from utils.logger import logger
 from env.state import PawnState, MapState, Loc
 from env.action import GameAction, PawnAction
 from agents import Agent
+import logging
+from utils.logger import get_file_logger, get_cli_logger
+from utils.timestamp import timestamp
+
+logging_level = logging.DEBUG
+f_logger = get_file_logger(
+    __name__, f"agents/random/logs/{timestamp}.log", logging_level
+)
+cli_logger = get_cli_logger(__name__, logging_level)
+
+logger = f_logger
 
 
 class RandomAgent(Agent):

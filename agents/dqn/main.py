@@ -60,8 +60,8 @@ def main():
         if TRAINING and (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
             logger.debug(f"\tTotal reward for episode {episode + 1}: {total_reward}")
         if TRAINING and (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-            agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
-            draw(env, f"agents/dqn/plots/episode_stats_{timestamp}.png")
+            agent.save(os.path.join(save_dir, f"model_{episode + 1}.pth"))
+            draw(env, f"agents/dqn/plots/{timestamp}/stats_{episode + 1}.png")
 
     env.close()
 

@@ -53,7 +53,7 @@ class DQNAgent:
     ) -> None:
         state = torch.from_numpy(state).unsqueeze(0).to(self.device)
         next_state = torch.from_numpy(next_state).unsqueeze(0).to(self.device)
-        action = torch.tensor([[action]], device="cpu")
+        action = torch.tensor([np.array([action[1]])], device="cpu")
         reward = torch.tensor([reward], device="cpu")
         self.memory.append((state, next_state, action, reward))
 

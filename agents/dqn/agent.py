@@ -6,7 +6,7 @@ from agents import Agent
 from env.action import GameAction, PawnAction
 from env.state import PawnState, MapState, Loc
 from gymnasium.spaces import MultiDiscrete
-from .network import DQNModel
+from .model import DQNModel
 from .hyper_params import TRAINING
 
 

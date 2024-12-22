@@ -4,7 +4,7 @@ import logging
 from threading import Thread
 from numpy.typing import NDArray
 from typing import Dict, List
-from gymnasium.spaces import MultiDiscrete
+from gymnasium.spaces import MultiDiscrete, Box
 from gymnasium import spaces
 
 from utils.logger import get_cli_logger, get_file_logger
@@ -68,13 +68,26 @@ class RimWorldEnv(gym.Env):
                 ],
                 start=np.array(
                     [-self._options["action_range"], -self._options["action_range"]],
-                    dtype=np.int32,
+                    dtype=np.int16,
                 ),
             )
             self.action_space[idx] = ally_space
         self.action_space = spaces.Dict(self.action_space)
-        self.observation_space = MultiDiscrete(
-            [[8] * self._map.width] * self._map.height
+
+        """
+        Observation space has 6 layers:
+        1. Ally positions layer (0 to len(allies), uint8)
+        2. Enemy positions layer (0 to len(enemies), uint8)
+        3. Cover positions layer (0-1, uint8)
+        4. Aiming layer (0-1, uint8)
+        5. Status layer (0-1, uint8)
+        6. Danger layer (0-100, uint8)
+        """
+        self.observation_space = spaces.Box(
+            low=0,
+            high=np.array([len(self._allies), len(self._enemies), 1, 1, 1, 100]),
+            shape=(6, self._map.height, self._map.width),
+            dtype=np.uint8,
         )
 
     def reset(self, seed=None, options: Dict = None):
@@ -272,41 +285,72 @@ class RimWorldEnv(gym.Env):
         return changes
 
     def _get_obs(self) -> NDArray:
-        """Gets the current observation of the game map as a 2D numpy array.
+        """Gets the current observation of the game map as a stacked array of 2D grids.
 
-        The observation is represented as a grid where each cell contains an integer value:
-        - 0: Empty cell
-        - 1-3: Allied units (index + 1 corresponds to ally number)
-        - 4-6: Enemy units (index + 4 corresponds to enemy number)
-        - 7: Cover
+        The observation consists of 6 layers stacked along axis 0:
+        1. Ally positions layer:
+            - 0: Empty cell
+            - 1 to len(allies): Allied units
+        2. Enemy positions layer:
+            - 0: Empty cell
+            - 1 to len(enemies): Enemy units
+        3. Cover positions layer:
+            - 0: No cover
+            - 1: Cover present
+        4. Aiming layer:
+            - 0: Not aiming
+            - 1: Aiming
+        5. Status layer:
+            - 0: Incapable
+            - 1: Capable
+        6. Danger layer: Integer values 0-100 representing danger level
+           (converted from float 0-1)
 
         Returns:
-            np.ndarray: A 2D numpy array of shape (height, width) containing integer values
-                       representing the game state according to the above encoding scheme.
-                       The array uses dtype=np.int32.
-
-        Example:
-            ```
-            [[0, 1, 0],
-             [7, 0, 4],
-             [2, 0, 0]]
-            ```
-            Represents a 3x3 map with:
-            - Ally 1 at (0,1)
-            - Ally 2 at (2,0)
-            - Enemy 1 at (1,2)
-            - cover at (1,0)
+            NDArray: A 6D numpy array of shape (6, height, width) containing the stacked observation layers.
+                    All layers use dtype=np.int8.
         """
-        grid = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        covers = self._get_covers()
+        # Create separate layers
+        ally_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        enemy_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        cover_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        aiming_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        status_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        danger_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
 
+        # Fill ally positions
         for idx, ally in enumerate(self._allies, start=1):
-            grid[ally.loc.x][ally.loc.y] = idx
-        for idx, enemy in enumerate(self._enemies, start=4):
-            grid[enemy.loc.x][enemy.loc.y] = idx
-        for cover in covers:
+            x, y = ally.loc.x, ally.loc.y
+            ally_positions[x][y] = idx
+            aiming_layer[x][y] = 1 if ally.is_aiming else 0
+            status_layer[x][y] = 0 if ally.is_incapable else 1
+            danger_layer[x][y] = int(ally.danger * 100)
+
+        # Fill enemy positions
+        for idx, enemy in enumerate(self._enemies, start=1):
+            x, y = enemy.loc.x, enemy.loc.y
+            enemy_positions[x][y] = idx
+            aiming_layer[x][y] = 1 if enemy.is_aiming else 0
+            status_layer[x][y] = 0 if enemy.is_incapable else 1
+            danger_layer[x][y] = int(enemy.danger * 100)
+
+        # Fill cover positions
+        for cover in self._get_covers():
             x, y = cover.loc.x, cover.loc.y
-            grid[x][y] = 7
+            cover_positions[x][y] = 1
+
+        # Stack layers into a single array
+        grid = np.stack(
+            [
+                ally_positions,
+                enemy_positions,
+                cover_positions,
+                aiming_layer,
+                status_layer,
+                danger_layer,
+            ],
+            axis=0,
+        )
         return grid
 
     def _get_info(self):

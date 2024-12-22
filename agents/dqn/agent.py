@@ -1,168 +1,128 @@
+from typing import Tuple, Deque, Dict
+import numpy as np
 from numpy.typing import NDArray
-from typing import Tuple, Dict
-from .logger import logger
+from collections import namedtuple
+import torch
+import torch.optim as optim
+from collections import deque
+import random
+from .model import DQN
+import random
+import torch.nn.functional as F
+import math
+from gymnasium.spaces import Space, Box, MultiDiscrete
 
-from agents import Agent
-from env.action import GameAction, PawnAction
-from env.state import PawnState, MapState, Loc
-from gymnasium.spaces import MultiDiscrete
-from .model import DQNModel
-from .hyper_params import TRAINING
+Transition = namedtuple("Transition", ("state", "next_state", "action", "reward"))
 
 
-class DQNAgent(Agent):
+class DQNAgent:
     def __init__(
         self,
-        observation_space: MultiDiscrete,
-        action_space: Dict[int, MultiDiscrete],
-    ):
-        """
-        Initialize the DQNAgent.
+        obs_space: Box,
+        act_space: Dict[int, MultiDiscrete],
+        device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
+    ) -> None:
+        self.device: str = device
+        self.obs_space: Box = obs_space
+        self.act_space: Dict[int, MultiDiscrete] = act_space
+        self.memory: Deque[Tuple] = deque(maxlen=100000)
+        self.batch_size: int = 32
+        self.gamma: float = 0.99
+        self.epsilon_max: float = 1.0
+        self.epsilon_min: float = 0.01
+        self.epsilon_decay: float = 0.99950
+        self.learning_rate: float = 0.00025
+        self.dones: int = 0
 
-        Args:
-            state_dim (Tuple[int, int]): Dimension of the state space (height, width).
-            action_space (MultiDiscrete): Action space.
-            ... [Other Args]
-        """
-        super().__init__(action_space=action_space, observation_space=observation_space)
-        self.state_dim = observation_space.shape
-        self.action_dim = self._get_action_dim()
+        self.policy_net: DQN = DQN(self.obs_space, self.act_space[1]).to(device)
+        self.target_net: DQN = DQN(self.obs_space, self.act_space[1]).to(device)
+        self.update_target_network()
+        self.target_net.eval()
+        self.target_net_update_freq = 1000
 
-        logger.debug(
-            f"\tInitializing DQNModel with state_size={self._get_state_size()}, action_size={self.action_dim}"
+        self.optimizer: optim.Adam = optim.Adam(
+            self.policy_net.parameters(), lr=self.learning_rate
         )
-        self.model = DQNModel(
-            state_size=self._get_state_size(),
-            action_size=self.action_dim,
-            action_space=action_space,
-        )
 
-    def _get_state_size(self) -> int:
-        """Input size."""
-        return self.state_dim[0] * self.state_dim[1]
-
-    def _get_action_dim(self) -> int:
-        """Calculate the total number of possible actions."""
-        action_dim = 1
-        for space in self.action_space.values():
-            action_dim *= space.nvec.prod()
-        logger.debug(f"\tComputed action_dim: {action_dim}")
-        return action_dim
-
-    def _index_to_action(self, index: int) -> Dict[int, Tuple[int, int]]:
-        """
-        Convert a flat action index back to a structured action per ally.
-
-        Args:
-            index (int): Flat action index.
-
-        Returns:
-            Dict[int, Tuple[int, int]]: Structured action dictionary.
-        """
-        action = {}
-        for ally_id, space in self.action_space.items():
-            n = space.nvec.prod()
-            action_part = index % n
-            action[self.pawns[ally_id].label] = PawnAction(
-                label=self.pawns[ally_id].label,
-                x=int(action_part // space.nvec[1]),
-                y=int(action_part % space.nvec[1]),
-            )
-            index = index // n
-        return action
-
-    def _action_to_index(self, action: GameAction) -> int:
-        """
-        Convert a structured GameAction to a flat action index.
-
-        Args:
-            action (GameAction): Structured action.
-
-        Returns:
-            int: Flat action index.
-        """
-        index = 0
-        for label, action in action.pawn_actions.items():
-            _, x, y = action
-            ally_id = None
-            for idx, pawn in self.pawns.items():
-                if pawn.label == label:
-                    ally_id = idx
-                    break
-
-            if ally_id is None:
-                raise ValueError(f"No pawn found with label {label}")
-
-            # Access action space directly from the Dict
-            space = self.action_space[ally_id]
-            n = space.nvec.prod()
-            part = x[1] * space.nvec[1] + y[1]
-            index = index * n + part
-        return index
-
-    def act(
+    def remember(
         self,
-        obs: NDArray,
-        info: Dict[
-            str,
-            MapState
-            | Dict[int, PawnState]
-            | Dict[int, MultiDiscrete]
-            | Dict[int, tuple[Loc]],
-        ],
-    ) -> GameAction:
-        """
-        Select an action based on the current observation.
+        state: NDArray,
+        next_state: NDArray,
+        action: int,
+        reward: float,
+    ) -> None:
+        state = torch.from_numpy(state).unsqueeze(0).to(self.device)
+        next_state = torch.from_numpy(next_state).unsqueeze(0).to(self.device)
+        action = torch.tensor([[action]], device="cpu")
+        reward = torch.tensor([reward], device="cpu")
+        self.memory.append((state, next_state, action, reward))
 
-        Args:
-            obs (np.ndarray): Current state observation.
-            info (Dict[int, PawnState]): Additional information about pawns.
+    def act(self, state: NDArray) -> Dict:
+        eps_threshold = self.epsilon_min + (
+            self.epsilon_max - self.epsilon_min
+        ) * math.exp(-1 * self.epsilon_decay**self.dones)
 
-        Returns:
-            GameAction: Selected action encapsulated in GameAction.
-        """
-        self.pawns = info["pawns"]
-        state = obs.flatten()
-        action_idx = self.model.act(state)
-        action = self._index_to_action(action_idx)
-        return GameAction(action)
+        self.dones += 1
 
-    def step(self, state, action, reward, next_state, done):
-        """
-        Save experience to replay buffer and train the network.
+        if random.random() > eps_threshold:
+            with torch.no_grad():
+                state = torch.from_numpy(state).unsqueeze(0).to(self.device)
+                output = self.policy_net.forward(state).max(1)[1].item()
+                x = output // self.act_space[1].nvec[0]
+                y = output % self.act_space[1].nvec[0]
+                return {1: np.array([x, y])}
+        else:
+            return {1: self.act_space[1].sample()}
 
-        Args:
-            state (np.ndarray): Current state.
-            action (GameAction): Action taken.
-            reward (float): Reward received.
-            next_state (np.ndarray): Next state.
-            done (bool): Whether the episode is done.
-        """
-        # Flatten states to match the network input
-        state = state.flatten()
-        next_state = next_state.flatten()
+    def train(self) -> None:
+        if len(self.memory) < self.batch_size * 100:
+            return
 
-        # Convert structured action to flat index
-        action_idx = self._action_to_index(action)
+        transitions = random.sample(self.memory, self.batch_size)
 
-        # Store experience and perform replay
-        self.model.remember(state, action_idx, reward, next_state, done)
-        self.model.replay() if TRAINING else None
+        batch = Transition(*zip(*transitions))
 
-    def save(self, path: str):
-        """
-        Save the policy network parameters.
+        actions = tuple(
+            (map(lambda a: torch.tensor([[a]], device=self.device), batch.action))
+        )
+        rewards = tuple(
+            (map(lambda r: torch.tensor([r], device=self.device), batch.reward))
+        )
 
-        Args:
-            path (str): Path to save the model.
-        """
-        self.model.save(path)
+        non_final_mask = torch.tensor(
+            tuple(map(lambda s: s is not None, batch.next_state)),
+            device=self.device,
+            dtype=torch.bool,
+        )
 
-    def load(self, path: str):
-        """
-        Load the policy network parameters.
+        non_final_next_states = torch.cat(
+            [s for s in batch.next_state if s is not None]
+        ).to(self.device)
 
-        Args:
-            path (str): Path to load the model from.
-        """
-        self.model.load(path)
+        state_batch = torch.cat(batch.state).to(self.device)
+        action_batch = torch.cat(actions)
+        reward_batch = torch.cat(rewards)
+
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
+        next_state_values[non_final_mask] = (
+            self.target_net(non_final_next_states).max(1)[0].detach()
+        )
+        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+
+        loss = F.smooth_l1_loss(
+            state_action_values, expected_state_action_values.unsqueeze(1)
+        )
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
+
+        if self.dones % self.target_net_update_freq == 0:
+            self.update_target_network()
+
+    def update_target_network(self) -> None:
+        self.target_net.load_state_dict(self.policy_net.state_dict())

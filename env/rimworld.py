@@ -417,19 +417,6 @@ class RimWorldEnv(gym.Env):
                             reward += self._options["rewarding"]["ally_danger"] * abs(
                                 ally.danger - ally_prev.danger
                             )
-                        # search for close covers
-                        obstacles = self._search_neighbor_cover(
-                            ally.loc, obs, ally.label
-                        )
-                        difference = (
-                            self._compare_obs(obstacles, self._covers_prev[ally.label])
-                            if ally.label in self._covers_prev.keys()
-                            else obstacles
-                        )
-                        if difference:
-                            reward += self._options["rewarding"]["ally_cover"] * len(
-                                difference
-                            )
                     if ally.is_incapable:
                         ally_step_defeated_num += 1
                 for idx, enemy in enumerate(self._enemies):

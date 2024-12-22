@@ -135,6 +135,7 @@ class GameServer:
         try:
             json_string = json.dumps(message)
             self.client.send(f"{json_string}\n".encode(self.ENCODING))
+            logger.debug(f"Sent message to client: {message}")
             return True
         except (ConnectionResetError, ConnectionAbortedError):
             self.client.close()

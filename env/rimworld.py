@@ -65,10 +65,12 @@ class RimWorldEnv(gym.Env):
                 ],
                 start=np.array(
                     [-self._options["action_range"], -self._options["action_range"]],
-                    dtype=np.int16,
+                    dtype=np.int8,
                 ),
+                dtype=np.int8,
             )
             self.action_space[idx] = ally_space
+
         self.action_space = spaces.Dict(self.action_space)
 
         """
@@ -167,8 +169,8 @@ class RimWorldEnv(gym.Env):
         for idx, ally in enumerate(self._allies, start=1):
             pawn_actions[ally.label] = PawnAction(
                 label=ally.label,
-                x=action[idx][0] + ally.loc.x,
-                y=action[idx][1] + ally.loc.y,
+                x=int(action[idx][0] + ally.loc.x + self.action_space[idx].start[0]),
+                y=int(action[idx][1] + ally.loc.y + self.action_space[idx].start[1]),
             )
 
         game_action = GameAction(pawn_actions)

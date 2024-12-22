@@ -6,7 +6,23 @@ from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp
-from .hyper_params import ENV_OPTIONS
+
+# this page is explicitly used fr storing trainning hyperparams
+ENV_OPTIONS = {
+    "interval": 0.5,
+    "speed": 4,
+    "action_range": 2,
+    "is_remote": False,
+    "rewarding": {
+        "original": 0,
+        "win": 50,
+        "lose": -50,
+        "ally_defeated": -10,
+        "enemy_defeated": 10,
+        "ally_danger": -10,
+        "enemy_danger": 10,
+    },
+}
 
 
 def main():

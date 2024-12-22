@@ -53,13 +53,22 @@ class DQN(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Convert the entire tensor to float
+        x = x.float()
+
         # Normalize each layer separately
-        x[:, 0] = x[:, 0].float() / self.obs_space.high[0][0][0]  # Ally pos layer
-        x[:, 1] = x[:, 1].float() / self.obs_space.high[1][0][0]  # Enemy pos layer
-        x[:, 2] = x[:, 2].float()  # Cover pos layer (0-1)
-        x[:, 3] = x[:, 3].float()  # Aiming layer (0-1)
-        x[:, 4] = x[:, 4].float()  # Status layer (0-1)
-        x[:, 5] = x[:, 5].float() / self.obs_space.high[5][0][0]  # Danger layer (0-100)
+        x[:, 0] = x[:, 0] / torch.tensor(
+            self.obs_space.high[0], device=x.device
+        )  # Ally pos layer
+        x[:, 1] = x[:, 1] / torch.tensor(
+            self.obs_space.high[1], device=x.device
+        )  # Enemy pos layer
+        x[:, 2] = x[:, 2]  # Cover pos layer (0-1)
+        x[:, 3] = x[:, 3]  # Aiming layer (0-1)
+        x[:, 4] = x[:, 4]  # Status layer (0-1)
+        x[:, 5] = x[:, 5] / torch.tensor(
+            self.obs_space.high[5], device=x.device
+        )  # Danger layer (0-100)
 
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten

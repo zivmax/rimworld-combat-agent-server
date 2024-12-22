@@ -29,7 +29,7 @@ def main():
     n_episodes = 1000
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
-    agent = Agent(obs_space=env.observation_space, act_space=env.action_space)
+    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
         next_state, _ = env.reset()
@@ -37,13 +37,14 @@ def main():
         while True:
             current_state = next_state
             action = agent.act(current_state)
+            action = {1: action}
 
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
             next_state = next_obs
 
-            agent.remember(current_state, next_state, action, reward)
+            agent.remember(current_state, next_state, action[1], reward, done)
             agent.train()
 
             if done:

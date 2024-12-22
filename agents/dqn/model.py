@@ -3,10 +3,11 @@ import torch
 import os
 from gymnasium import spaces
 from typing import Dict
+import numpy as np
 
 
 class DQN(nn.Module):
-    def __init__(self, obs_space: spaces.Box, act_space: spaces.MultiDiscrete):
+    def __init__(self, obs_space: spaces.Box, act_space: spaces.Box):
         """
         Initialize Deep Q Network
 
@@ -46,12 +47,8 @@ class DQN(nn.Module):
         out = self.conv(dummy)
         conv_out_size = out.view(out.size(0), -1).size(1)
 
-        # For single action spaces
-        act_space_size = (
-            act_space.nvec.prod()
-            if isinstance(act_space, spaces.MultiDiscrete)
-            else act_space.n
-        )
+        # Calculate total number of actions from the Box space dimensions
+        act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
         self.fc = nn.Sequential(
             nn.Linear(in_features=conv_out_size, out_features=2048),

@@ -56,17 +56,12 @@ class RimWorldEnv(gym.Env):
 
         self._update_all()
 
-        self.action_space: Dict[int, spaces.MultiDiscrete] = {}
+        self.action_space: Dict[int, spaces.Box] = {}
         for idx, ally in enumerate(self._allies, start=1):
-            ally_space = spaces.MultiDiscrete(
-                nvec=[
-                    2 * self._options["action_range"] + 1,
-                    2 * self._options["action_range"] + 1,
-                ],
-                start=np.array(
-                    [-self._options["action_range"], -self._options["action_range"]],
-                    dtype=np.int8,
-                ),
+            ally_space = spaces.Box(
+                low=-self._options["action_range"],
+                high=self._options["action_range"],
+                shape=(2,),
                 dtype=np.int8,
             )
             self.action_space[idx] = ally_space
@@ -338,19 +333,17 @@ class RimWorldEnv(gym.Env):
         for cover in self._get_covers():
             x, y = cover.loc.x, cover.loc.y
             cover_positions[x][y] = 1
-
-        # Stack layers into a single array
-        grid = np.stack(
-            [
-                ally_positions,
-                enemy_positions,
-                cover_positions,
-                aiming_layer,
-                status_layer,
-                danger_layer,
-            ],
-            axis=0,
-        )
+            # Return layers as separate arrays in a tuple
+            grid = np.array(
+                [
+                    ally_positions,
+                    enemy_positions,
+                    cover_positions,
+                    aiming_layer,
+                    status_layer,
+                    danger_layer,
+                ]
+            )
         return grid
 
     def _get_info(self):

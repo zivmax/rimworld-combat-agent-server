@@ -185,6 +185,9 @@ class RimWorldEnv(gym.Env):
             },
         }
 
+        logger.info(
+            f"Sent action to clients at tick {StateCollector.state.tick}:\n{to_json(game_action)}"
+        )
         server.send_to_client(server.client, message)
 
         StateCollector.receive_state()
@@ -308,12 +311,12 @@ class RimWorldEnv(gym.Env):
                     All layers use dtype=np.int8.
         """
         # Create separate layers
-        ally_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        enemy_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        cover_positions = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        aiming_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        status_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
-        danger_layer = np.zeros((self._map.height, self._map.width), dtype=np.int8)
+        ally_positions = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
+        enemy_positions = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
+        cover_positions = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
+        aiming_layer = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
+        status_layer = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
+        danger_layer = np.zeros((self._map.height, self._map.width), dtype=np.uint8)
 
         # Fill ally positions
         for idx, ally in enumerate(self._allies, start=1):

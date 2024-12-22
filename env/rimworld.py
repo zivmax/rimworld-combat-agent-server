@@ -4,7 +4,6 @@ import logging
 from threading import Thread
 from numpy.typing import NDArray
 from typing import Dict, List
-from gymnasium.spaces import MultiDiscrete, Box
 from gymnasium import spaces
 
 from utils.logger import get_cli_logger, get_file_logger
@@ -12,7 +11,7 @@ from utils.timestamp import timestamp
 from utils.json import to_json
 from .server import server, create_server_thread
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
-from .action import GameAction
+from .action import GameAction, PawnAction
 
 logging_level = logging.INFO
 f_logger = get_file_logger(
@@ -57,9 +56,9 @@ class RimWorldEnv(gym.Env):
 
         self._update_all()
 
-        self.action_space: Dict[int, MultiDiscrete] = {}
+        self.action_space: Dict[int, spaces.MultiDiscrete] = {}
         for idx, ally in enumerate(self._allies, start=1):
-            ally_space = MultiDiscrete(
+            ally_space = spaces.MultiDiscrete(
                 nvec=[
                     2 * self._options["action_range"] + 1,
                     2 * self._options["action_range"] + 1,
@@ -74,8 +73,8 @@ class RimWorldEnv(gym.Env):
 
         """
         Observation space has 6 layers:
-        1. Ally positions layer (1 to len(allies), uint8)
-        2. Enemy positions layer (1 to len(enemies), uint8)
+        1. Ally positions layer (0 to len(allies), uint8)
+        2. Enemy positions layer (0 to len(enemies), uint8)
         3. Cover positions layer (0-1, uint8)
         4. Aiming layer (0-1, uint8)
         5. Status layer (0-1, uint8)
@@ -83,8 +82,16 @@ class RimWorldEnv(gym.Env):
         """
         self.observation_space = spaces.Box(
             low=0,
-            high=np.array([len(self._allies), len(self._enemies), 1, 1, 1, 100]),
-            start=np.array([1, 1, 0, 0, 0, 0]),
+            high=np.array(
+                [
+                    [[len(self._allies)] * self._map.width] * self._map.height,
+                    [[len(self._enemies)] * self._map.width] * self._map.height,
+                    [[1] * self._map.width] * self._map.height,
+                    [[1] * self._map.width] * self._map.height,
+                    [[1] * self._map.width] * self._map.height,
+                    [[100] * self._map.width] * self._map.height,
+                ]
+            ),
             shape=(6, self._map.height, self._map.width),
             dtype=np.uint8,
         )
@@ -149,23 +156,27 @@ class RimWorldEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action: GameAction):
+    def step(self, action: Dict):
         observation = None
         reward = 0
         terminated = False
         truncated = False
         info = None
 
-        # Transform the GameAction's relative target position refer to pawn itself, to absolute position on the map
-        for ally in self._allies:
-            if ally.label in action.pawn_actions.keys():
-                action.pawn_actions[ally.label].x += ally.loc.x
-                action.pawn_actions[ally.label].y += ally.loc.y
+        pawn_actions = {}
+        for idx, ally in enumerate(self._allies, start=1):
+            pawn_actions[ally.label] = PawnAction(
+                label=ally.label,
+                x=action[idx][0] + ally.loc.x,
+                y=action[idx][1] + ally.loc.y,
+            )
+
+        game_action = GameAction(pawn_actions)
 
         message = {
             "Type": "Response",
             "Data": {
-                "Action": dict(action),
+                "Action": dict(game_action),
                 "Reset": False,
                 "Interval": self._options["interval"],
                 "Speed": self._options["speed"],

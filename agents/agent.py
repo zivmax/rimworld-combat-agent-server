@@ -34,7 +34,7 @@ class Agent(ABC):
             | Dict[int, MultiDiscrete]
             | Dict[int, tuple[Loc]],
         ],
-    ) -> GameAction:
+    ) -> NDArray:
         """
         Select an action based on the current state.
 

@@ -6,7 +6,6 @@ from env.server import server
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from utils.math import sigmoid
 
 logging_level = logging.INFO
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
@@ -149,6 +148,8 @@ class PawnState:
 
     @property
     def danger(self) -> float:
+        from utils.math import sigmoid
+
         return sigmoid(
             1 - self.health.conciousness + self.health.pain + self.health.bleed
         )

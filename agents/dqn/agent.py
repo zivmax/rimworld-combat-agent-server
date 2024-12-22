@@ -30,7 +30,7 @@ class DQNAgent:
         self.gamma: float = 0.99
         self.epsilon_max: float = 1.0
         self.epsilon_min: float = 0.01
-        self.epsilon_decay: float = 0.99950
+        self.epsilon_decay: float = 0.9
         self.learning_rate: float = 0.00025
         self.dones: int = 0
 
@@ -68,8 +68,8 @@ class DQNAgent:
             with torch.no_grad():
                 state = torch.from_numpy(state).unsqueeze(0).to(self.device)
                 output = self.policy_net.forward(state).max(1)[1].item()
-                x = output // self.act_space[1].nvec[0]
-                y = output % self.act_space[1].nvec[0]
+                x = output // self.act_space[1].nvec[0] + self.act_space[1].start[0]
+                y = output % self.act_space[1].nvec[0] + self.act_space[1].start[1]
                 return {1: np.array([x, y])}
         else:
             return {1: self.act_space[1].sample()}

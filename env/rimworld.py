@@ -22,8 +22,6 @@ cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = f_logger
 
-DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-
 
 class RimWorldEnv(gym.Env):
     def __init__(self, options: Dict = None):
@@ -259,21 +257,6 @@ class RimWorldEnv(gym.Env):
         mask = tuple(invalid_positions)
 
         self.action_mask = mask
-
-    def _search_neighbor_cover(self, loc: Loc, obs: NDArray, name: str) -> List[Loc]:
-        neighbors = []
-        for dx, dy in DIRECTIONS:
-            neighbor = Loc(loc.x + dx, loc.y + dy)
-            if (
-                0 <= neighbor.x < self._map.width
-                and 0 <= neighbor.y < self._map.height
-                and obs[neighbor.x][neighbor.y] != 7
-            ):
-                neighbors.append(neighbor)
-        if name in self._covers.keys():
-            self._covers_prev[name] = self._covers[name]
-        self._covers[name] = neighbors if neighbors else None
-        return neighbors
 
     def _compare_obs(self, obs: List[Loc], last_obs: List[Loc]) -> NDArray:
         if not last_obs:

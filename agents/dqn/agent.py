@@ -38,12 +38,12 @@ class DQNAgent:
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
         self.memory: Deque[Tuple] = deque(maxlen=100000)
-        self.batch_size: int = 32
-        self.gamma: float = 0.99
+        self.batch_size: int = 128
+        self.gamma: float = 0.98
         self.epsilon_final: float = 1.0
         self.epsilon_start: float = 0.01
         self.epsilon_decay: float = 0.99989
-        self.learning_rate: float = 0.00015
+        self.learning_rate: float = 0.0001
         self.steps: int = 0
 
         self.policy_net: DQN = DQN(self.obs_space, self.act_space).to(device)

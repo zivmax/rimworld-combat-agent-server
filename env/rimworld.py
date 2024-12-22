@@ -74,8 +74,8 @@ class RimWorldEnv(gym.Env):
 
         """
         Observation space has 6 layers:
-        1. Ally positions layer (0 to len(allies), uint8)
-        2. Enemy positions layer (0 to len(enemies), uint8)
+        1. Ally positions layer (1 to len(allies), uint8)
+        2. Enemy positions layer (1 to len(enemies), uint8)
         3. Cover positions layer (0-1, uint8)
         4. Aiming layer (0-1, uint8)
         5. Status layer (0-1, uint8)
@@ -84,6 +84,7 @@ class RimWorldEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0,
             high=np.array([len(self._allies), len(self._enemies), 1, 1, 1, 100]),
+            start=np.array([1, 1, 0, 0, 0, 0]),
             shape=(6, self._map.height, self._map.width),
             dtype=np.uint8,
         )

@@ -11,12 +11,12 @@ from utils.timestamp import timestamp
 ENV_OPTIONS = {
     "interval": 0.5,
     "speed": 4,
-    "action_range": 2,
+    "action_range": 1,
     "is_remote": False,
     "rewarding": {
         "original": 0,
-        "win": 50,
-        "lose": -50,
+        "win": 100,
+        "lose": -100,
         "ally_defeated": -10,
         "enemy_defeated": 10,
         "ally_danger": -10,
@@ -26,7 +26,7 @@ ENV_OPTIONS = {
 
 
 def main():
-    n_episodes = 1000
+    n_episodes = 10000
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])

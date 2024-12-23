@@ -9,19 +9,18 @@ from utils.timestamp import timestamp
 
 # this page is explicitly used fr storing trainning hyperparams
 ENV_OPTIONS = {
-    "interval": 0.5,
-    "speed": 4,
-    "action_range": 2,
-    "is_remote": False,
     "rewarding": {
         "original": 0,
-        "win": 50,
-        "lose": -50,
-        "ally_defeated": -10,
+        "ally_defeated": -7,
         "enemy_defeated": 10,
-        "ally_danger": -10,
-        "enemy_danger": 10,
+        "ally_danger": 0.5,
+        "enemy_danger": -0.5,
+        "invalid_position": -2,
+        "remain_still_too_long": -2,
+        "win": 0,
+        "lose": 0,
     },
+    "remain_still_threshold": 4,
 }
 
 

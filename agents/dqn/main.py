@@ -13,6 +13,7 @@ ENV_OPTIONS = {
     "speed": 4,
     "action_range": 1,
     "is_remote": False,
+    "remain_still_threshold": 4,
     "rewarding": {
         "original": 0,
         "win": 100,
@@ -21,12 +22,9 @@ ENV_OPTIONS = {
         "enemy_defeated": 10,
         "ally_danger": 0.5,
         "enemy_danger": -0.5,
-        "invalid_position": -2,
-        "remain_still_too_long": -2,
-        "win": 0,
-        "lose": 0,
+        "invalid_action": -2,
+        "remain_still": 0,
     },
-    "remain_still_threshold": 4,
 }
 
 

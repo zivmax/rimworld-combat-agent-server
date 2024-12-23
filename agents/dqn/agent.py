@@ -42,7 +42,7 @@ class DQNAgent:
         self.gamma: float = 0.98
         self.epsilon_final: float = 1.0
         self.epsilon_start: float = 0.01
-        self.epsilon_decay: float = 0.99989
+        self.epsilon_decay: float = 0.99999
         self.learning_rate: float = 0.0001
         self.steps: int = 0
 
@@ -74,26 +74,26 @@ class DQNAgent:
     def act(self, state: NDArray) -> Dict:
         self.steps += 1
 
-        eps_threshold = self.epsilon_start + (
-            self.epsilon_final - self.epsilon_start
-        ) * math.exp(-5 * self.epsilon_decay**self.steps)
-
+        eps_threshold = min(
+            self.epsilon_final,
+            self.epsilon_start * 1 - np.exp(-5 * self.epsilon_decay**self.steps),
+        )
         explore = (
-            random.random() < eps_threshold and len(self.memory) < self.memory.maxlen
+            random.random() < eps_threshold or len(self.memory) < self.memory.maxlen / 2
         )
 
         if explore:
+            return self.act_space.sample()
+        else:
             with torch.no_grad():
                 state = torch.from_numpy(state).unsqueeze(0).to(self.device)
                 output = self.policy_net.forward(state).max(1)[1].item()
                 x = output // self.act_space.high[0] + self.act_space.low[0]
                 y = output % self.act_space.high[0] + self.act_space.low[0]
                 return np.array([x, y])
-        else:
-            return self.act_space.sample()
 
     def train(self) -> None:
-        if len(self.memory) < self.memory.maxlen:
+        if len(self.memory) < self.memory.maxlen / 2:
             return
 
         transitions = random.sample(self.memory, self.batch_size)

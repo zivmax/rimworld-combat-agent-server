@@ -268,15 +268,6 @@ class RimWorldEnv(gym.Env):
 
         self.action_mask = mask
 
-    def _compare_obs(self, obs: List[Loc], last_obs: List[Loc]) -> NDArray:
-        if not last_obs:
-            return obs
-        changes = []
-        for current, last in zip(obs, last_obs):
-            if current != last:
-                changes.append(current)
-        return changes
-
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a stacked array of 2D grids.
 

@@ -20,9 +20,9 @@ ENV_OPTIONS = {
         "lose": -100,
         "ally_defeated": -10,
         "enemy_defeated": 10,
-        "ally_danger": 0.5,
-        "enemy_danger": -0.5,
-        "invalid_action": -2,
+        "ally_danger": -10,
+        "enemy_danger": 10,
+        "invalid_action": -1,
         "remain_still": 0,
     },
 }

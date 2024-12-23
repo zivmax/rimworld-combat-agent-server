@@ -38,7 +38,7 @@ class DQNAgent:
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
         self.memory: Deque[Tuple] = deque(maxlen=200000)
-        self.batch_size: int = 32
+        self.batch_size: int = 1024
         self.gamma: float = 0.98
         self.epsilon_final: float = 0.001
         self.epsilon_start: float = 1.0

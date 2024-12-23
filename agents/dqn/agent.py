@@ -42,8 +42,9 @@ class DQNAgent:
         self.gamma: float = 0.98
         self.epsilon_final: float = 1.0
         self.epsilon_start: float = 0.01
-        self.epsilon_decay: float = 0.99999
-        self.learning_rate: float = 0.0001
+        self.epsilon_decay: float = 0.999992
+        self.explore: bool = True
+        self.learning_rate: float = 0.00015
         self.steps: int = 0
 
         self.policy_net: DQN = DQN(self.obs_space, self.act_space).to(device)
@@ -78,11 +79,10 @@ class DQNAgent:
             self.epsilon_final,
             self.epsilon_start * 1 - np.exp(-5 * self.epsilon_decay**self.steps),
         )
-        explore = (
-            random.random() < eps_threshold or len(self.memory) < self.memory.maxlen / 2
-        )
 
-        if explore:
+        self.explore = random.random() < eps_threshold
+
+        if self.explore:
             return self.act_space.sample()
         else:
             with torch.no_grad():
@@ -93,7 +93,7 @@ class DQNAgent:
                 return np.array([x, y])
 
     def train(self) -> None:
-        if len(self.memory) < self.memory.maxlen / 2:
+        if self.explore:
             return
 
         transitions = random.sample(self.memory, self.batch_size)

@@ -3,7 +3,7 @@ import numpy as np
 import logging
 from threading import Thread
 from numpy.typing import NDArray
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from gymnasium import spaces
 
 from utils.logger import get_cli_logger, get_file_logger
@@ -25,16 +25,17 @@ logger = f_logger
 class RimWorldEnv(gym.Env):
     def __init__(self, options: Dict = None):
 
+        self._reseted_times: int = 0
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
-        self._allies: List[PawnState] = None
-        self._allies_prev: List[PawnState] = None
-        self._enemies: List[PawnState] = None
-        self._enemies_prev: List[PawnState] = None
-        self._covers: Dict[str, List[Loc]] = {}
-        self._covers_prev: Dict[str, List[Loc]] = {}
-        self._reseted_times: int = 0
-        self._allies_remain_still_count: Dict[str, int] = {}
+        self._allies: Tuple[PawnState] = None
+        self._allies_prev: Tuple[PawnState] = None
+        self._enemies: Tuple[PawnState] = None
+        self._enemies_prev: Tuple[PawnState] = None
+        self._actions_prev: Dict[str, PawnAction] = None
+        self._allies_still_count: Dict[str, int] = {}
+        self._invalid_positions: Tuple[Loc] = None
+        self._invalid_positions_prev: Tuple[Loc] = None
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -49,8 +50,8 @@ class RimWorldEnv(gym.Env):
                     "enemy_defeated": 10,
                     "ally_danger": 0.5,
                     "enemy_danger": -0.5,
-                    "invalid_position": -2,
-                    "remain_still_too_long": -2,
+                    "invalid_action": -2,
+                    "remain_still_threshold": -2,
                     "win": 0,
                     "lose": 0,
                 },
@@ -196,16 +197,17 @@ class RimWorldEnv(gym.Env):
             },
         }
 
+        server.send_to_client(server.client, message)
         logger.info(
             f"Sent action to clients at tick {StateCollector.state.tick}:\n{to_json(game_action)}"
         )
-        server.send_to_client(server.client, message)
-
         StateCollector.receive_state()
+
+        self._actions_prev = pawn_actions
         self._update_all()
 
         observation = self._get_obs()
-        reward = self._get_reward(observation)
+        reward = self._get_reward()
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = False
         info = self._get_info()
@@ -217,29 +219,38 @@ class RimWorldEnv(gym.Env):
         super().close()
 
     def _update_allies(self):
-        self._allies_prev = self._allies.copy() if self._allies else None
-        self._allies: list[PawnState] = [p for p in self._pawns.values() if p.is_ally]
-        self._allies.sort(key=lambda x: x.label)
+        self._allies_prev = self._allies
+        self._allies: Tuple[PawnState] = tuple(
+            sorted(
+                [p for p in self._pawns.values() if p.is_ally], key=lambda x: x.label
+            )
+        )
+
+        # Initialize still counts for new allies
+        for ally in self._allies:
+            self._allies_still_count.setdefault(ally.label, 0)
+
+        # Update still counts based on previous positions
+        if self._allies_prev:
+            for ally_prev, ally_cur in zip(self._allies_prev, self._allies):
+                if ally_prev.label == ally_cur.label and ally_prev.loc == ally_cur.loc:
+                    self._allies_still_count[ally_cur.label] += 1
 
     def _update_enemies(self):
-        self._enemies_prev = self._enemies.copy() if self._enemies else None
-        self._enemies: list[PawnState] = [
-            p for p in self._pawns.values() if not p.is_ally
-        ]
-        self._enemies.sort(key=lambda x: x.label)
+        self._enemies_prev = self._enemies
+        self._enemies: Tuple[PawnState] = tuple(
+            sorted(
+                [p for p in self._pawns.values() if not p.is_ally],
+                key=lambda x: x.label,
+            )
+        )
 
     def _update_all(self):
         self._pawns = StateCollector.state.pawns
         self._map = StateCollector.state.map
         self._update_allies()
         self._update_enemies()
-        self._update_action_mask()
-
-    def _clamp(self, loc: Loc) -> Loc:
-        return Loc(
-            max(min(loc.x, self._map.width - 1), 0),
-            max(min(loc.y, self._map.height - 1), 0),
-        )
+        self._update_invalid_position()
 
     def _get_covers(self) -> List[CellState]:
         """Get all cover locations in the map.
@@ -257,15 +268,15 @@ class RimWorldEnv(gym.Env):
                     covers.append(cell)
         return covers
 
-    def _update_action_mask(self):
+    def _update_invalid_position(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
         Each ally's space is a MultiDiscrete for (x,y) movement across the entire map.
 
         The action mask is a tuple of invalid Loc positions per ally.
         """
+        self._invalid_positions_prev = self._invalid_positions
         covers = self._get_covers()
-        mask = {}
 
         # Collect invalid positions
         invalid_positions = []
@@ -278,9 +289,9 @@ class RimWorldEnv(gym.Env):
         for enemy in self._enemies:
             invalid_positions.append(enemy.loc)
 
-        mask = tuple(invalid_positions)
+        invalid_positions = tuple(invalid_positions)
 
-        self.action_mask = mask
+        self.invalid_positions = invalid_positions
 
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a stacked array of 2D grids.
@@ -371,83 +382,83 @@ class RimWorldEnv(gym.Env):
             "map": self._map,
             "pawns": pawn_in_ID,
             "action_space": self.action_space,
-            "action_mask": self.action_mask,
+            "action_mask": self.invalid_positions,
         }
 
-    def _get_reward(self, obs: NDArray) -> float:
-        """
-        Calculate the reward based on the state of allies and enemies.
-
-        The reward is determined by:
-        1. For allies:
-            - Deducts 10 points if an ally is incapacitated
-            - Adds points based on ally's safety (inverse of danger)
-        2. For enemies:
-            - Adds 10 points if an enemy is incapacitated
-            - Deducts points based on enemy's safety
-
-        Returns:
-             float: The calculated reward value. Positive values indicate favorable situations,
-                     while negative values indicate unfavorable situations.
-        """
-
+    def _get_reward(self) -> float:
+        """Calculate the total reward based on game state."""
         reward = self._options["rewarding"]["original"]
-        match StateCollector.state.status:
-            case GameStatus.RUNNING:
-                ally_step_defeated_num = 0
-                enemy_step_defeated_num = 0
-                for idx, ally in enumerate(self._allies):
-                    ally_prev = self._allies_prev[idx] if self._allies_prev else None
-                    """penalty for invalid position"""
-                    if ally.loc not in self.action_mask:
-                        reward += self._options["rewarding"]["invalid_position"]
 
-                    if ally_prev:
-                        """penalty for ally danger"""
-                        if ally.is_incapable and not ally_prev.is_incapable:
-                            reward += self._options["rewarding"]["ally_defeated"]
-                        else:
-                            reward += self._options["rewarding"]["ally_danger"] * abs(
-                                ally.danger - ally_prev.danger
-                            )
-                        """penalty for remain still too long"""
-                        if (
-                            ally.loc == ally_prev.loc
-                            and ally.label in self._allies_remain_still_count
-                        ):
-                            self._allies_remain_still_count[ally.label] += 1
-                        else:
-                            self._allies_remain_still_count[ally.label] = 0
-                    else:
-                        self._allies_remain_still_count[ally.label] = 0
-                    remain_difference = (
-                        self._allies_remain_still_count[ally.label]
-                        - self._options["remain_still_threshold"]
-                    )
-                    if remain_difference > 0:
-                        reward += (
-                            remain_difference
-                            * self._options["rewarding"]["remain_still_too_long"]
-                        )
-                    if ally.is_incapable:
-                        ally_step_defeated_num += 1
-                for idx, enemy in enumerate(self._enemies):
-                    enemy_prev = self._enemies_prev[idx] if self._enemies_prev else None
-
-                    if enemy_prev:
-                        if enemy.is_incapable and not enemy_prev.is_incapable:
-                            reward += self._options["rewarding"]["enemy_defeated"]
-                        else:
-                            reward += self._options["rewarding"]["enemy_danger"] * abs(
-                                enemy.danger - enemy_prev.danger
-                            )
-                    if enemy.is_incapable:
-                        enemy_step_defeated_num += 1
-
-            case GameStatus.WIN:
-                reward += self._options["rewarding"]["win"]
-
-            case GameStatus.LOSE:
-                reward += self._options["rewarding"]["lose"]
+        if StateCollector.state.status == GameStatus.RUNNING:
+            reward += self._calculate_allies_reward()
+            reward += self._calculate_enemies_reward()
+        elif StateCollector.state.status == GameStatus.WIN:
+            reward += self._options["rewarding"]["win"]
+        elif StateCollector.state.status == GameStatus.LOSE:
+            reward += self._options["rewarding"]["lose"]
 
         return reward
+
+    def _calculate_allies_reward(self) -> float:
+        """Calculate reward component for allies."""
+        reward = 0
+        for idx, ally in enumerate(self._allies):
+            reward += self._calculate_position_penalty(ally)
+            reward += self._calculate_ally_state_change(idx, ally)
+            reward += self._calculate_still_penalty(ally)
+        return reward
+
+    def _calculate_enemies_reward(self) -> float:
+        """Calculate reward component for enemies."""
+        reward = 0
+        for idx, enemy in enumerate(self._enemies):
+            reward += self._calculate_enemy_state_change(idx, enemy)
+        return reward
+
+    def _calculate_position_penalty(self, ally: PawnState) -> float:
+        """Calculate penalty for invalid position."""
+        prev_action_loc = Loc(
+            self._actions_prev[ally.label].x, self._actions_prev[ally.label].y
+        )
+        if self._invalid_positions_prev:
+            if prev_action_loc in self._invalid_positions_prev:
+                return self._options["rewarding"]["invalid_action"]
+        return 0
+
+    def _calculate_ally_state_change(self, idx: int, ally: PawnState) -> float:
+        """Calculate reward based on ally's state changes."""
+        if not self._allies_prev:
+            return 0
+
+        ally_prev = self._allies_prev[idx]
+        if ally.is_incapable and not ally_prev.is_incapable:
+            return self._options["rewarding"]["ally_defeated"]
+
+        return self._options["rewarding"]["ally_danger"] * abs(
+            ally.danger - ally_prev.danger
+        )
+
+    def _calculate_enemy_state_change(self, idx: int, enemy: PawnState) -> float:
+        """Calculate reward based on enemy's state changes."""
+        if not self._enemies_prev:
+            return 0
+
+        enemy_prev = self._enemies_prev[idx]
+        if enemy.is_incapable and not enemy_prev.is_incapable:
+            return self._options["rewarding"]["enemy_defeated"]
+
+        return self._options["rewarding"]["enemy_danger"] * abs(
+            enemy.danger - enemy_prev.danger
+        )
+
+    def _calculate_still_penalty(self, ally: PawnState) -> float:
+        """Calculate penalty for remaining still too long."""
+
+        excess_still_count = (
+            self._allies_still_count[ally.label]
+            - self._options["remain_still_threshold"]
+        )
+
+        if excess_still_count > 0:
+            return excess_still_count * self._options["rewarding"]["remain_still"]
+        return 0

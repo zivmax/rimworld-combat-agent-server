@@ -374,13 +374,6 @@ class RimWorldEnv(gym.Env):
             "action_mask": self.action_mask,
         }
 
-    def _search_covers(self, loc: Loc) -> bool:
-        covers = self._get_covers()
-        for cover in covers:
-            if cover.loc == loc:
-                return True
-        return False
-
     def _get_reward(self, obs: NDArray) -> float:
         """
         Calculate the reward based on the state of allies and enemies.

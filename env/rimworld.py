@@ -33,6 +33,7 @@ class RimWorldEnv(gym.Env):
         self._enemies_prev: List[PawnState] = None
         self._covers: Dict[str, List[Loc]] = {}
         self._covers_prev: Dict[str, List[Loc]] = {}
+        self._reseted_times: int = 0
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -147,6 +148,15 @@ class RimWorldEnv(gym.Env):
         StateCollector.receive_state()
 
         logger.info(f"Env reset!")
+        self._reseted_times += 1
+
+        if (
+            self._reseted_times >= 300
+        ):  # Client will restart after 300 resets, re-reset to reconfig game.
+            server.send_to_client(server.client, message)
+            logger.info(f"Restart and reconfigure the client game.")
+            StateCollector.reset()
+            StateCollector.receive_state()
 
         self._update_all()
 

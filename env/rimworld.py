@@ -47,6 +47,8 @@ class RimWorldEnv(gym.Env):
                     "enemy_defeated": 10,
                     "ally_danger": 0.5,
                     "enemy_danger": -0.5,
+                    "win": 0,
+                    "lose": 0,
                 },
             ),
         }

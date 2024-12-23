@@ -191,11 +191,7 @@ class RimWorldEnv(gym.Env):
         self._update_all()
 
         observation = self._get_obs()
-        reward = (
-            self._get_reward(observation)
-            if StateCollector.state.status == GameStatus.RUNNING
-            else 0
-        )
+        reward = self._get_reward(observation)
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = False
         info = self._get_info()

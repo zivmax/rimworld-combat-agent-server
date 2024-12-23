@@ -408,16 +408,20 @@ class RimWorldEnv(gym.Env):
                 enemy_step_defeated_num = 0
                 for idx, ally in enumerate(self._allies):
                     ally_prev = self._allies_prev[idx] if self._allies_prev else None
+                    '''penalty for invalid position'''
                     if ally.loc not in self.action_mask:
                         reward += self._options["rewarding"]["invalid_position"]
+                   
                     if ally_prev:
+                        '''penalty for ally danger'''
                         if ally.is_incapable and not ally_prev.is_incapable:
                             reward += self._options["rewarding"]["ally_defeated"]
                         else:
                             reward += self._options["rewarding"]["ally_danger"] * abs(
                                 ally.danger - ally_prev.danger
                             )
-                        if ally.loc == ally_prev.loc:
+                        '''penalty for remain still too long'''
+                        if ally.loc == ally_prev.loc and ally.label in self._allies_remain_still_count:
                             self._allies_remain_still_count[ally.label] += 1
                         else:
                             self._allies_remain_still_count[ally.label] = 0

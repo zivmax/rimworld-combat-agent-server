@@ -161,11 +161,11 @@ class RimWorldEnv(gym.Env):
         info = None
 
         pawn_actions = {}
-        for idx, ally in enumerate(self._allies, start=1):
+        for _, ally in enumerate(self._allies, start=1):
             pawn_actions[ally.label] = PawnAction(
                 label=ally.label,
-                x=int(action[idx][0] + ally.loc.x),
-                y=int(action[idx][1] + ally.loc.y),
+                x=int(action[1][0] + ally.loc.x),
+                y=int(action[1][1] + ally.loc.y),
             )
 
         game_action = GameAction(pawn_actions)

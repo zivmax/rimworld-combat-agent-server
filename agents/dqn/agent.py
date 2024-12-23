@@ -38,10 +38,10 @@ class DQNAgent:
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
         self.memory: Deque[Tuple] = deque(maxlen=200000)
-        self.batch_size: int = 2048
+        self.batch_size: int = 1024
         self.gamma: float = 0.98
-        self.epsilon_final: float = 1.0
-        self.epsilon_start: float = 0.01
+        self.epsilon_final: float = 0.001
+        self.epsilon_start: float = 1.0
         self.epsilon_decay: float = 0.999992
         self.explore: bool = True
         self.learning_rate: float = 0.00015
@@ -82,7 +82,7 @@ class DQNAgent:
 
         self.explore = random.random() < eps_threshold
 
-        if self.explore:
+        if self.explore or len(self.memory) < self.batch_size:
             return self.act_space.sample()
         else:
             with torch.no_grad():
@@ -93,7 +93,7 @@ class DQNAgent:
                 return np.array([x, y])
 
     def train(self) -> None:
-        if self.explore:
+        if self.explore or len(self.memory) < self.batch_size:
             return
 
         transitions = random.sample(self.memory, self.batch_size)

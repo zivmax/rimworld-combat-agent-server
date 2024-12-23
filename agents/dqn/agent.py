@@ -37,8 +37,8 @@ class DQNAgent:
         self.device: str = device
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
-        self.memory: Deque[Tuple] = deque(maxlen=100000)
-        self.batch_size: int = 128
+        self.memory: Deque[Tuple] = deque(maxlen=200000)
+        self.batch_size: int = 2048
         self.gamma: float = 0.98
         self.epsilon_final: float = 1.0
         self.epsilon_start: float = 0.01
@@ -72,13 +72,17 @@ class DQNAgent:
         self.memory.append((state, next_state, action, reward, done))
 
     def act(self, state: NDArray) -> Dict:
+        self.steps += 1
+
         eps_threshold = self.epsilon_start + (
             self.epsilon_final - self.epsilon_start
         ) * math.exp(-5 * self.epsilon_decay**self.steps)
 
-        self.steps += 1
+        explore = (
+            random.random() < eps_threshold and len(self.memory) < self.memory.maxlen
+        )
 
-        if random.random() < eps_threshold:
+        if explore:
             with torch.no_grad():
                 state = torch.from_numpy(state).unsqueeze(0).to(self.device)
                 output = self.policy_net.forward(state).max(1)[1].item()

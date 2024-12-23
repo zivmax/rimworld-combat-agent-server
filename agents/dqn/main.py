@@ -19,9 +19,14 @@ ENV_OPTIONS = {
         "lose": -100,
         "ally_defeated": -10,
         "enemy_defeated": 10,
-        "ally_danger": -10,
-        "enemy_danger": 10,
+        "ally_danger": 0.5,
+        "enemy_danger": -0.5,
+        "invalid_position": -2,
+        "remain_still_too_long": -2,
+        "win": 0,
+        "lose": 0,
     },
+    "remain_still_threshold": 4,
 }
 
 

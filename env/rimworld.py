@@ -34,6 +34,7 @@ class RimWorldEnv(gym.Env):
         self._covers: Dict[str, List[Loc]] = {}
         self._covers_prev: Dict[str, List[Loc]] = {}
         self._reseted_times: int = 0
+        self._allies_remain_still_count: Dict[str, int] = {}
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -48,10 +49,13 @@ class RimWorldEnv(gym.Env):
                     "enemy_defeated": 10,
                     "ally_danger": 0.5,
                     "enemy_danger": -0.5,
+                    "invalid_position": -2,
+                    "remain_still_too_long": -2,
                     "win": 0,
                     "lose": 0,
                 },
             ),
+            "remain_still_threshold": 4,
         }
 
         self._server_thread: Thread = create_server_thread(self._options["is_remote"])
@@ -401,14 +405,37 @@ class RimWorldEnv(gym.Env):
                 enemy_step_defeated_num = 0
                 for idx, ally in enumerate(self._allies):
                     ally_prev = self._allies_prev[idx] if self._allies_prev else None
+                    """penalty for invalid position"""
+                    if ally.loc not in self.action_mask:
+                        reward += self._options["rewarding"]["invalid_position"]
 
                     if ally_prev:
+                        """penalty for ally danger"""
                         if ally.is_incapable and not ally_prev.is_incapable:
                             reward += self._options["rewarding"]["ally_defeated"]
                         else:
                             reward += self._options["rewarding"]["ally_danger"] * abs(
                                 ally.danger - ally_prev.danger
                             )
+                        """penalty for remain still too long"""
+                        if (
+                            ally.loc == ally_prev.loc
+                            and ally.label in self._allies_remain_still_count
+                        ):
+                            self._allies_remain_still_count[ally.label] += 1
+                        else:
+                            self._allies_remain_still_count[ally.label] = 0
+                    else:
+                        self._allies_remain_still_count[ally.label] = 0
+                    remain_difference = (
+                        self._allies_remain_still_count[ally.label]
+                        - self._options["remain_still_threshold"]
+                    )
+                    if remain_difference > 0:
+                        reward += (
+                            remain_difference
+                            * self._options["rewarding"]["remain_still_too_long"]
+                        )
                     if ally.is_incapable:
                         ally_step_defeated_num += 1
                 for idx, enemy in enumerate(self._enemies):

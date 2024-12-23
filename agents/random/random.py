@@ -2,7 +2,7 @@ from random import randint
 from numpy.typing import NDArray
 from typing import Dict, Tuple
 from gymnasium.spaces import MultiDiscrete
-
+import numpy as np
 from utils.json import to_json
 from env.state import PawnState, MapState, Loc
 from env.action import GameAction, PawnAction
@@ -51,16 +51,18 @@ class RandomAgent(Agent):
                 act = space[idx].sample()
                 if Loc(act[0], act[1]) not in mask[idx]:
                     break
+            
+        return {1: np.array([act[0], act[1]])}
 
-            ally_actions[ally.label] = PawnAction(
-                label=ally.label,
-                x=int(act[0]),
-                y=int(act[1]),
-            )
+        #     ally_actions[ally.label] = PawnAction(
+        #         label=ally.label,
+        #         x=int(act[0]),
+        #         y=int(act[1]),
+        #     )
 
-        logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}")
+        # logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}")
 
-        return GameAction(ally_actions)
+        # return GameAction(ally_actions)
 
     def save(self):
         pass

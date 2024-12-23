@@ -38,7 +38,7 @@ class DQNAgent:
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
         self.memory: Deque[Tuple] = deque(maxlen=200000)
-        self.batch_size: int = 1024
+        self.batch_size: int = 32
         self.gamma: float = 0.98
         self.epsilon_final: float = 0.001
         self.epsilon_start: float = 1.0
@@ -81,6 +81,7 @@ class DQNAgent:
         )
 
         self.explore = random.random() < eps_threshold
+        self.explore = False
 
         if self.explore or len(self.memory) < self.batch_size:
             return self.act_space.sample()
@@ -88,8 +89,13 @@ class DQNAgent:
             with torch.no_grad():
                 state = torch.from_numpy(state).unsqueeze(0).to(self.device)
                 output = self.policy_net.forward(state).max(1)[1].item()
-                x = output // self.act_space.high[0] + self.act_space.low[0]
-                y = output % self.act_space.high[0] + self.act_space.low[0]
+                width = self.act_space.high[0] - self.act_space.low[0]
+                x = output % width
+                y = output // width
+
+                x += self.act_space.low[0]
+                y += self.act_space.low[0]
+
                 return np.array([x, y])
 
     def train(self) -> None:

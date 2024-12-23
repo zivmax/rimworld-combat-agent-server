@@ -7,7 +7,6 @@ from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-# this page is explicitly used fr storing trainning hyperparams
 ENV_OPTIONS = {
     "interval": 0.5,
     "speed": 4,
@@ -27,9 +26,12 @@ ENV_OPTIONS = {
     },
 }
 
+N_EPISODES = 10000
+SAVING_INTERVAL = 100
+
 
 def main():
-    n_episodes = 10000
+    n_episodes = N_EPISODES
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
@@ -53,7 +55,7 @@ def main():
             if done:
                 break
 
-        if episode % 100 == 0 and episode > 0:
+        if episode % SAVING_INTERVAL == 0 and episode > 0:
             agent.policy_net.save(f"./models/{timestamp}/dqn_{episode}.pth")
             draw(env, save_path=f"./plots/{timestamp}/stats_{episode}.png")
 

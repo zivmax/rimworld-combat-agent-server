@@ -151,7 +151,7 @@ class PawnState:
         from utils.math import sigmoid
 
         return sigmoid(
-            1 - self.health.conciousness + self.health.pain + self.health.bleed
+            1 - self.health.conciousness + self.health.pain + self.health.bleed - 6
         )
 
     def __iter__(self):

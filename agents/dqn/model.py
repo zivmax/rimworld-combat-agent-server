@@ -21,29 +21,27 @@ class DQN(nn.Module):
 
         self.conv = nn.Sequential(
             # First conv block: 6 -> 32 channels
-            nn.Conv2d(
+            nn.Conv3d(
                 in_channels=obs_space.shape[0],
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
             ),
             nn.ReLU(),
-            nn.BatchNorm2d(32),
+            nn.BatchNorm3d(32),
             # Second conv block: 32 -> 64 channels
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
+            nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm2d(64),
+            nn.BatchNorm3d(64),
             # Max pooling to reduce spatial dimensions by 2
-            nn.MaxPool2d(2),
+            nn.MaxPool3d(2),
             # Third conv block: 64 -> 64 channels
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
+            nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm2d(64),
+            nn.BatchNorm3d(64),
         )
 
-        dummy = torch.zeros(
-            1, obs_space.shape[0], obs_space.shape[1], obs_space.shape[2]
-        )
+        dummy = torch.zeros(1, *obs_space.shape)
         out = self.conv(dummy)
         conv_out_size = out.view(out.size(0), -1).size(1)
 

@@ -10,7 +10,6 @@ import random
 from .model import DQN
 import random
 import torch.nn.functional as F
-import math
 from gymnasium.spaces import Box
 from torch.types import Tensor
 
@@ -37,12 +36,12 @@ class DQNAgent:
         self.device: str = device
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
-        self.memory: Deque[Tuple] = deque(maxlen=200000)
-        self.batch_size: int = 1024
-        self.gamma: float = 0.98
-        self.epsilon_final: float = 0.001
+        self.memory: Deque[Tuple] = deque(maxlen=100000)
+        self.batch_size: int = 512
+        self.gamma: float = 0.90
         self.epsilon_start: float = 1.0
-        self.epsilon_decay: float = 0.999992
+        self.epsilon_final: float = 0.001
+        self.epsilon_decay: float = 0.999955
         self.explore: bool = True
         self.learning_rate: float = 0.00015
         self.steps: int = 0
@@ -51,7 +50,7 @@ class DQNAgent:
         self.target_net: DQN = DQN(self.obs_space, self.act_space).to(device)
         self.update_target_network()
         self.target_net.eval()
-        self.target_net_update_freq = 200
+        self.target_net_update_freq = 300
 
         self.optimizer: optim.Adam = optim.Adam(
             self.policy_net.parameters(), lr=self.learning_rate
@@ -75,13 +74,12 @@ class DQNAgent:
     def act(self, state: NDArray) -> Dict:
         self.steps += 1
 
-        eps_threshold = min(
+        eps_threshold = max(
             self.epsilon_final,
-            self.epsilon_start * 1 - np.exp(-5 * self.epsilon_decay**self.steps),
+            self.epsilon_start * (1 - np.exp(-5 * self.epsilon_decay**self.steps)),
         )
 
         self.explore = random.random() < eps_threshold
-        self.explore = False
 
         if self.explore or len(self.memory) < self.batch_size:
             return self.act_space.sample()

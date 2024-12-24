@@ -1,6 +1,7 @@
 import gymnasium as gym
 from tqdm import tqdm
 from gymnasium.wrappers import RecordEpisodeStatistics
+from env.wrappers import FrameStackEnv
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
@@ -34,6 +35,7 @@ def main():
     n_episodes = N_EPISODES
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
+    env = FrameStackEnv(env, k=4)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):

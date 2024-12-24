@@ -86,7 +86,6 @@ class DQNAgent:
         )
 
         self.explore = np.random.rand() < eps_threshold
-
         if self.explore or len(self.memory) < self.batch_size:
             return self.act_space.sample()
         else:

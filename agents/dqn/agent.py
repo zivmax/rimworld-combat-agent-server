@@ -1,14 +1,12 @@
 from dataclasses import dataclass
-from typing import Tuple, Deque, Dict
+from typing import Dict
 import numpy as np
 from numpy.typing import NDArray
 from dataclasses import dataclass, astuple
 import torch
 import torch.optim as optim
-from collections import deque
-import random
+from .memory import PrioritizedReplayBuffer
 from .model import DQN
-import random
 import torch.nn.functional as F
 from gymnasium.spaces import Box
 from torch.types import Tensor
@@ -36,15 +34,22 @@ class DQNAgent:
         self.device: str = device
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
-        self.memory: Deque[Tuple] = deque(maxlen=100000)
-        self.batch_size: int = 512
+
+        self.memory = PrioritizedReplayBuffer(capacity=100000, alpha=0.6)
         self.gamma: float = 0.90
+
+        self.batch_size: int = 512
+        self.learning_rate: float = 0.00015
+
         self.epsilon_start: float = 1.0
         self.epsilon_final: float = 0.001
         self.epsilon_decay: float = 0.999955
-        self.explore: bool = True
-        self.learning_rate: float = 0.00015
+
+        self.beta: float = 0.4
+        self.beta_increment_per_sampling: float = 0.001
+
         self.steps: int = 0
+        self.explore: bool = True
 
         self.policy_net: DQN = DQN(self.obs_space, self.act_space).to(device)
         self.target_net: DQN = DQN(self.obs_space, self.act_space).to(device)
@@ -69,7 +74,8 @@ class DQNAgent:
         action = torch.from_numpy(action).to(self.device)
         reward = torch.tensor(reward, device=self.device)
         done = torch.tensor(done, device=self.device)
-        self.memory.append((state, next_state, action, reward, done))
+        max_priority = max(self.memory.priorities) if self.memory.priorities else 1.0
+        self.memory.push((state, next_state, action, reward, done), max_priority)
 
     def act(self, state: NDArray) -> Dict:
         self.steps += 1
@@ -79,7 +85,7 @@ class DQNAgent:
             self.epsilon_start * (1 - np.exp(-5 * self.epsilon_decay**self.steps)),
         )
 
-        self.explore = random.random() < eps_threshold
+        self.explore = np.random.rand() < eps_threshold
 
         if self.explore or len(self.memory) < self.batch_size:
             return self.act_space.sample()
@@ -97,33 +103,29 @@ class DQNAgent:
                 return np.array([x, y])
 
     def train(self) -> None:
-        if self.explore or len(self.memory) < self.batch_size:
+        if self.explore or len(self.memory.buffer) < self.batch_size:
             return
 
-        transitions = random.sample(self.memory, self.batch_size)
+        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
-        # Extract different attributes from transitions
+        transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
         batch = Transition(*zip(*transitions))
 
-        # Stack the tensors into the batches
         state_batch = torch.stack(batch.states)
         next_state_batch = torch.stack(batch.next_states)
         action_batch = torch.stack(batch.actions)
         reward_batch = torch.tensor(batch.rewards, device=self.device)
         done_batch = torch.tensor(batch.done, device=self.device)
 
-        # Encode the actions back into the indices of the networks output
         action_idx_batch = (
             action_batch[:, 0] - self.act_space.low[0]
         ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
 
-        # Get Q-values for all actions in current state
         q_values_batch = self.policy_net.forward(state_batch)
         q_values_batch = q_values_batch.gather(
             1, action_idx_batch.long().unsqueeze(1)
         ).squeeze()
 
-        # Get Max Q-values we could get in next state
         with torch.no_grad():
             max_next_q_value_batch = (
                 self.target_net.forward(next_state_batch).max(1)[0].detach()
@@ -134,13 +136,20 @@ class DQNAgent:
             + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
         )
 
-        loss = F.smooth_l1_loss(q_values_batch, target_value_batch)
+        td_errors = q_values_batch - target_value_batch
+        loss = (
+            torch.tensor(weights, device=self.device)
+            * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
+        ).mean()
 
         self.optimizer.zero_grad()
         loss.backward()
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+
+        priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
+        self.memory.update_priorities(indices, priorities)
 
         if self.steps % self.target_net_update_freq == 0:
             self.update_target_network()

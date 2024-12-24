@@ -389,10 +389,9 @@ class RimWorldEnv(gym.Env):
         """Calculate the total reward based on game state."""
         reward = self._options["rewarding"]["original"]
 
-        if StateCollector.state.status == GameStatus.RUNNING:
-            reward += self._calculate_allies_reward()
-            reward += self._calculate_enemies_reward()
-        elif StateCollector.state.status == GameStatus.WIN:
+        reward += self._calculate_allies_reward()
+        reward += self._calculate_enemies_reward()
+        if StateCollector.state.status == GameStatus.WIN:
             reward += self._options["rewarding"]["win"]
         elif StateCollector.state.status == GameStatus.LOSE:
             reward += self._options["rewarding"]["lose"]

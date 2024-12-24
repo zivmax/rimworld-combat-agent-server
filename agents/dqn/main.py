@@ -9,14 +9,14 @@ from utils.timestamp import timestamp
 
 ENV_OPTIONS = {
     "interval": 0.5,
-    "speed": 4,
+    "speed": 2,
     "action_range": 1,
     "is_remote": False,
     "remain_still_threshold": 4,
     "rewarding": {
         "original": 0,
-        "win": 100,
-        "lose": -100,
+        "win": 0,
+        "lose": -0,
         "ally_defeated": -10,
         "enemy_defeated": 10,
         "ally_danger": -10,
@@ -57,7 +57,7 @@ def main():
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
             agent.policy_net.save(f"agents/dqn/models/{timestamp}/dqn_{episode}.pth")
-            draw(env, save_path=f"agents/dqn/plots/{timestamp}/stats_{episode}.png")
+            draw(env, save_path=f"agents/dqn/plots/{timestamp}/env_{episode}.png")
 
     env.close()
 

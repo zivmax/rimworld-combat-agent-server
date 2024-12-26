@@ -1,7 +1,6 @@
 import gymnasium as gym
 from tqdm import tqdm
-from gymnasium.wrappers import RecordEpisodeStatistics
-from env.wrappers import FrameStackEnv
+from gymnasium.wrappers import RecordEpisodeStatistics, FrameStackObservation
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
@@ -34,13 +33,13 @@ SAVING_INTERVAL = 100
 def main():
     n_episodes = N_EPISODES
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
-    env = FrameStackEnv(env, k=4)
+    env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
         next_state, _ = env.reset()
-
+        next_state.swapaxes(0, 1)
         while True:
             current_state = next_state
             action = agent.act(current_state)

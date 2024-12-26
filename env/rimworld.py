@@ -291,7 +291,7 @@ class RimWorldEnv(gym.Env):
 
         invalid_positions = tuple(invalid_positions)
 
-        self.invalid_positions = invalid_positions
+        self._invalid_positions = invalid_positions
 
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a stacked array of 2D grids.
@@ -382,7 +382,7 @@ class RimWorldEnv(gym.Env):
             "map": self._map,
             "pawns": pawn_in_ID,
             "action_space": self.action_space,
-            "action_mask": self.invalid_positions,
+            "action_mask": self._invalid_positions,
         }
 
     def _get_reward(self) -> float:

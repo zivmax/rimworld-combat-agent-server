@@ -23,9 +23,11 @@ class FrameStackEnv(gym.Wrapper):
         obs, info = self.env.reset()
         for _ in range(self.frames.maxlen):
             self.frames.append(obs)
-        return np.stack(self.frames, axis=0), info
+        stacked_obs = np.stack(self.frames, axis=0).swapaxes(0, 1)
+        return stacked_obs, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         self.frames.append(obs)
-        return np.stack(self.frames, axis=0), reward, terminated, truncated, info
+        stacked_obs = np.stack(self.frames, axis=0).swapaxes(0, 1)
+        return stacked_obs, reward, terminated, truncated, info

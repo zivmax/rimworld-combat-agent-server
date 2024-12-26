@@ -233,8 +233,11 @@ class RimWorldEnv(gym.Env):
         # Update still counts based on previous positions
         if self._allies_prev:
             for ally_prev, ally_cur in zip(self._allies_prev, self._allies):
-                if ally_prev.label == ally_cur.label and ally_prev.loc == ally_cur.loc:
-                    self._allies_still_count[ally_cur.label] += 1
+                if ally_prev.label == ally_cur.label:
+                    if ally_prev.loc == ally_cur.loc:
+                        self._allies_still_count[ally_cur.label] += 1
+                    else:
+                        self._allies_still_count[ally_cur.label] = 0
 
     def _update_enemies(self):
         self._enemies_prev = self._enemies

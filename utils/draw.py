@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 
-def draw(env: RecordEpisodeStatistics, save_path: str = "./"):
+def draw(env: RecordEpisodeStatistics, save_path: str = "./env_history.png") -> None:
     # Create the directory if it does not exist
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 

@@ -57,8 +57,9 @@ def main():
                 break
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
-            agent.policy_net.save(f"agents/dqn/models/{timestamp}/dqn_{episode}.pth")
-            draw(env, save_path=f"agents/dqn/plots/{timestamp}/env_{episode}.png")
+            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode}.pth")
+            agent.draw(f"agents/dqn/plots/network/{timestamp}/{episode}.png")
+            draw(env, save_path=f"agents/dqn/plots//env{timestamp}/{episode}.png")
 
     env.close()
 

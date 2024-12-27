@@ -39,7 +39,7 @@ class RandomAgent(Agent):
         space = self.action_space
         map = info["map"]
         pawns = info["pawns"]
-        mask = info["action_mask"]
+        mask = info["action_valid"]
 
         allies = [p for p in pawns.values() if p.is_ally]
 
@@ -51,7 +51,7 @@ class RandomAgent(Agent):
                 act = space[idx].sample()
                 if Loc(act[0], act[1]) not in mask[idx]:
                     break
-            
+
         return {1: np.array([act[0], act[1]])}
 
         #     ally_actions[ally.label] = PawnAction(

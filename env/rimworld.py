@@ -289,11 +289,13 @@ class RimWorldEnv(gym.Env):
 
         # Add covers
         for cover in covers:
-            valid_positions.remove(cover.loc)
+            if cover.loc in valid_positions:
+                valid_positions.remove(cover.loc)
 
         # Add enemy positions
         for enemy in self._enemies:
-            valid_positions.remove(enemy.loc)
+            if enemy.loc in valid_positions:
+                valid_positions.remove(enemy.loc)
 
         valid_positions = tuple(valid_positions)
 

@@ -1,6 +1,6 @@
 import gymnasium as gym
+from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
-from gymnasium.wrappers import RecordEpisodeStatistics, FrameStackObservation
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env

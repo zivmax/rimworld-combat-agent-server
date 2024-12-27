@@ -12,19 +12,18 @@ from gymnasium.spaces import Box
 from torch.types import Tensor
 
 
-@dataclass
-class Transition:
-    states: Tensor
-    next_states: Tensor
-    actions: Tensor
-    rewards: Tensor
-    done: Tensor
-
-    def __iter__(self):
-        return iter(astuple(self))
-
-
 class DQNAgent:
+    @dataclass
+    class Transition:
+        states: Tensor
+        next_states: Tensor
+        actions: Tensor
+        rewards: Tensor
+        done: Tensor
+
+        def __iter__(self):
+            return iter(astuple(self))
+
     def __init__(
         self,
         obs_space: Box,
@@ -108,7 +107,7 @@ class DQNAgent:
         self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
         transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
-        batch = Transition(*zip(*transitions))
+        batch = self.Transition(*zip(*transitions))
 
         state_batch = torch.stack(batch.states)
         next_state_batch = torch.stack(batch.next_states)

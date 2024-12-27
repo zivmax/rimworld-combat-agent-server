@@ -34,7 +34,7 @@ class DQNAgent:
         self.obs_space: Box = obs_space
         self.act_space: Box = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=100000, alpha=0.6)
+        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
         self.gamma: float = 0.90
 
         self.batch_size: int = 512
@@ -42,7 +42,7 @@ class DQNAgent:
 
         self.epsilon_start: float = 1.0
         self.epsilon_final: float = 0.001
-        self.epsilon_decay: float = 0.999955
+        self.epsilon_decay: float = 0.999995
 
         self.beta: float = 0.4
         self.beta_increment_per_sampling: float = 0.001

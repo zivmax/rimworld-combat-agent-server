@@ -13,16 +13,18 @@ class PPOAgent:
         self,
         obs_space: Box,
         act_space: Box,
-        lr: float = 3e-4,
+        lr: float = 2e-4,
         gamma: float = 0.99,
-        k_epochs: int = 4,
+        k_epochs: int = 6,
         eps_clip: float = 0.2,
+        entropy_coef: float = 0.01,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.device = device
         self.gamma = gamma
         self.k_epochs = k_epochs
         self.eps_clip = eps_clip
+        self.entropy_coef = entropy_coef
         self.state_values_store = []
 
         # Updated to pass the entire act_space instead of act_space[1]
@@ -89,8 +91,13 @@ class PPOAgent:
             surr2 = (
                 torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
             )
+            entropy_bonus = self.entropy_coef * entropy.mean()
 
-            loss = -torch.min(surr1, surr2) + 0.5 * (returns - state_values).pow(2)
+            loss = (
+                -torch.min(surr1, surr2)
+                + 0.5 * (returns - state_values).pow(2)
+                - entropy_bonus
+            )
 
             self.optimizer.zero_grad()
             loss.mean().backward()
@@ -100,7 +107,7 @@ class PPOAgent:
         self.memory.clear()
 
     def compute_advantages(self, rewards, dones):
-        GAE_LAMBDA = 0.95
+        GAE_LAMBDA = 0.98
         GAMMA = self.gamma
 
         state_values = self.state_values_store

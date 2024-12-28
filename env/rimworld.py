@@ -160,6 +160,7 @@ class RimWorldEnv(gym.Env):
         ):  # Client will restart after 300 resets, re-reset to reconfig game.
             server.send_to_client(server.client, message)
             logger.info(f"Restart and reconfigure the client game.")
+            self._reseted_times = 0
             StateCollector.reset()
             StateCollector.receive_state()
 

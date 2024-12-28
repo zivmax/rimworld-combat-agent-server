@@ -4,7 +4,7 @@ src/obj
 env/ref.py
 agent/train_ref.py
 .devcontainer/git.sh
-plot/
-*.log
-models/
-logs/
+agents/**/models/
+agents/**/plots/
+agents/**/logs/
+env/**/logs/

@@ -2,12 +2,22 @@ from random import randint
 from numpy.typing import NDArray
 from typing import Dict, Tuple
 from gymnasium.spaces import MultiDiscrete
-
+import numpy as np
 from utils.json import to_json
-from utils.logger import logger
 from env.state import PawnState, MapState, Loc
 from env.action import GameAction, PawnAction
 from agents import Agent
+import logging
+from utils.logger import get_file_logger, get_cli_logger
+from utils.timestamp import timestamp
+
+logging_level = logging.DEBUG
+f_logger = get_file_logger(
+    __name__, f"agents/random/logs/{timestamp}.log", logging_level
+)
+cli_logger = get_cli_logger(__name__, logging_level)
+
+logger = f_logger
 
 
 class RandomAgent(Agent):
@@ -29,7 +39,7 @@ class RandomAgent(Agent):
         space = self.action_space
         map = info["map"]
         pawns = info["pawns"]
-        mask = info["action_mask"]
+        mask = info["action_valid"]
 
         allies = [p for p in pawns.values() if p.is_ally]
 
@@ -42,15 +52,17 @@ class RandomAgent(Agent):
                 if Loc(act[0], act[1]) not in mask[idx]:
                     break
 
-            ally_actions[ally.label] = PawnAction(
-                label=ally.label,
-                x=int(act[0]),
-                y=int(act[1]),
-            )
+        return {1: np.array([act[0], act[1]])}
 
-        logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}")
+        #     ally_actions[ally.label] = PawnAction(
+        #         label=ally.label,
+        #         x=int(act[0]),
+        #         y=int(act[1]),
+        #     )
 
-        return GameAction(ally_actions)
+        # logger.debug(f"Random actions: \n{to_json(ally_actions, indent=2)}")
+
+        # return GameAction(ally_actions)
 
     def save(self):
         pass

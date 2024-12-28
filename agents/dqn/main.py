@@ -1,72 +1,67 @@
 import gymnasium as gym
-import os
+from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
-from gymnasium.wrappers import RecordEpisodeStatistics
 
-from agents.dqn import DQNAgent
+from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp
-from utils.json import to_json
 
-from .logger import logger
-from .hyper_params import N_EPISODES, EPISOLD_LOG_INTERVAL, EPISOLD_SAVE_INTERVAL
-from .hyper_params import RE_TRAIN, OPTIONS, LOAD_PATH
+ENV_OPTIONS = {
+    "interval": 0.5,
+    "speed": 2,
+    "action_range": 1,
+    "is_remote": False,
+    "remain_still_threshold": 300,
+    "rewarding": {
+        "original": 0,
+        "win": 0,
+        "lose": -0,
+        "ally_defeated": -100,
+        "enemy_defeated": 100,
+        "ally_danger": -200,
+        "enemy_danger": 200,
+        "invalid_action": -0.25,
+        "remain_still": -0.25,
+    },
+}
+
+N_EPISODES = 2000
+SAVING_INTERVAL = 100
 
 
 def main():
-    """
-    Main function to train the DQNAgent.
-    """
-    logger.info("\tConfigs: \n" + to_json(OPTIONS, indent=2))
-    env = gym.make(rimworld_env, options=OPTIONS)
-    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
-    agent = DQNAgent(
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-    )
+    n_episodes = N_EPISODES
+    env = gym.make(rimworld_env, options=ENV_OPTIONS)
+    env = FrameStackObservation(env, stack_size=4)
+    env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
+    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
 
-    if RE_TRAIN:
+    for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+        next_state, _ = env.reset()
+        next_state.swapaxes(0, 1)
+        while True:
+            current_state = next_state
+            action = agent.act(current_state)
+            action = {1: action}
 
-        save_dir = f"agents/dqn/models/{timestamp}"
-
-        num_episodes = N_EPISODES
-        for episode in tqdm(range(num_episodes), desc="Training Episodes"):
-            obs, info = env.reset()
-            done = False
-            total_reward = 0
-
-            while not done:
-                action = agent.act(obs, info)
-                next_obs, reward, terminated, truncated, info = env.step(action)
-                done = terminated or truncated
-
-                agent.step(obs, action, reward, next_obs, done)
-                obs = next_obs
-                total_reward += reward
-
-            if (episode + 1) % EPISOLD_LOG_INTERVAL == 0:
-                logger.debug(f"\tFor episode {episode + 1}, reward: {total_reward}")
-
-            if (episode + 1) % EPISOLD_SAVE_INTERVAL == 0:
-                agent.save(os.path.join(save_dir, f"episode_{episode + 1}.pth"))
-    else:
-        agent.load(LOAD_PATH)
-        obs, info = env.reset()
-        done = False
-        total_reward = 0
-
-        while not done:
-            action = agent.act(obs, info)
-            next_obs, reward, terminated, truncated, info = env.step(action)
+            next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
-            agent.step(obs, action, reward, next_obs, done)
-            obs = next_obs
-            total_reward += reward
-        logger.info(f"\tTotal reward after loading: {total_reward}")
-    env.close()
 
-    draw(env, "agents/dqn/plot/episode_stats.png")
+            next_state = next_obs
+
+            agent.remember(current_state, next_state, action[1], reward, done)
+            agent.train()
+
+            if done:
+                break
+
+        if episode % SAVING_INTERVAL == 0 and episode > 0:
+            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
+            agent.draw(f"agents/dqn/plots/network/{timestamp}/{episode:04d}.png")
+            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
+
+    env.close()
 
 
 if __name__ == "__main__":

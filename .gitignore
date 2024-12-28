@@ -8,3 +8,4 @@ agents/**/models/
 agents/**/plots/
 agents/**/logs/
 env/**/logs/
+*.png

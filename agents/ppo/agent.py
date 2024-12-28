@@ -23,6 +23,7 @@ class PPOAgent:
         self.gamma = gamma
         self.k_epochs = k_epochs
         self.eps_clip = eps_clip
+        self.state_values_store = []
 
         # Updated to pass the entire act_space instead of act_space[1]
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
@@ -31,7 +32,9 @@ class PPOAgent:
 
     def select_action(self, state: torch.Tensor) -> Dict:
         state = torch.FloatTensor(state).to(self.device)
-        action, log_prob, state_value = self.policy.act(state)
+
+        action, log_prob, state_values = self.policy.act(state)
+        self.state_values_store.append(state_values)
         # Temporarily store partial transition information
         self.current_transition = {
             "state": state,
@@ -60,7 +63,7 @@ class PPOAgent:
         self.current_transition = {}
 
     def update(self) -> None:
-        # Convert lists to tensors
+
         states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
         actions = torch.stack([t.action for t in self.memory.transitions]).to(
             self.device
@@ -74,7 +77,7 @@ class PPOAgent:
         dones = torch.stack([t.done for t in self.memory.transitions]).to(self.device)
 
         # Compute advantages and returns
-        returns, advantages = self.compute_advantages(rewards, dones, states)
+        returns, advantages = self.compute_advantages(rewards, dones)
 
         for _ in range(self.k_epochs):
 
@@ -95,18 +98,17 @@ class PPOAgent:
 
         self.memory.clear()
 
-    def compute_advantages(self, rewards, dones, states):
+    def compute_advantages(self, rewards, dones):
         GAE_LAMBDA = 0.95
         GAMMA = self.gamma
 
-        with torch.no_grad():
-            state_values = self.policy.critic(states).squeeze()
+        state_values = self.state_values_store
         advantages = []
         returns = []
         advantage = 0
         previous_value = 0
         for step in reversed(range(len(rewards))):
-            mask = 1.0 - dones[step]
+            mask = 1.0 - dones[step].float()
             delta = rewards[step] + GAMMA * previous_value * mask - state_values[step]
             advantage = delta + GAMMA * GAE_LAMBDA * mask * advantage
             advantages.insert(0, advantage)

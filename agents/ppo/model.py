@@ -66,7 +66,7 @@ class ActorCritic(nn.Module):
 
     def forward(self, state: torch.Tensor):
         x = state.float()
-        x = x.unsqueeze(0)
+        x = x.unsqueeze(0) if len(x.shape) != 5 else x
         x = x / (torch.tensor(self.obs_space.high, device=x.device)).repeat(
             x.shape[0], *(len(self.obs_space.high.shape) * [1])
         )

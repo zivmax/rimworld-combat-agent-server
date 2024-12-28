@@ -1,6 +1,6 @@
 import gymnasium as gym
+from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
-from gymnasium.wrappers import RecordEpisodeStatistics, FrameStackObservation
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
@@ -12,21 +12,21 @@ ENV_OPTIONS = {
     "speed": 2,
     "action_range": 1,
     "is_remote": False,
-    "remain_still_threshold": 4,
+    "remain_still_threshold": 300,
     "rewarding": {
         "original": 0,
         "win": 0,
         "lose": -0,
-        "ally_defeated": -10,
-        "enemy_defeated": 10,
-        "ally_danger": -10,
-        "enemy_danger": 10,
-        "invalid_action": -1,
-        "remain_still": 0,
+        "ally_defeated": -100,
+        "enemy_defeated": 100,
+        "ally_danger": -200,
+        "enemy_danger": 200,
+        "invalid_action": -0.25,
+        "remain_still": -0.25,
     },
 }
 
-N_EPISODES = 10000
+N_EPISODES = 2000
 SAVING_INTERVAL = 100
 
 
@@ -57,8 +57,9 @@ def main():
                 break
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
-            agent.policy_net.save(f"agents/dqn/models/{timestamp}/dqn_{episode}.pth")
-            draw(env, save_path=f"agents/dqn/plots/{timestamp}/env_{episode}.png")
+            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
+            agent.draw(f"agents/dqn/plots/network/{timestamp}/{episode:04d}.png")
+            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
 
     env.close()
 

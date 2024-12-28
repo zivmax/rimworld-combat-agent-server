@@ -34,8 +34,8 @@ class RimWorldEnv(gym.Env):
         self._enemies_prev: Tuple[PawnState] = None
         self._actions_prev: Dict[str, PawnAction] = None
         self._allies_still_count: Dict[str, int] = {}
-        self._invalid_positions: Tuple[Loc] = None
-        self._invalid_positions_prev: Tuple[Loc] = None
+        self._valid_positions: Tuple[Loc] = None
+        self._valid_positions_prev: Tuple[Loc] = None
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
@@ -160,6 +160,7 @@ class RimWorldEnv(gym.Env):
         ):  # Client will restart after 300 resets, re-reset to reconfig game.
             server.send_to_client(server.client, message)
             logger.info(f"Restart and reconfigure the client game.")
+            self._reseted_times = 0
             StateCollector.reset()
             StateCollector.receive_state()
 
@@ -253,7 +254,7 @@ class RimWorldEnv(gym.Env):
         self._map = StateCollector.state.map
         self._update_allies()
         self._update_enemies()
-        self._update_invalid_position()
+        self._update_valid_position()
 
     def _get_covers(self) -> List[CellState]:
         """Get all cover locations in the map.
@@ -271,30 +272,35 @@ class RimWorldEnv(gym.Env):
                     covers.append(cell)
         return covers
 
-    def _update_invalid_position(self):
+    def _update_valid_position(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
         Each ally's space is a MultiDiscrete for (x,y) movement across the entire map.
 
         The action mask is a tuple of invalid Loc positions per ally.
         """
-        self._invalid_positions_prev = self._invalid_positions
+        self._valid_positions_prev = self._valid_positions
         covers = self._get_covers()
 
         # Collect invalid positions
-        invalid_positions = []
+        valid_positions = []
+        for x in range(self._map.width):
+            for y in range(self._map.height):
+                valid_positions.append(Loc(x, y))
 
         # Add covers
         for cover in covers:
-            invalid_positions.append(cover.loc)
+            if cover.loc in valid_positions:
+                valid_positions.remove(cover.loc)
 
         # Add enemy positions
         for enemy in self._enemies:
-            invalid_positions.append(enemy.loc)
+            if enemy.loc in valid_positions:
+                valid_positions.remove(enemy.loc)
 
-        invalid_positions = tuple(invalid_positions)
+        valid_positions = tuple(valid_positions)
 
-        self._invalid_positions = invalid_positions
+        self._valid_positions = valid_positions
 
     def _get_obs(self) -> NDArray:
         """Gets the current observation of the game map as a stacked array of 2D grids.
@@ -385,7 +391,7 @@ class RimWorldEnv(gym.Env):
             "map": self._map,
             "pawns": pawn_in_ID,
             "action_space": self.action_space,
-            "action_mask": self._invalid_positions,
+            "action_valid": self._valid_positions,
         }
 
     def _get_reward(self) -> float:
@@ -422,8 +428,8 @@ class RimWorldEnv(gym.Env):
         prev_action_loc = Loc(
             self._actions_prev[ally.label].x, self._actions_prev[ally.label].y
         )
-        if self._invalid_positions_prev:
-            if prev_action_loc in self._invalid_positions_prev:
+        if self._valid_positions_prev:
+            if prev_action_loc not in self._valid_positions_prev:
                 return self._options["rewarding"]["invalid_action"]
         return 0
 

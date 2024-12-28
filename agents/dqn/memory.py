@@ -1,6 +1,7 @@
 from collections import deque
-import numpy as np
 from typing import Deque, List, Tuple, Any
+
+import numpy as np
 
 
 class PrioritizedReplayBuffer:

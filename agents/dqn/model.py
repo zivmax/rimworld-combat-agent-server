@@ -1,8 +1,8 @@
+import os
+
 import torch.nn as nn
 import torch
-import os
 from gymnasium import spaces
-from typing import Dict
 import numpy as np
 
 

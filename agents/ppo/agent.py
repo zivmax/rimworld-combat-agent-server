@@ -96,6 +96,7 @@ class PPOAgent:
             loss.mean().backward()
             self.optimizer.step()
 
+        self.state_values_store = []
         self.memory.clear()
 
     def compute_advantages(self, rewards, dones):

@@ -9,10 +9,11 @@ from utils.timestamp import timestamp
 
 ENV_OPTIONS = {
     "interval": 0.5,
-    "speed": 2,
+    "speed": 4,
     "action_range": 1,
+    "max_steps": 800,
     "is_remote": False,
-    "remain_still_threshold": 300,
+    "remain_still_threshold": 100,
     "rewarding": {
         "original": 0,
         "win": 0,
@@ -36,6 +37,7 @@ def main():
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
+    agent.policy_net.train()
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
         next_state, _ = env.reset()

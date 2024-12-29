@@ -5,49 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Evalutate",
+            "name": "DQN (Eval)",
             "type": "debugpy",
-            "args": ["-O"],
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "module": "agents.dqn.eval",
             "console": "integratedTerminal"
         },
         {
-            "name": "DQN",
+            "name": "DQN (Train)",
             "type": "debugpy",
-            "args": ["-O"],
             "request": "launch",
-            "module": "agents.dqn.main",
+            "module": "agents.dqn.train",
             "console": "integratedTerminal"
         },
         {
             "name": "Random",
             "type": "debugpy",
-            "args": ["-O"],
             "request": "launch",
-            "module": "agents.random.main",
+            "module": "agents.random.train",
             "console": "integratedTerminal"
         },
-        {
-            "name": "Evalutate (Debug)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "DQN (Debug)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.dqn.main",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Random (Debug)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.random.main",
-            "console": "integratedTerminal"
-        }
     ]
 }

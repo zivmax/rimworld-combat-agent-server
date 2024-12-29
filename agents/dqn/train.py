@@ -9,7 +9,7 @@ from utils.timestamp import timestamp
 
 ENV_OPTIONS = {
     "interval": 0.5,
-    "speed": 2,
+    "speed": 4,
     "action_range": 1,
     "is_remote": False,
     "remain_still_threshold": 300,

@@ -38,7 +38,6 @@ def main():
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
     agent.policy_net.train()
-    agent.target_net.train()
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
         next_state, _ = env.reset()

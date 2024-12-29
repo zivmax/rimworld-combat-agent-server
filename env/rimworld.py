@@ -36,12 +36,15 @@ class RimWorldEnv(gym.Env):
         self._allies_still_count: Dict[str, int] = {}
         self._valid_positions: Tuple[Loc] = None
         self._valid_positions_prev: Tuple[Loc] = None
+        self._steped_times: int = 0
 
         self._options: Dict = {
             "interval": options.get("interval", 1.0),
             "speed": options.get("speed", 1),
             "action_range": options.get("action_range", 4),
+            "max_steps": options.get("max_steps", None),
             "is_remote": options.get("is_remote", False),
+            "remain_still_threshold": options.get("remain_still_threshold", 100),
             "rewarding": options.get(
                 "rewarding",
                 {
@@ -56,7 +59,6 @@ class RimWorldEnv(gym.Env):
                     "lose": 0,
                 },
             ),
-            "remain_still_threshold": 4,
         }
 
         self._server_thread: Thread = create_server_thread(self._options["is_remote"])
@@ -154,6 +156,7 @@ class RimWorldEnv(gym.Env):
 
         logger.info(f"Env reset!")
         self._reseted_times += 1
+        self._steped_times = 0
 
         if (
             self._reseted_times >= 300
@@ -210,8 +213,13 @@ class RimWorldEnv(gym.Env):
         observation = self._get_obs()
         reward = self._get_reward()
         terminated = StateCollector.state.status != GameStatus.RUNNING
-        truncated = False
+        truncated = (
+            self._steped_times >= self._options["max_steps"]
+            if self._options["max_steps"] is not None
+            else False
+        )
         info = self._get_info()
+        self._steped_times += 1
 
         return observation, reward, terminated, truncated, info
 

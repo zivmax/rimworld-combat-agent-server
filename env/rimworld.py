@@ -42,7 +42,7 @@ class RimWorldEnv(gym.Env):
             "interval": options.get("interval", 1.0),
             "speed": options.get("speed", 1),
             "action_range": options.get("action_range", 4),
-            "max_steps": options.get("max_steps", 500),
+            "max_steps": options.get("max_steps", None),
             "is_remote": options.get("is_remote", False),
             "remain_still_threshold": options.get("remain_still_threshold", 100),
             "rewarding": options.get(

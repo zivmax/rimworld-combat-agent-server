@@ -18,7 +18,7 @@
                 "type": "debugpy",
                 "args": ["-O"],
                 "request": "launch",
-                "module": "agents.dqn.main",
+                "module": "agents.dqn.train",
                 "console": "integratedTerminal"
             },
             {
@@ -40,9 +40,17 @@
                 "name": "DQN (Debug)",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.main",
+                "module": "agents.dqn.train",
                 "console": "integratedTerminal"
             },
+            {
+                "name": "DQN (Evaluate)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.dqn.eval",
+                "console": "integratedTerminal"
+            },
+
             {
                 "name": "Random (Debug)",
                 "type": "debugpy",
@@ -55,14 +63,21 @@
                 "type": "debugpy",
                 "args": ["-O"],
                 "request": "launch",
-                "module": "agents.ppo.main",
+                "module": "agents.ppo.train",
                 "console": "integratedTerminal"
             },
             {
                 "name": "PPO (Debug)",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.ppo.main",
+                "module": "agents.ppo.train",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "PPO (Evaluate)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.ppo.eval",
                 "console": "integratedTerminal"
             }
         ]

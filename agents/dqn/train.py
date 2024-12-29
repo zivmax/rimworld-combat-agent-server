@@ -11,7 +11,7 @@ ENV_OPTIONS = {
     "interval": 0.5,
     "speed": 4,
     "action_range": 1,
-    "max_steps": 500,
+    "max_steps": 800,
     "is_remote": False,
     "remain_still_threshold": 300,
     "rewarding": {

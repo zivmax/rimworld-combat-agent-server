@@ -150,8 +150,11 @@ class PawnState:
     def danger(self) -> float:
         from utils.math import sigmoid
 
-        return sigmoid(
-            1 - self.health.conciousness + self.health.pain + self.health.bleed - 6
+        return round(
+            sigmoid(
+                1 - self.health.conciousness + self.health.pain + self.health.bleed - 6
+            ),
+            2,
         )
 
     def __iter__(self):

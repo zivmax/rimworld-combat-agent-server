@@ -69,6 +69,7 @@ class DQNAgent:
         self.loss_history: List[float] = []
         self.q_value_history: List[float] = []
         self.td_error_history: List[float] = []
+        self.eps_threshold_history: List[float] = []
 
     def remember(
         self,
@@ -93,6 +94,7 @@ class DQNAgent:
             self.epsilon_final,
             self.epsilon_start * (1 - np.exp(-5 * self.epsilon_decay**self.steps)),
         )
+        self.eps_threshold_history.append(eps_threshold)
 
         self.explore = np.random.rand() < eps_threshold
         if self.explore or len(self.memory) < self.batch_size:
@@ -170,14 +172,14 @@ class DQNAgent:
     def update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def draw(self, save_path: str = "./training_history.png") -> None:
+    def draw_model(self, save_path: str = "./training_history.png") -> None:
         # Create the directory if it does not exist
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
         # Create a DataFrame with the training statistics
         stats_df = pd.DataFrame(
             {
-                "Step": range(len(self.loss_history)),
+                "Update": range(len(self.loss_history)),
                 "Loss": self.loss_history,
                 "Q-Value": self.q_value_history,
                 "TD Error": self.td_error_history,
@@ -188,16 +190,39 @@ class DQNAgent:
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
 
         # Plot loss
-        sns.lineplot(data=stats_df, x="Step", y="Loss", ax=ax1)
-        ax1.set_title("Loss over Time")
+        sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax1)
+        ax1.set_title("Loss over Updates")
 
         # Plot Q-values
-        sns.lineplot(data=stats_df, x="Step", y="Q-Value", ax=ax2)
-        ax2.set_title("Q-Values over Time")
+        sns.lineplot(data=stats_df, x="Update", y="Q-Value", ax=ax2)
+        ax2.set_title("Q-Values over Updates")
 
         # Plot TD errors
-        sns.lineplot(data=stats_df, x="Step", y="TD Error", ax=ax3)
-        ax3.set_title("TD Error over Time")
+        sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax3)
+        ax3.set_title("TD Error over Updates")
+
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()
+
+    def draw_agent(self, save_path: str = "./epsilon_decay.png") -> None:
+        # Create the directory if it does not exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # Create a DataFrame with the training statistics
+        stats_df = pd.DataFrame(
+            {
+                "Update": range(len(self.eps_threshold_history)),
+                "Epsilon": self.eps_threshold_history,
+            }
+        )
+
+        # Create subplots for each metric
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+
+        # Plot epsilon decay
+        sns.lineplot(data=stats_df, x="Update", y="Epsilon", ax=ax)
+        ax.set_title("Epsilon Decay over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

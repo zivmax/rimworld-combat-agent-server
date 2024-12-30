@@ -27,7 +27,7 @@ ENV_OPTIONS = {
     },
 }
 
-N_EPISODES = 2000
+N_EPISODES = 20000
 SAVING_INTERVAL = 100
 
 
@@ -60,7 +60,8 @@ def main():
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
             agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
-            agent.draw(f"agents/dqn/plots/network/{timestamp}/{episode:04d}.png")
+            agent.draw_model(f"agents/dqn/plots/network/{timestamp}/{episode:04d}.png")
+            agent.draw_agent(f"agents/dqn/plots/agent/{timestamp}/{episode:04d}.png")
             draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
 
     env.close()

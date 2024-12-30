@@ -63,8 +63,13 @@ class ActorCritic(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 1),
         )
+        self.eval_critic = nn.Sequential(
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
+        )
 
-    def forward(self, state: torch.Tensor):
+    def forward(self, state: torch.Tensor, eval: bool = False):
         x = state.float()
         x = x.unsqueeze(0) if len(x.shape) != 5 else x
         x = x / (torch.tensor(self.obs_space.high, device=x.device)).repeat(
@@ -75,7 +80,7 @@ class ActorCritic(nn.Module):
         action_mean = self.actor(x)
         action_log_std = self.log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
-        state_values = self.critic(x)
+        state_values = self.critic(x) if not eval else self.eval_critic(x)
         return action_mean, action_std, state_values
 
     def act(self, state: torch.Tensor):
@@ -86,7 +91,7 @@ class ActorCritic(nn.Module):
         return action, action_log_prob, state_values
 
     def evaluate(self, states: torch.Tensor, actions: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(states)
+        action_mean, action_std, state_values = self.forward(states, eval=True)
         dist = distributions.Normal(action_mean, action_std)
         action_log_probs = dist.log_prob(actions).sum(dim=-1)
         entropy = dist.entropy().sum(dim=-1)

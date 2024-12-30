@@ -25,9 +25,9 @@ ENV_OPTIONS = {
     },
 }
 
-N_EPISODES = 1000
-SAVING_INTERVAL = 100
-UPDATE_INTERVAL = 2000  # Number of steps before updating the policy
+N_EPISODES = 3000
+SAVING_INTERVAL = 500
+UPDATE_INTERVAL = 2048
 
 
 def main():

@@ -1,6 +1,5 @@
 import torch
 import torch.optim as optim
-from torch.distributions import Categorical
 from typing import Dict
 from gymnasium.spaces import Box
 import numpy as np
@@ -13,11 +12,15 @@ class PPOAgent:
         self,
         obs_space: Box,
         act_space: Box,
-        lr: float = 2e-4,
+        lr_actor: float = 2e-4,
+        lr_critic: float = 5e-4,
         gamma: float = 0.99,
         k_epochs: int = 6,
-        eps_clip: float = 0.2,
+        eps_clip: float = 0.1,
         entropy_coef: float = 0.01,
+        critic_coef: float = 0.5,
+        batch_size: int = 512,
+        reuse_time: int = 8,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.device = device
@@ -25,19 +28,22 @@ class PPOAgent:
         self.k_epochs = k_epochs
         self.eps_clip = eps_clip
         self.entropy_coef = entropy_coef
+        self.critic_coef = critic_coef
+        self.batch_size = batch_size
+        self.reuse_time = reuse_time
         self.state_values_store = []
 
-        # Updated to pass the entire act_space instead of act_space[1]
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
+        self.actor_optimizer = optim.Adam(self.policy.actor.parameters(), lr=lr_actor)
+        self.critic_optimizer = optim.Adam(
+            self.policy.critic.parameters(), lr=lr_critic
+        )
         self.memory = PPOMemory()
 
     def select_action(self, state: torch.Tensor) -> Dict:
         state = torch.FloatTensor(state).to(self.device)
-
         action, log_prob, state_values = self.policy.act(state)
         self.state_values_store.append(state_values)
-        # Temporarily store partial transition information
         self.current_transition = {
             "state": state,
             "action": action,
@@ -65,7 +71,6 @@ class PPOAgent:
         self.current_transition = {}
 
     def update(self) -> None:
-
         states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
         actions = torch.stack([t.action for t in self.memory.transitions]).to(
             self.device
@@ -77,31 +82,48 @@ class PPOAgent:
             self.device
         )
         dones = torch.stack([t.done for t in self.memory.transitions]).to(self.device)
-
-        # Compute advantages and returns
         returns, advantages = self.compute_advantages(rewards, dones)
 
+        batch_size = min(self.batch_size, len(self.memory.transitions))
+        dataset = torch.utils.data.TensorDataset(
+            states, actions, old_log_probs, returns, advantages
+        )
+        loader = torch.utils.data.DataLoader(
+            dataset, batch_size=batch_size, shuffle=True
+        )
+
         for _ in range(self.k_epochs):
+            for _ in range(self.reuse_time):
+                for batch in loader:
+                    (
+                        batch_states,
+                        batch_actions,
+                        batch_old_log_probs,
+                        batch_returns,
+                        batch_advantages,
+                    ) = batch
+                    log_probs, entropy, state_values = self.policy.evaluate(
+                        batch_states, batch_actions
+                    )
+                    ratios = torch.exp(log_probs - batch_old_log_probs.detach())
+                    surr1 = ratios * batch_advantages
+                    surr2 = (
+                        torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
+                        * batch_advantages
+                    )
+                    entropy_bonus = self.entropy_coef * entropy.mean()
+                    actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+                    critic_loss = (
+                        self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
+                    )
 
-            log_probs, entropy, state_values = self.policy.evaluate(states, actions)
+                    self.actor_optimizer.zero_grad()
+                    actor_loss.mean().backward(retain_graph=True)
+                    self.actor_optimizer.step()
 
-            ratios = torch.exp(log_probs - old_log_probs.detach())
-
-            surr1 = ratios * advantages
-            surr2 = (
-                torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
-            )
-            entropy_bonus = self.entropy_coef * entropy.mean()
-
-            loss = (
-                -torch.min(surr1, surr2)
-                + 0.5 * (returns - state_values).pow(2)
-                - entropy_bonus
-            )
-
-            self.optimizer.zero_grad()
-            loss.mean().backward()
-            self.optimizer.step()
+                    self.critic_optimizer.zero_grad()
+                    critic_loss.mean().backward()
+                    self.critic_optimizer.step()
 
         self.state_values_store = []
         self.memory.clear()
@@ -109,7 +131,6 @@ class PPOAgent:
     def compute_advantages(self, rewards, dones):
         GAE_LAMBDA = 0.98
         GAMMA = self.gamma
-
         state_values = self.state_values_store
         advantages = []
         returns = []

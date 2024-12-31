@@ -212,7 +212,7 @@ class DQNAgent:
         # Create a DataFrame with the training statistics
         stats_df = pd.DataFrame(
             {
-                "Update": range(len(self.eps_threshold_history)),
+                "Step": range(len(self.eps_threshold_history)),
                 "Epsilon": self.eps_threshold_history,
             }
         )
@@ -221,8 +221,8 @@ class DQNAgent:
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
 
         # Plot epsilon decay
-        sns.lineplot(data=stats_df, x="Update", y="Epsilon", ax=ax)
-        ax.set_title("Epsilon Decay over Updates")
+        sns.lineplot(data=stats_df, x="Step", y="Epsilon", ax=ax)
+        ax.set_title("Epsilon Decay over Steps")
 
         plt.tight_layout()
         plt.savefig(save_path)

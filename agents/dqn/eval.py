@@ -26,7 +26,7 @@ ENV_OPTIONS = {
 }
 
 N_EPISODES = 5
-MODEL_PATH = "agents/dqn/models/2024-12-28_17:51:19/0700.pth"
+MODEL_PATH = "agents/dqn/models/2024-12-30_21:36:39/2200.pth"
 
 
 def main():

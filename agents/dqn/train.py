@@ -20,8 +20,8 @@ ENV_OPTIONS = {
         "original": 0,
         "win": 0,
         "lose": -0,
-        "ally_defeated": -100,
-        "enemy_defeated": 100,
+        "ally_defeated": -50,
+        "enemy_defeated": 50,
         "ally_danger": -200,
         "enemy_danger": 200,
         "invalid_action": -0.25,
@@ -29,8 +29,8 @@ ENV_OPTIONS = {
     },
 }
 
-N_EPISODES = 10
-SAVING_INTERVAL = 1
+N_EPISODES = 20000
+SAVING_INTERVAL = 100
 
 
 def main():

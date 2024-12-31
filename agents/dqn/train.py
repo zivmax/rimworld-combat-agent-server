@@ -1,6 +1,8 @@
 import gymnasium as gym
 from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
+import pandas as pd
+import os
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env
@@ -27,8 +29,8 @@ ENV_OPTIONS = {
     },
 }
 
-N_EPISODES = 20000
-SAVING_INTERVAL = 100
+N_EPISODES = 10
+SAVING_INTERVAL = 1
 
 
 def main():
@@ -60,11 +62,63 @@ def main():
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
             agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
-            agent.draw_model(f"agents/dqn/plots/network/{timestamp}/{episode:04d}.png")
-            agent.draw_agent(f"agents/dqn/plots/agent/{timestamp}/{episode:04d}.png")
+            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{episode:04d}.png")
+            agent.draw_agent(
+                f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
+            )
             draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
+            saving(env, agent, timestamp, episode)
 
     env.close()
+
+
+def saving(
+    env: RecordEpisodeStatistics, agent: Agent, timestamp: str, episode: int
+) -> None:
+    # Saving all training history into csv
+
+    # Create a DataFrame with the episode statistics
+    eps_hist_df = pd.DataFrame(
+        {
+            "Episode": range(len(env.return_queue)),
+            "Rewards": env.return_queue,
+            "Length": env.length_queue,
+            "Time": env.time_queue,
+        }
+    )
+
+    # Create a DataFrame with the training statistics
+    stats_df = pd.DataFrame(
+        {
+            "Update": range(len(agent.loss_history)),
+            "Loss": agent.loss_history,
+            "Q-Value": agent.q_value_history,
+            "TD-Error": agent.td_error_history,
+        }
+    )
+
+    # Create a DataFrame with the threshold history
+    thres_df = pd.DataFrame(
+        {
+            "Steps": range(len(agent.eps_threshold_history)),
+            "Threshold": agent.eps_threshold_history,
+        }
+    )
+
+    os.makedirs(f"agents/dqn/history/{timestamp}/env/", exist_ok=True)
+    os.makedirs(f"agents/dqn/history/{timestamp}/training/", exist_ok=True)
+    os.makedirs(f"agents/dqn/history/{timestamp}/threshold/", exist_ok=True)
+
+    eps_hist_df.to_csv(
+        f"agents/dqn/history/{timestamp}/env/{episode:04d}.p.csv",
+        index=False,
+    )
+    stats_df.to_csv(
+        f"agents/dqn/history/{timestamp}/training/{episode:04d}.csv", index=False
+    )
+    thres_df.to_csv(
+        f"agents/dqn/history/{timestamp}/threshold/{episode:04d}.csv", index=False
+    )
 
 
 if __name__ == "__main__":

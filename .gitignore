@@ -5,6 +5,7 @@ env/ref.py
 agent/train_ref.py
 .devcontainer/git.sh
 agents/**/models/
+agents/**/history/
 agents/**/plots/
 agents/**/logs/
 env/**/logs/

@@ -14,7 +14,8 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
-                "w88975.code-translate"
+                "w88975.code-translate",
+                "github.copilot"
             ],
             "settings": {
                 "[python]": {

@@ -8,22 +8,24 @@ from utils.timestamp import timestamp
 
 ENV_OPTIONS = {
     "interval": 0.5,
-    "speed": 2,
+    "speed": 3,
     "action_range": 1,
+    "max_steps": 800,
     "is_remote": False,
-    "remain_still_threshold": 4,
+    "remain_still_threshold": 100,
     "rewarding": {
         "original": 0,
         "win": 0,
         "lose": -0,
-        "ally_defeated": -10,
-        "enemy_defeated": 10,
-        "ally_danger": -10,
-        "enemy_danger": 10,
-        "invalid_action": -1,
-        "remain_still": 0,
+        "ally_defeated": -100,
+        "enemy_defeated": 100,
+        "ally_danger": -200,
+        "enemy_danger": 200,
+        "invalid_action": -0.25,
+        "remain_still": -0.25,
     },
 }
+
 
 N_EPISODES = 3000
 SAVING_INTERVAL = 500

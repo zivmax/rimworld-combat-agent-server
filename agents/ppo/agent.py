@@ -12,8 +12,7 @@ class PPOAgent:
         self,
         obs_space: Box,
         act_space: Box,
-        lr_actor: float = 1e-4,
-        lr_critic: float = 5e-4,
+        lr: float = 1e-4,
         gamma: float = 0.99,
         k_epochs: int = 6,
         eps_clip: float = 0.1,
@@ -34,10 +33,7 @@ class PPOAgent:
         self.state_values_store = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.actor_optimizer = optim.Adam(self.policy.actor.parameters(), lr=lr_actor)
-        self.critic_optimizer = optim.Adam(
-            self.policy.critic.parameters(), lr=lr_critic
-        )
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PPOMemory()
 
     def select_action(self, state: torch.Tensor) -> Dict:
@@ -83,7 +79,6 @@ class PPOAgent:
         )
         dones = torch.stack([t.done for t in self.memory.transitions]).to(self.device)
         returns, advantages = self.compute_advantages(rewards, dones)
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         batch_size = min(self.batch_size, len(self.memory.transitions))
         dataset = torch.utils.data.TensorDataset(
             states, actions, old_log_probs, returns, advantages
@@ -92,39 +87,37 @@ class PPOAgent:
             dataset, batch_size=batch_size, shuffle=True
         )
 
-        for _ in range(self.k_epochs):
-            for batch in loader:
-                (
-                    batch_states,
-                    batch_actions,
-                    batch_old_log_probs,
-                    batch_returns,
-                    batch_advantages,
-                ) = batch
-                log_probs, entropy, state_values = self.policy.evaluate(
-                    batch_states, batch_actions
-                )
-                ratios = torch.exp(log_probs - batch_old_log_probs.detach())
-                # surr1 = ratios * batch_advantages
-                surr1 = log_probs * batch_advantages
-                # surr2 = (
-                #     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
-                #     * batch_advantages
-                # )
-                entropy_bonus = self.entropy_coef * entropy
-                # actor_loss = -torch.min(surr1, surr2) - entropy_bonus
-                actor_loss = -surr1.mean() - entropy_bonus.mean()
-                # critic_loss = (
-                #     self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
-                # )
-                critic_loss = self.critic_coef * batch_advantages.mean().pow(2)
-                # critic_loss = batch_advantages.pow(2)
-            self.critic_optimizer.zero_grad()
-            critic_loss.backward(retain_graph=True)
-            self.critic_optimizer.step()
-            self.actor_optimizer.zero_grad()
-            actor_loss.backward(retain_graph=True)
-            self.actor_optimizer.step()
+        for batch in loader:
+            (
+                batch_states,
+                batch_actions,
+                batch_old_log_probs,
+                batch_returns,
+                batch_advantages,
+            ) = batch
+            log_probs, entropy, state_values = self.policy.evaluate(
+                batch_states, batch_actions
+            )
+            ratios = torch.exp(log_probs - batch_old_log_probs.detach())
+            # surr1 = ratios * batch_advantages
+            surr1 = log_probs * batch_advantages
+            # surr2 = (
+            #     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
+            #     * batch_advantages
+            # )
+            entropy_bonus = self.entropy_coef * entropy
+            # actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+            actor_loss = -surr1.mean() - entropy_bonus.mean()
+            # critic_loss = (
+            #     self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
+            # )
+            critic_loss = self.critic_coef * batch_advantages.mean().pow(2)
+            # critic_loss = batch_advantages.pow(2)
+
+            loss = actor_loss + critic_loss
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
         self.state_values_store = []
         self.memory.clear()

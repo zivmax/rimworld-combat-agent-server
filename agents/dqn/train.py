@@ -110,7 +110,7 @@ def saving(
     os.makedirs(f"agents/dqn/history/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/history/{timestamp}/env/{episode:04d}.p.csv",
+        f"agents/dqn/history/{timestamp}/env/{episode:04d}.csv",
         index=False,
     )
     stats_df.to_csv(

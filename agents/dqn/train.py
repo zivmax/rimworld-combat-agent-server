@@ -25,12 +25,12 @@ ENV_OPTIONS = {
         "ally_danger": -200,
         "enemy_danger": 200,
         "invalid_action": -0.25,
-        "remain_still": -0.25,
+        "remain_still": 0,
     },
 }
 
 N_EPISODES = 20000
-SAVING_INTERVAL = 250
+SAVING_INTERVAL = 500
 
 
 def main():

@@ -7,19 +7,18 @@ import torch.distributions as distributions
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, obs_space: Box, act_space: Box) -> None:
+    def __init__(self, obs_space: Box, act_space: Dict) -> None:
         super(ActorCritic, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space[1]
+        self.act_size = int(np.prod(self.act_space.high - self.act_space.low + 1))
         self.num_actions = (
             self.act_space.shape[0] * len(self.act_space.spaces)
             if isinstance(self.act_space, Dict)
             else self.act_space.shape[0]
         )
 
-        # Convolutional layers
         self.conv = nn.Sequential(
-            # First conv block: in_channels -> 32 channels
             nn.Conv3d(
                 in_channels=obs_space.shape[0],
                 out_channels=32,
@@ -28,24 +27,19 @@ class ActorCritic(nn.Module):
             ),
             nn.ReLU(),
             nn.BatchNorm3d(32),
-            # Second conv block: 32 -> 64 channels
             nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm3d(64),
-            # Max pooling to reduce spatial dimensions by 2
             nn.MaxPool3d(2),
-            # Third conv block: 64 -> 64 channels
             nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm3d(64),
         )
 
-        # Calculate the size of the convolutional output
         dummy = torch.zeros(1, *obs_space.shape)
         conv_out = self.conv(dummy)
         conv_out_size = conv_out.view(conv_out.size(0), -1).size(1)
 
-        # Actor network
         self.actor = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
@@ -55,7 +49,6 @@ class ActorCritic(nn.Module):
         )
         self.log_std = nn.Parameter(torch.zeros(self.num_actions))
 
-        # Critic network
         self.critic = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
@@ -64,7 +57,9 @@ class ActorCritic(nn.Module):
             nn.Linear(256, 1),
         )
         self.eval_critic = nn.Sequential(
-            nn.Linear(conv_out_size, 256),
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Linear(256, 1),
         )
@@ -78,6 +73,7 @@ class ActorCritic(nn.Module):
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten
         action_mean = self.actor(x)
+        action_mean = action_mean * self.act_size
         action_log_std = self.log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
         state_values = self.critic(x) if not eval else self.eval_critic(x)
@@ -85,17 +81,29 @@ class ActorCritic(nn.Module):
 
     def act(self, state: torch.Tensor):
         action_mean, action_std, state_values = self.forward(state)
-        dist = distributions.Normal(action_mean, action_std)
-        action = dist.sample()
-        action_log_prob = dist.log_prob(action).sum(dim=-1)
-        return action, action_log_prob, state_values
+        action_mean = action_mean.view(-1, 2, self.num_actions // 2)
+        dist_x, dist_y = distributions.Categorical(
+            logits=action_mean[0, 0]
+        ), distributions.Categorical(logits=action_mean[0, 1])
+        action_x, action_y = dist_x.sample(), dist_y.sample()
+        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+        return (
+            [action_x.cpu().numpy(), action_y.cpu().numpy()],
+            action_log_prob,
+            state_values,
+        )
 
-    def evaluate(self, states: torch.Tensor, actions: torch.Tensor):
+    def evaluate(self, states: torch.Tensor):
         action_mean, action_std, state_values = self.forward(states, eval=True)
-        dist = distributions.Normal(action_mean, action_std)
-        action_log_probs = dist.log_prob(actions).sum(dim=-1)
-        entropy = dist.entropy().sum(dim=-1)
-        return action_log_probs, entropy, state_values
+        action_mean = action_mean.view(-1, 2, self.num_actions // 2)
+        dist_x, dist_y = distributions.Categorical(
+            logits=action_mean[0, 0]
+        ), distributions.Categorical(logits=action_mean[0, 1])
+        action_x, action_y = dist_x.sample(), dist_y.sample()
+        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+        entropy = dist_x.entropy() + dist_y.entropy()
+
+        return action_log_prob, entropy, state_values
 
     def save(self, filepath: str) -> None:
         directory = os.path.dirname(filepath) if os.path.dirname(filepath) else "."

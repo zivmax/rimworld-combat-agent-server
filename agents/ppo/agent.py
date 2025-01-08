@@ -18,7 +18,7 @@ class PPOAgent:
         eps_clip: float = 0.1,
         entropy_coef: float = 0.01,
         critic_coef: float = 1.0,
-        batch_size: int = 512,
+        batch_size: int = 128,
         reuse_time: int = 8,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
@@ -45,8 +45,7 @@ class PPOAgent:
             "action": action,
             "log_prob": log_prob,
         }
-        action = action.cpu().numpy()
-        action = {1: np.array(action[0])}
+        action = {1: np.array(action)}
         return action
 
     def store_transition(
@@ -95,12 +94,11 @@ class PPOAgent:
                 batch_returns,
                 batch_advantages,
             ) = batch
-            log_probs, entropy, state_values = self.policy.evaluate(
-                batch_states, batch_actions
-            )
+            log_probs, entropy, state_values = self.policy.evaluate(batch_states)
+
             ratios = torch.exp(log_probs - batch_old_log_probs.detach())
             # surr1 = ratios * batch_advantages
-            surr1 = log_probs * batch_advantages
+            surr1 = log_probs.detach() * batch_advantages.detach()
             # surr2 = (
             #     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
             #     * batch_advantages
@@ -111,7 +109,7 @@ class PPOAgent:
             # critic_loss = (
             #     self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
             # )
-            critic_loss = self.critic_coef * batch_advantages.mean().pow(2)
+            critic_loss = self.critic_coef * batch_advantages.detach().mean().pow(2)
             # critic_loss = batch_advantages.pow(2)
 
             loss = actor_loss + critic_loss
@@ -137,9 +135,11 @@ class PPOAgent:
             advantages.insert(0, advantage)
             previous_value = state_values[step]
             returns.insert(0, advantage + state_values[step])
+
         advantages = torch.tensor(
             advantages, dtype=torch.float32, requires_grad=True
         ).to(self.device)
+
         returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         return returns, advantages

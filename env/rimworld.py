@@ -62,7 +62,8 @@ class RimWorldEnv(gym.Env):
         }
 
         self._server_thread, self._server = GameServer.create_server_thread(
-            self._options["is_remote"]
+            self._options["is_remote"],
+            port=GameServer.find_available_port(start_port=100),
         )
         StateCollector.receive_state(self._server)
 

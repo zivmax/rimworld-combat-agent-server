@@ -29,12 +29,11 @@ def signal_handler(sig, frame, server: "GameServer") -> None:
 class GameServer:
     DEFAULT_HOST: str = "localhost"
     REMOTE_HOST: str = "0.0.0.0"
-    PORT: int = 10086
     BUFFER_SIZE: int = 5120
     ENCODING: str = "utf-8"
     QUEUE_SIZE: int = 10
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = PORT) -> None:
+    def __init__(self, host: str = DEFAULT_HOST, port: int = 10086) -> None:
         self.host = host
         self.port = port
         self.running: bool = True
@@ -131,12 +130,52 @@ class GameServer:
 
     @classmethod
     def create_server_thread(
-        cls, is_remote: bool = False
+        cls, is_remote: bool = False, port: int = 10086
     ) -> Tuple[Thread, "GameServer"]:
-        server = GameServer()
+        server = GameServer(port=port)
         signal.signal(
             signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, server)
         )
         thread = Thread(target=server.start, daemon=True, args=(is_remote,))
         thread.start()
         return thread, server
+
+    @classmethod
+    def find_available_port(
+        cls, start_port: int = 10086, max_attempts: int = 100
+    ) -> int | None:
+        """
+        Find and return an available local port using a growth algorithm.
+
+        Args:
+            start_port (int): The port number to start checking from.
+            max_attempts (int): The maximum number of ports to check.
+            growth_factor (int): The factor by which the port interval grows after each attempt.
+
+        Returns:
+            int: An available port number, or -1 if no available port is found.
+        """
+        current_port = start_port
+        interval = 1  # Start with a small interval
+        attempts = 0
+        growth_factor = 10
+        grow_threshold = 50
+
+        while attempts < max_attempts:
+            try:
+                # Create a temporary socket to check if the port is available
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp_socket:
+                    temp_socket.bind(("localhost", current_port))
+                    # If bind is successful, the port is available
+                    return current_port
+            except socket.error:
+                attempts += 1
+
+                if attempts % grow_threshold == 0:
+                    interval *= growth_factor
+
+                # Port is not available, try the next one with an increased interval
+                current_port += interval
+                continue
+
+        return None  # No available port found

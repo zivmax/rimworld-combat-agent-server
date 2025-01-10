@@ -9,7 +9,7 @@ from gymnasium import spaces
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .server import server, create_server_thread
+from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
 
@@ -61,8 +61,10 @@ class RimWorldEnv(gym.Env):
             ),
         }
 
-        self._server_thread: Thread = create_server_thread(self._options["is_remote"])
-        StateCollector.receive_state()
+        self._server_thread, self._server = GameServer.create_server_thread(
+            self._options["is_remote"]
+        )
+        StateCollector.receive_state(self._server)
 
         self._update_all()
 
@@ -147,12 +149,12 @@ class RimWorldEnv(gym.Env):
                 "Speed": self._options["speed"],
             },
         }
-        server.send_to_client(server.client, message)
+        self._server.send_to_client(message)
         logger.info(f"Sent reset signal to clients at tick {StateCollector.state.tick}")
 
         super().reset(seed=seed)  # We need the following line to seed self.np_random
         StateCollector.reset()
-        StateCollector.receive_state()
+        StateCollector.receive_state(self._server)
 
         logger.info(f"Env reset!")
         self._reseted_times += 1
@@ -161,11 +163,11 @@ class RimWorldEnv(gym.Env):
         if (
             self._reseted_times >= 300
         ):  # Client will restart after 300 resets, re-reset to reconfig game.
-            server.send_to_client(server.client, message)
+            self._server.send_to_client(message)
             logger.info(f"Restart and reconfigure the client game.")
             self._reseted_times = 0
             StateCollector.reset()
-            StateCollector.receive_state()
+            StateCollector.receive_state(self._server)
 
         self._update_all()
 
@@ -201,11 +203,11 @@ class RimWorldEnv(gym.Env):
             },
         }
 
-        server.send_to_client(server.client, message)
+        self._server.send_to_client(message)
         logger.info(
             f"Sent action to clients at tick {StateCollector.state.tick}:\n{to_json(game_action)}"
         )
-        StateCollector.receive_state()
+        StateCollector.receive_state(self._server)
 
         self._actions_prev = pawn_actions
         self._update_all()
@@ -224,7 +226,7 @@ class RimWorldEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def close(self):
-        server.stop()
+        self._server.stop()
         super().close()
 
     def _update_allies(self):

@@ -4,6 +4,7 @@ import logging
 from numpy.typing import NDArray
 from typing import Dict, List, Tuple
 from gymnasium import spaces
+from time import sleep
 
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
@@ -23,7 +24,10 @@ logger = f_logger
 
 
 class RimWorldEnv(gym.Env):
-    def __init__(self, options: Dict = None):
+    def __init__(self, options: Dict = None, port: int = 10086, bootsleep: int = 0):
+        super().__init__()
+
+        sleep(bootsleep)
 
         self._reseted_times: int = 0
         self._pawns: Dict[str, PawnState] = None
@@ -63,7 +67,7 @@ class RimWorldEnv(gym.Env):
 
         self._server_thread, self._server = GameServer.create_server_thread(
             self._options["is_remote"],
-            port=GameServer.find_available_port(start_port=100),
+            port=port,
         )
         self._game = Game(
             game_path="/mnt/game/RimWorldLinux",

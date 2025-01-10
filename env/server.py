@@ -96,7 +96,8 @@ class GameServer:
                     )
                     break
         finally:
-            self.client.close()
+            if self.client:
+                self.client.close()
 
     def stop(self) -> None:
         self.running = False

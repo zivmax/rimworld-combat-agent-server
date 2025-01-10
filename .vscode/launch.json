@@ -1,23 +1,26 @@
-{
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "DQN (Eval)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.dqn.eval",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "DQN (Train)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.dqn.train",
-            "console": "integratedTerminal"
-        },
+    // Start of Selection
+    {
+        // Use IntelliSense to learn about possible attributes.
+        // Hover to view descriptions of existing attributes.
+        // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Evalutate",
+                "type": "debugpy",
+                "args": ["-O"],
+                "request": "launch",
+                "program": "${workspaceFolder}/main.py",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "DQN",
+                "type": "debugpy",
+                "args": ["-O"],
+                "request": "launch",
+                "module": "agents.dqn.train",
+                "console": "integratedTerminal"
+            },
         {
             "name": "DQN (Retrain)",
             "type": "debugpy",
@@ -25,12 +28,64 @@
             "module": "agents.dqn.retrain",
             "console": "integratedTerminal"
         },
-        {
-            "name": "Random",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.random.train",
-            "console": "integratedTerminal"
-        },
-    ]
-}
+            {
+                "name": "Random",
+                "type": "debugpy",
+                "args": ["-O"],
+                "request": "launch",
+                "module": "agents.random.main",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "Evalutate (Debug)",
+                "type": "debugpy",
+                "request": "launch",
+                "program": "${workspaceFolder}/main.py",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "DQN (Debug)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.dqn.train",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "DQN (Evaluate)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.dqn.eval",
+                "console": "integratedTerminal"
+            },
+
+            {
+                "name": "Random (Debug)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.random.main",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "PPO",
+                "type": "debugpy",
+                "args": ["-O"],
+                "request": "launch",
+                "module": "agents.ppo.train",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "PPO (Debug)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.ppo.train",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "PPO (Evaluate)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.ppo.eval",
+                "console": "integratedTerminal"
+            }
+        ]
+    }

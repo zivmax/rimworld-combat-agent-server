@@ -31,6 +31,7 @@ ENV_OPTIONS = {
 
 N_EPISODES = 20000
 SAVING_INTERVAL = 500
+MODEL_PATH = "agents/dqn/models/2025-01-02_13:45:44/10000.pth"
 
 
 def main():
@@ -39,6 +40,10 @@ def main():
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
+    agent.policy_net.load(MODEL_PATH)
+    agent.epsilon_start = 0.001
+    agent.epsilon_final = 0.001
+    agent.epsilon_decay = 0
     agent.policy_net.train()
 
     for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):

@@ -6,37 +6,6 @@
         "version": "0.2.0",
         "configurations": [
             {
-                "name": "Evalutate",
-                "type": "debugpy",
-                "args": ["-O"],
-                "request": "launch",
-                "program": "${workspaceFolder}/main.py",
-                "console": "integratedTerminal"
-            },
-            {
-                "name": "DQN",
-                "type": "debugpy",
-                "args": ["-O"],
-                "request": "launch",
-                "module": "agents.dqn.train",
-                "console": "integratedTerminal"
-            },
-        {
-            "name": "DQN (Retrain)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "agents.dqn.retrain",
-            "console": "integratedTerminal"
-        },
-            {
-                "name": "Random",
-                "type": "debugpy",
-                "args": ["-O"],
-                "request": "launch",
-                "module": "agents.random.main",
-                "console": "integratedTerminal"
-            },
-            {
                 "name": "Evalutate (Debug)",
                 "type": "debugpy",
                 "request": "launch",
@@ -57,20 +26,18 @@
                 "module": "agents.dqn.eval",
                 "console": "integratedTerminal"
             },
-
+            {
+                "name": "DQN (Retrain)",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.dqn.retrain",
+                "console": "integratedTerminal"
+            },
             {
                 "name": "Random (Debug)",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.random.main",
-                "console": "integratedTerminal"
-            },
-            {
-                "name": "PPO",
-                "type": "debugpy",
-                "args": ["-O"],
-                "request": "launch",
-                "module": "agents.ppo.train",
                 "console": "integratedTerminal"
             },
             {

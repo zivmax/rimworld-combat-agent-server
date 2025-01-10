@@ -7,16 +7,22 @@ from utils.draw import draw
 
 
 OPTIONS = {
-    "interval": 3.0,
-    "speed": 4,
-    "action_range": 4,
+    "interval": 0.5,
+    "speed": 3,
+    "action_range": 1,
+    "max_steps": None,
     "is_remote": False,
+    "remain_still_threshold": 300,
     "rewarding": {
         "original": 0,
-        "ally_defeated": -10,
-        "enemy_defeated": 10,
-        "ally_danger": 0.5,
-        "enemy_danger": -0.5,
+        "win": 0,
+        "lose": -0,
+        "ally_defeated": -100,
+        "enemy_defeated": 100,
+        "ally_danger": -200,
+        "enemy_danger": 200,
+        "invalid_action": -0.25,
+        "remain_still": -0.25,
     },
 }
 
@@ -30,18 +36,17 @@ def main():
     n_episodes = 3
 
     for episode in range(n_episodes):
-        obs, info = env.reset()
+        _, _ = env.reset()
         done = False
         episode_reward = 0
 
         while not done:
-            action = agent.act(obs, info)
-            obs, reward, done, _, info = env.step(action)
+            action = agent.act()
+            _, reward, done, _, _ = env.step(action)
             episode_reward += reward
 
     env.close()
     draw(env, "agents/random/plot/episode_stats.png")
 
 
-if __name__ == "__main__":
-    main()
+main()

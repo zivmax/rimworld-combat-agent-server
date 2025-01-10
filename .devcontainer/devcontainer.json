@@ -3,7 +3,6 @@
     "build": {
         "dockerfile": "Dockerfile"
     },
-
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/sshd:1": {}
@@ -25,6 +24,13 @@
             }
         }
     },
-    "runArgs": ["--gpus", "all"],
+    "mounts": [
+        "source=${localWorkspaceFolder}/../game,target=/mnt/game,type=bind",
+        "source=${localEnv:HOME}/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Config/ModsConfig.xml,target=/root/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Config/ModsConfig.xml,type=bind"
+    ],
+    "runArgs": [
+        "--gpus",
+        "all"
+    ],
     "postCreateCommand": "bash .devcontainer/git.sh"
 }

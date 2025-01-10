@@ -21,6 +21,13 @@
                 "module": "agents.dqn.train",
                 "console": "integratedTerminal"
             },
+        {
+            "name": "DQN (Retrain)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "agents.dqn.retrain",
+            "console": "integratedTerminal"
+        },
             {
                 "name": "Random",
                 "type": "debugpy",

@@ -476,5 +476,5 @@ class RimWorldEnv(gym.Env):
         )
 
         if excess_still_count > 0:
-            return excess_still_count * self._options["rewarding"]["remain_still"]
+            return self._options["rewarding"]["remain_still"]
         return 0

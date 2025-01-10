@@ -18,6 +18,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends dotnet-sdk-8.0
 
 # Install Python dependencies
 RUN pip install --upgrade pip
-RUN pip install torch torchvision torchaudio
 COPY requirements.txt .
 RUN pip install -r requirements.txt

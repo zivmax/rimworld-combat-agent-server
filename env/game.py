@@ -1,8 +1,7 @@
 import subprocess
 import time
 import os
-import signal
-import sys
+import psutil
 import threading
 import logging
 from utils.timestamp import timestamp
@@ -94,13 +93,14 @@ class Game:
         try:
             # Start the process and redirect stdout and stderr to PIPE
             self.process = subprocess.Popen(
-                f"{' '.join(command)}",
+                # f"{' '.join(command)}",
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=0,  # Disable buffering
                 encoding="utf-8",  # Specify the encoding
-                shell=True,
+                shell=False,
             )
 
             # Start a thread to log stdout
@@ -136,20 +136,30 @@ class Game:
             return None
 
     def shutdown(self):
-        """
-        Shutdown the RimWorld game process.
-        """
         if self.process:
             try:
                 logger.info(
                     f"Terminating RimWorld game process (PID: {self.process.pid})..."
                 )
-                # Send a termination signal to the process
+
+                # Get the process and all its children
+                parent = psutil.Process(self.process.pid)
+                children = parent.children(recursive=True)
+
+                # Terminate all child processes
+                for child in children:
+                    child.terminate()
+
+                # Wait for child processes to terminate
+                gone, still_alive = psutil.wait_procs(children, timeout=5)
+                for child in still_alive:
+                    child.kill()  # Forcefully kill any remaining child processes
+
+                # Terminate the parent process
                 self.process.terminate()
                 self.process.wait(timeout=10)  # Wait for the process to terminate
                 logger.info("RimWorld game process has been terminated.")
             except subprocess.TimeoutExpired:
-                # If the process doesn't terminate gracefully, force kill it
                 logger.warning(
                     "RimWorld game process did not terminate gracefully. Forcefully killing..."
                 )
@@ -170,23 +180,3 @@ class Game:
         self.shutdown()  # Shutdown the current process
         time.sleep(10)  # Add a short delay before relaunching
         self.launch()  # Launch the game again
-
-
-# Example usage:
-if __name__ == "__main__":
-    # Path to the RimWorld executable
-    rimworld_path = "/mnt/game/RimWorldLinux"
-
-    # Create an instance of the launcher with custom server address and port
-    manager = Game(rimworld_path, server_addr="192.168.1.100", port=12345)
-
-    # Launch the game
-    manager.launch()
-
-    # Keep the script running to monitor the game process
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Script interrupted by user. Shutting down...")
-        manager.shutdown()

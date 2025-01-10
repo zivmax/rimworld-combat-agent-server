@@ -66,7 +66,7 @@ def main():
             agent.draw_agent(
                 f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
             )
-            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
+            draw(env, save_path=f"agents/dqn/plots/env/{timestamp}/{episode:04d}.png")
             saving(env, agent, timestamp, episode)
 
     env.close()
@@ -105,19 +105,19 @@ def saving(
         }
     )
 
-    os.makedirs(f"agents/dqn/history/{timestamp}/env/", exist_ok=True)
-    os.makedirs(f"agents/dqn/history/{timestamp}/training/", exist_ok=True)
-    os.makedirs(f"agents/dqn/history/{timestamp}/threshold/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/env/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/training/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/history/{timestamp}/env/{episode:04d}.csv",
+        f"agents/dqn/histories/{timestamp}/env/{episode:04d}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/dqn/history/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/training/{episode:04d}.csv", index=False
     )
     thres_df.to_csv(
-        f"agents/dqn/history/{timestamp}/threshold/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/threshold/{episode:04d}.csv", index=False
     )
 
 

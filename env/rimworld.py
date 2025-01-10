@@ -1,7 +1,6 @@
 import gymnasium as gym
 import numpy as np
 import logging
-from threading import Thread
 from numpy.typing import NDArray
 from typing import Dict, List, Tuple
 from gymnasium import spaces
@@ -12,6 +11,7 @@ from utils.json import to_json
 from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
+from .game import Game
 
 logging_level = logging.INFO
 f_logger = get_file_logger(
@@ -65,6 +65,14 @@ class RimWorldEnv(gym.Env):
             self._options["is_remote"],
             port=GameServer.find_available_port(start_port=100),
         )
+        self._game = Game(
+            game_path="/mnt/game/RimWorldLinux",
+            server_addr="localhost",
+            port=self._server.port,
+        )
+
+        self._game.launch()
+
         StateCollector.receive_state(self._server)
 
         self._update_all()
@@ -228,6 +236,7 @@ class RimWorldEnv(gym.Env):
 
     def close(self):
         self._server.stop()
+        self._game.shutdown()
         super().close()
 
     def _update_allies(self):

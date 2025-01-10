@@ -5,8 +5,6 @@ from threading import Thread, Event
 from typing import Tuple, Dict, Any
 from queue import Queue
 from socket import socket as Socket
-import signal
-import sys
 
 from utils.logger import get_file_logger, get_cli_logger
 from utils.timestamp import timestamp
@@ -17,13 +15,6 @@ cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
 
 stop_event = Event()
-
-
-def signal_handler(sig, frame, server: "GameServer") -> None:
-    logger.info("\nStopping threads...")
-    stop_event.set()
-    server.stop()
-    sys.exit(0)
 
 
 class GameServer:
@@ -133,9 +124,6 @@ class GameServer:
         cls, is_remote: bool = False, port: int = 10086
     ) -> Tuple[Thread, "GameServer"]:
         server = GameServer(port=port)
-        signal.signal(
-            signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, server)
-        )
         thread = Thread(target=server.start, daemon=True, args=(is_remote,))
         thread.start()
         return thread, server

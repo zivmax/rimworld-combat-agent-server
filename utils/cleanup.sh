@@ -1,0 +1,1 @@
+for script in utils/clean-*.sh; do bash "$script"; done

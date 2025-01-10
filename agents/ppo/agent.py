@@ -42,7 +42,7 @@ class PPOAgent:
         self.state_values_store.append(state_values)
         self.current_transition = {
             "state": state,
-            "action": action,
+            "action": torch.tensor([action[0][0], action[1][0]]),
             "log_prob": log_prob,
         }
         action = {1: np.array(action)}
@@ -67,6 +67,7 @@ class PPOAgent:
 
     def update(self) -> None:
         states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
+
         actions = torch.stack([t.action for t in self.memory.transitions]).to(
             self.device
         )

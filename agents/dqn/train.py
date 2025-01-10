@@ -41,35 +41,46 @@ def main():
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
     agent.policy_net.train()
 
-    for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
-        next_state, _ = env.reset()
-        next_state.swapaxes(0, 1)
-        while True:
-            current_state = next_state
-            action = agent.act(current_state)
-            action = {1: action}
+    try:
+        for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+            next_state, _ = env.reset()
+            next_state.swapaxes(0, 1)
+            while True:
+                current_state = next_state
+                action = agent.act(current_state)
+                action = {1: action}
 
-            next_obs, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
+                next_obs, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
 
-            next_state = next_obs
+                next_state = next_obs
 
-            agent.remember(current_state, next_state, action[1], reward, done)
-            agent.train()
+                agent.remember(current_state, next_state, action[1], reward, done)
+                agent.train()
 
-            if done:
-                break
+                if done:
+                    break
 
-        if episode % SAVING_INTERVAL == 0 and episode > 0:
-            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
-            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{episode:04d}.png")
-            agent.draw_agent(
-                f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
-            )
-            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
-            saving(env, agent, timestamp, episode)
+            if episode % SAVING_INTERVAL == 0 and episode > 0:
+                agent.policy_net.save(
+                    f"agents/dqn/models/{timestamp}/{episode:04d}.pth"
+                )
+                agent.draw_model(
+                    f"agents/dqn/plots/training/{timestamp}/{episode:04d}.png"
+                )
+                agent.draw_agent(
+                    f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
+                )
+                draw(
+                    env, save_path=f"agents/dqn/plots/env/{timestamp}/{episode:04d}.png"
+                )
+                saving(env, agent, timestamp, episode)
 
-    env.close()
+    except KeyboardInterrupt:
+        env.close()
+
+    finally:
+        env.close()
 
 
 def saving(
@@ -105,19 +116,19 @@ def saving(
         }
     )
 
-    os.makedirs(f"agents/dqn/history/{timestamp}/env/", exist_ok=True)
-    os.makedirs(f"agents/dqn/history/{timestamp}/training/", exist_ok=True)
-    os.makedirs(f"agents/dqn/history/{timestamp}/threshold/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/env/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/training/", exist_ok=True)
+    os.makedirs(f"agents/dqn/histories/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/history/{timestamp}/env/{episode:04d}.csv",
+        f"agents/dqn/histories/{timestamp}/env/{episode:04d}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/dqn/history/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/training/{episode:04d}.csv", index=False
     )
     thres_df.to_csv(
-        f"agents/dqn/history/{timestamp}/threshold/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/threshold/{episode:04d}.csv", index=False
     )
 
 

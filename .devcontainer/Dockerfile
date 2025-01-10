@@ -9,19 +9,14 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential wget
 
-# Clean up
-RUN rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip
-RUN pip install --upgrade pip
-
-# Install PyTorch and torchvision
-RUN pip install torch torchvision torchaudio
-
-# Copy requirements file
-COPY requirements.txt .
+# Install .NET SDK
+RUN wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+RUN dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
+RUN apt-get update && apt-get install -y --no-install-recommends dotnet-sdk-8.0
 
 # Install Python dependencies
+RUN pip install --upgrade pip
+COPY requirements.txt .
 RUN pip install -r requirements.txt

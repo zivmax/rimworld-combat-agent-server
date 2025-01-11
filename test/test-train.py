@@ -11,13 +11,12 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 
-N_EPISODES = 20000
+N_EPISODES = 100
 SAVING_INTERVAL = 500
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=800,
-    is_remote=False,
     remain_still_threshold=100,
     rewarding=EnvOptions.Rewarding(
         original=0,

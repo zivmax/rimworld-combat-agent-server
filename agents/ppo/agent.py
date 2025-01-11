@@ -42,10 +42,10 @@ class PPOAgent:
         self.state_values_store.append(state_values)
         self.current_transition = {
             "state": state,
-            "action": torch.tensor([action[0][0], action[1][0]]),
+            "action": torch.tensor(action),
             "log_prob": log_prob,
         }
-        action = {1: np.array(action)}
+        action = {1: action}
         return action
 
     def store_transition(

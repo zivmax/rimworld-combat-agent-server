@@ -45,7 +45,7 @@ class Game:
         self.rimworld_path = game_path
         self.server_addr = server_addr
         self.port = port
-        self.process = None  # Store the process object
+        self.process: subprocess.Popen = None  # Store the process object
         self.log_dir = "env/logs/game"  # Directory for log files
         self.ensure_log_dir_exists()  # Ensure the log directory exists
         self.monitor_thread = None  # Thread to monitor the process status
@@ -54,10 +54,9 @@ class Game:
         """
         Ensure the log directory exists. If not, create it.
         """
-        for subdir in ["stdout", "stderr"]:
-            log_path = os.path.join(self.log_dir, subdir)
-            if not os.path.exists(log_path):
-                os.makedirs(log_path)
+        log_path = os.path.join(os.getcwd(), self.log_dir)
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
 
     def monitor_process(self):
         """
@@ -67,10 +66,13 @@ class Game:
             time.sleep(5)  # Check every 5 seconds
 
         if self.process and self.process.poll() is not None:
-            logger.error(
-                f"Game process terminated unexpectedly with return code {self.process.returncode}"
-            )
+            pid = self.process.pid
+            returncode = self.process.returncode
             self.process = None  # Reset the process object
+            logger.error(
+                f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}"
+            )
+            raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
 
     def launch(self):
         """
@@ -78,13 +80,16 @@ class Game:
         Redirect stdout and stderr to separate log files without blocking.
         """
         # Generate log file names using the timestamp
-        stdout_log_file = os.path.join(self.log_dir, f"stdout/{timestamp}.log")
-        stderr_log_file = os.path.join(self.log_dir, f"stderr/{timestamp}.log")
+        stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
 
+        env_copy = os.environ.copy()
         command = [
             self.rimworld_path,
             "-batchmode",
             "-nographics",
+            "-disable-gpu-skinning",
+            "-no-stereo-rendering",
+            "-systemallocator",
             "-quicktest",
             f"-server={self.server_addr}",
             f"-port={self.port}",
@@ -93,31 +98,25 @@ class Game:
         try:
             # Start the process and redirect stdout and stderr to PIPE
             self.process = subprocess.Popen(
-                # f"{' '.join(command)}",
-                command,
+                f"{' '.join(command)}",
+                # command,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env=env_copy,
+                cwd=os.path.dirname(self.rimworld_path),
                 text=True,
                 bufsize=0,  # Disable buffering
                 encoding="utf-8",  # Specify the encoding
-                shell=False,
+                shell=True,
             )
 
             # Start a thread to log stdout
-            stdout_thread = threading.Thread(
+            log_thread = threading.Thread(
                 target=log_output,
                 args=(self.process, stdout_log_file, self.process.stdout),
             )
-            stdout_thread.daemon = True
-            stdout_thread.start()
-
-            # Start a thread to log stderr
-            stderr_thread = threading.Thread(
-                target=log_output,
-                args=(self.process, stderr_log_file, self.process.stderr),
-            )
-            stderr_thread.daemon = True
-            stderr_thread.start()
+            log_thread.daemon = True
+            log_thread.start()
 
             # Start a thread to monitor the process status
             self.monitor_thread = threading.Thread(target=self.monitor_process)
@@ -128,7 +127,6 @@ class Game:
                 f"RimWorld launched in headless mode with server address {self.server_addr} and port {self.port}."
             )
             logger.info(f"Game stdout is being logged to: {stdout_log_file}")
-            logger.info(f"Game stderr is being logged to: {stderr_log_file}")
             logger.info(f"Game process PID: {self.process.pid}")
             return self.process
         except Exception as e:

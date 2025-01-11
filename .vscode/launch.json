@@ -30,7 +30,7 @@
                 "name": "Random-Deploy",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.random.main",
+                "module": "agents.random.deploy",
                 "console": "integratedTerminal"
             },
             {

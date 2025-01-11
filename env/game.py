@@ -14,24 +14,6 @@ cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
 
 
-def log_output(process, log_file, stream):
-    """
-    Log the output of the process to a file.
-
-    :param process: The process object.
-    :param log_file: The log file to write to.
-    :param stream: The stream to read from (stdout or stderr).
-    """
-    with open(log_file, "w") as log:
-        while True:
-            output = stream.readline()
-            if output == "" and process.poll() is not None:
-                break
-            if output:
-                log.write(output)
-                log.flush()
-
-
 class Game:
     def __init__(self, game_path, server_addr="127.0.0.1", port=10086):
         """
@@ -80,7 +62,7 @@ class Game:
         Redirect stdout and stderr to separate log files without blocking.
         """
         # Generate log file names using the timestamp
-        stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
+        self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
 
         env_copy = os.environ.copy()
         command = [
@@ -112,8 +94,7 @@ class Game:
 
             # Start a thread to log stdout
             log_thread = threading.Thread(
-                target=log_output,
-                args=(self.process, stdout_log_file, self.process.stdout),
+                target=self._log_output,
             )
             log_thread.daemon = True
             log_thread.start()
@@ -126,7 +107,7 @@ class Game:
             logger.info(
                 f"RimWorld launched in headless mode with server address {self.server_addr} and port {self.port}."
             )
-            logger.info(f"Game stdout is being logged to: {stdout_log_file}")
+            logger.info(f"Game stdout is being logged to: {self.stdout_log_file}")
             logger.info(f"Game process PID: {self.process.pid}")
             return self.process
         except Exception as e:
@@ -178,3 +159,20 @@ class Game:
         self.shutdown()  # Shutdown the current process
         time.sleep(10)  # Add a short delay before relaunching
         self.launch()  # Launch the game again
+
+    def _log_output(self):
+        """
+        Log the output of the process to a file.
+
+        :param process: The process object.
+        :param log_file: The log file to write to.
+        :param stream: The stream to read from (stdout or stderr).
+        """
+        with open(self.stdout_log_file, "w") as log:
+            while True:
+                output = self.process.stdout.readline()
+                if output == "" and self.process.poll() is not None:
+                    break
+                if output:
+                    log.write(output)
+                    log.flush()

@@ -6,52 +6,45 @@
         "version": "0.2.0",
         "configurations": [
             {
-                "name": "Evalutate (Debug)",
-                "type": "debugpy",
-                "request": "launch",
-                "program": "${workspaceFolder}/main.py",
-                "console": "integratedTerminal"
-            },
-            {
-                "name": "DQN (Debug)",
+                "name": "DQN-Train",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.dqn.train",
                 "console": "integratedTerminal"
             },
             {
-                "name": "DQN (Evaluate)",
+                "name": "DQN-Deploy",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.eval",
+                "module": "agents.dqn.deploy",
                 "console": "integratedTerminal"
             },
             {
-                "name": "DQN (Retrain)",
+                "name": "DQN-Retrain",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.dqn.retrain",
                 "console": "integratedTerminal"
             },
             {
-                "name": "Random (Debug)",
+                "name": "Random-Deploy",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.random.main",
                 "console": "integratedTerminal"
             },
             {
-                "name": "PPO (Debug)",
+                "name": "PPO-Train",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.ppo.train",
                 "console": "integratedTerminal"
             },
             {
-                "name": "PPO (Evaluate)",
+                "name": "PPO-Deploy",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.ppo.eval",
+                "module": "agents.ppo.deploy",
                 "console": "integratedTerminal"
             }
         ]

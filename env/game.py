@@ -19,6 +19,24 @@ logger = f_logger
 
 @dataclass
 class GameOptions:
+    """
+    A dataclass to hold the configuration options for the game.
+
+    Attributes:
+        agent_control (bool): Whether agents are controlled by the game (default: True).
+        team_size (int): The size of the team (default: 1).
+        map_size (int): The size of the map (default: 15).
+        gen_trees (bool): Whether to generate trees (default: True).
+        gen_ruins (bool): Whether to generate ruins (default: True).
+        random_seed (Optional[int]): The random seed for the game (default: 4048).
+        can_flee (bool): Whether agents can flee (default: False).
+        actively_attack (bool): Whether agents actively attack (default: False).
+        interval (float): The interval between game updates (default: 1.0).
+        speed (int): The speed of the game (default: 1).
+        server_addr (str): The server address (default: "localhost").
+        server_port (int): The server port (default: 10086).
+    """
+
     agent_control: bool = True
     team_size: int = 1
     map_size: int = 15
@@ -36,17 +54,15 @@ class GameOptions:
 class Game:
     def __init__(self, game_path, options: Optional[GameOptions] = None):
         """
-        Initialize the RimWorldHeadlessLauncher with the path to the RimWorld executable,
-        server address, and port.
+        Initialize the Game class with the path to the game executable and optional configuration.
 
-        :param game_path: Path to the RimWorld executable.
-        :param server_addr: Server address (default: 127.0.0.1).
-        :param port: Port number (default: 10086).
+        :param game_path: Path to the game executable.
+        :param options: Optional GameOptions object to configure the game (default: None).
         """
         self.rimworld_path = game_path
         self.options = options if options else GameOptions()
         self.log_dir = "env/logs/game"  # Directory for log files
-        self.ensure_log_dir_exists()  # Ensure the log directory exists
+        self._ensure_log_dir_exists()  # Ensure the log directory exists
         self.process: subprocess.Popen = None  # Store the process object
         self.monitor_thread: threading.Thread = (
             None  # Thread to monitor the process status
@@ -55,32 +71,12 @@ class Game:
         self.logging: bool = True  # Flag to control logging
         self.monitoring: bool = True  # Flag to control monitoring
 
-    def ensure_log_dir_exists(self):
-        """
-        Ensure the log directory exists. If not, create it.
-        """
-        log_path = os.path.join(os.getcwd(), self.log_dir)
-        if not os.path.exists(log_path):
-            os.makedirs(log_path)
-
-    def monitor_process(self):
-        """
-        Monitor the process status and log an error if it terminates unexpectedly.
-        """
-        while self.process and self.process.poll() is None:
-            time.sleep(5)  # Check every 5 seconds
-
-        while self.monitoring:
-            if self.process and self.process.poll() is not None:
-                pid = self.process.pid
-                returncode = self.process.returncode
-                self.process = None  # Reset the process object
-                logger.error(
-                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}"
-                )
-                raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
-
     def launch(self):
+        """
+        Launch the game in headless mode with the specified configuration.
+
+        :return: The subprocess.Popen object representing the game process, or None if the launch fails.
+        """
         self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
 
         env_copy = os.environ.copy()
@@ -129,7 +125,7 @@ class Game:
             self.log_thread.start()
 
             # Start a thread to monitor the process status
-            self.monitor_thread = threading.Thread(target=self.monitor_process)
+            self.monitor_thread = threading.Thread(target=self._monitor_process)
             self.monitor_thread.daemon = True
             self.monitor_thread.start()
 
@@ -144,6 +140,9 @@ class Game:
             return None
 
     def shutdown(self):
+        """
+        Shutdown the game process and all its child processes.
+        """
         if self.process:
             try:
                 logger.info(
@@ -193,13 +192,36 @@ class Game:
         time.sleep(10)  # Add a short delay before relaunching
         self.launch()  # Launch the game again
 
+    def _ensure_log_dir_exists(self):
+        """
+        Ensure the log directory exists. If not, create it.
+        """
+        log_path = os.path.join(os.getcwd(), self.log_dir)
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+
+    def _monitor_process(self):
+        """
+        Monitor the process status and restart the game if it crashes.
+        """
+        while self.monitoring:
+            if self.process and self.process.poll() is not None:
+                pid = self.process.pid
+                returncode = self.process.returncode
+                self.process = None  # Reset the process object
+                logger.error(
+                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}. Restarting..."
+                )
+                try:
+                    self.restart()  # Restart the game
+                except Exception as e:
+                    logger.error(f"Failed to restart the game: {e}")
+                    break  # Exit the monitoring loop if restart fails
+            time.sleep(5)  # Check every 5 seconds
+
     def _log_output(self):
         """
         Log the output of the process to a file.
-
-        :param process: The process object.
-        :param log_file: The log file to write to.
-        :param stream: The stream to read from (stdout or stderr).
         """
         with open(self.stdout_log_file, "w") as log:
             while self.logging:

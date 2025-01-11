@@ -17,6 +17,7 @@ from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
 from .game import Game, GameOptions
+from .const import RESTART_INTERVAL
 
 logging_level = logging.INFO
 f_logger = get_file_logger(
@@ -25,9 +26,6 @@ f_logger = get_file_logger(
 cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = f_logger
-
-
-RESTART_INTERVAL = 300  # Restart the game every `RESTART_INTERVAL` episodes
 
 
 def register_keyboard_interrupt(env: gym.Env):
@@ -173,8 +171,16 @@ class RimWorldEnv(gym.Env):
         super().reset(
             seed=seed, options=options
         )  # We need the following line to seed self.np_random
+
         StateCollector.reset()
-        StateCollector.receive_state(self._server)
+        while not StateCollector.receive_state(self._server):
+            logger.warning(f"Timeout to reset the game, restarting the game.")
+            self._game.restart()
+            StateCollector.reset()
+            sleep(1)
+        else:
+            logger.info(f"Restarted the client game.")
+            self._reset_times = 0
 
         logger.info(f"Env reset!")
         self._reset_times += 1
@@ -183,9 +189,14 @@ class RimWorldEnv(gym.Env):
         if self._reset_times >= RESTART_INTERVAL:
             self._game.restart()
             StateCollector.reset()
-            StateCollector.receive_state(self._server)
-            logger.info(f"Restart the client game.")
-            self._reset_times = 0
+            while not StateCollector.receive_state(self._server):
+                logger.warning(f"Timeout to restart the game, restarting the game.")
+                self._game.restart()
+                StateCollector.reset()
+                sleep(1)
+            else:
+                logger.info(f"Restarted the client game.")
+                self._reset_times = 0
 
         self._update_all()
 

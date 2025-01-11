@@ -1,11 +1,13 @@
 import logging
 from dataclasses import dataclass
 from typing import Dict, List
+from time import time
 
-from env.server import GameServer
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
+from .const import RESET_TIMEOUT
+from .server import GameServer
 
 logging_level = logging.INFO
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
@@ -222,8 +224,11 @@ class StateCollector:
         return cls.state is None or tick > cls.state.tick
 
     @classmethod
-    def receive_state(cls, server: GameServer) -> None:
+    def receive_state(cls, server: GameServer) -> bool:
+        start_time = time()
         while True:
+            if time() - start_time > RESET_TIMEOUT:
+                return False
             if server.client is None:
                 cls.reset()
                 continue
@@ -250,3 +255,5 @@ class StateCollector:
                 )
                 logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
                 break
+
+        return True

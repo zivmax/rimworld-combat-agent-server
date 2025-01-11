@@ -1,6 +1,9 @@
 import gymnasium as gym
 import numpy as np
 import logging
+import signal
+import sys
+from functools import partial
 from numpy.typing import NDArray
 from typing import Dict, List, Tuple, Optional
 from gymnasium import spaces
@@ -22,6 +25,14 @@ f_logger = get_file_logger(
 cli_logger = get_cli_logger(__name__, logging_level)
 
 logger = f_logger
+
+
+def register_keyboard_interrupt(env: gym.Env):
+    def handle_keyboard_interrupt(env: gym.Env, signum, frame):
+        env.close()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, partial(handle_keyboard_interrupt, env))
 
 
 @dataclass
@@ -60,7 +71,7 @@ class RimWorldEnv(gym.Env):
 
         sleep(bootsleep)
 
-        self._reseted_times: int = 0
+        self._reset_times: int = 0
         self._pawns: Dict[str, PawnState] = None
         self._map: MapState = None
         self._allies: Tuple[PawnState] = None
@@ -163,17 +174,17 @@ class RimWorldEnv(gym.Env):
         StateCollector.receive_state(self._server)
 
         logger.info(f"Env reset!")
-        self._reseted_times += 1
+        self._reset_times += 1
         self._steped_times = 0
 
         if (
-            self._reseted_times >= 300
+            self._reset_times >= 3
         ):  # Client will restart after 300 resets, re-reset to reconfig game.
-            self._server.send_to_client(message)
-            logger.info(f"Restart and reconfigure the client game.")
-            self._reseted_times = 0
+            self._game.restart()
             StateCollector.reset()
             StateCollector.receive_state(self._server)
+            logger.info(f"Restart the client game.")
+            self._reset_times = 0
 
         self._update_all()
 

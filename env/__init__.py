@@ -1,6 +1,5 @@
 from gymnasium.envs.registration import register
-from env.rimworld import RimWorldEnv
-from env.rimworld import EnvOptions
+from env.rimworld import RimWorldEnv, EnvOptions, register_keyboard_interrupt
 from env.game import GameOptions
 
 register(

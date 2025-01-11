@@ -3,12 +3,10 @@ from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
 import pandas as pd
 import os
-import signal
-import sys
-from functools import partial
+
 
 from agents.dqn import DQNAgent as Agent
-from env import rimworld_env, GameOptions, EnvOptions
+from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from utils.draw import draw
 from utils.timestamp import timestamp
 
@@ -47,17 +45,12 @@ ENV_OPTIONS = EnvOptions(
 )
 
 
-def handle_keyboard_interrupt(env: gym.Env, signum, frame):
-    env.close()
-    sys.exit(0)
-
-
 def main():
     n_episodes = N_EPISODES
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
-    signal.signal(signal.SIGINT, partial(handle_keyboard_interrupt, env))
+    register_keyboard_interrupt(env)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
     agent.policy_net.train()
 

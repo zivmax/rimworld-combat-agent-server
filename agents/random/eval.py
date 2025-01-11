@@ -7,7 +7,7 @@ from agents.random import RandomAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 
 
-N_EPISODES = 100
+N_EPISODES = 1000
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -41,7 +41,7 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     n_episodes = N_EPISODES
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="human", port=10086)
+    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=10086)
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     register_keyboard_interrupt(env)

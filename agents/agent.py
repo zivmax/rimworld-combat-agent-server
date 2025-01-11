@@ -10,9 +10,7 @@ from env.state import PawnState, MapState, Loc
 class Agent(ABC):
     """Abstract base class for reinforcement learning agents."""
 
-    def __init__(
-        self, action_space: Dict[int, MultiDiscrete], observation_space: MultiDiscrete
-    ):
+    def __init__(self, act_space: Dict[int, MultiDiscrete], obs_space: MultiDiscrete):
         """
         Initialize the agent.
 
@@ -20,8 +18,8 @@ class Agent(ABC):
             state_dim: Dimension of the state space
             action_dim: Dimension of the action space
         """
-        self.action_space = action_space
-        self.observation_space = observation_space
+        self.act_space = act_space
+        self.obs_space = obs_space
 
     @abstractmethod
     def act(

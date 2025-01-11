@@ -46,7 +46,7 @@ class Game:
         self.rimworld_path = game_path
         self.options = options if options else GameOptions()
         self.log_dir = "env/logs/game"  # Directory for log files
-        self.ensure_log_dir_exists()  # Ensure the log directory exists
+        self._ensure_log_dir_exists()  # Ensure the log directory exists
         self.process: subprocess.Popen = None  # Store the process object
         self.monitor_thread: threading.Thread = (
             None  # Thread to monitor the process status
@@ -54,31 +54,6 @@ class Game:
         self.log_thread: threading.Thread = None  # Thread to log the process output
         self.logging: bool = True  # Flag to control logging
         self.monitoring: bool = True  # Flag to control monitoring
-
-    def ensure_log_dir_exists(self):
-        """
-        Ensure the log directory exists. If not, create it.
-        """
-        log_path = os.path.join(os.getcwd(), self.log_dir)
-        if not os.path.exists(log_path):
-            os.makedirs(log_path)
-
-    def monitor_process(self):
-        """
-        Monitor the process status and log an error if it terminates unexpectedly.
-        """
-        while self.process and self.process.poll() is None:
-            time.sleep(5)  # Check every 5 seconds
-
-        while self.monitoring:
-            if self.process and self.process.poll() is not None:
-                pid = self.process.pid
-                returncode = self.process.returncode
-                self.process = None  # Reset the process object
-                logger.error(
-                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}"
-                )
-                raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
 
     def launch(self):
         self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
@@ -129,7 +104,7 @@ class Game:
             self.log_thread.start()
 
             # Start a thread to monitor the process status
-            self.monitor_thread = threading.Thread(target=self.monitor_process)
+            self.monitor_thread = threading.Thread(target=self._monitor_process)
             self.monitor_thread.daemon = True
             self.monitor_thread.start()
 
@@ -192,6 +167,31 @@ class Game:
         self.shutdown()  # Shutdown the current process
         time.sleep(10)  # Add a short delay before relaunching
         self.launch()  # Launch the game again
+
+    def _ensure_log_dir_exists(self):
+        """
+        Ensure the log directory exists. If not, create it.
+        """
+        log_path = os.path.join(os.getcwd(), self.log_dir)
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+
+    def _monitor_process(self):
+        """
+        Monitor the process status and log an error if it terminates unexpectedly.
+        """
+        while self.process and self.process.poll() is None:
+            time.sleep(5)  # Check every 5 seconds
+
+        while self.monitoring:
+            if self.process and self.process.poll() is not None:
+                pid = self.process.pid
+                returncode = self.process.returncode
+                self.process = None  # Reset the process object
+                logger.error(
+                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}"
+                )
+                raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
 
     def _log_output(self):
         """

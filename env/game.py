@@ -151,13 +151,13 @@ class Game:
                     child.terminate()
 
                 # Wait for child processes to terminate
-                gone, still_alive = psutil.wait_procs(children, timeout=5)
+                gone, still_alive = psutil.wait_procs(children, timeout=10)
                 for child in still_alive:
                     child.kill()  # Forcefully kill any remaining child processes
 
                 # Terminate the parent process
                 self.process.terminate()
-                self.process.wait(timeout=10)  # Wait for the process to terminate
+                self.process.wait(timeout=60)  # Wait for the process to terminate
                 logger.info("RimWorld game process has been terminated.")
             except subprocess.TimeoutExpired:
                 logger.warning(

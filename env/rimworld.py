@@ -27,6 +27,9 @@ cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
 
 
+RESTART_INTERVAL = 300  # Restart the game every `RESTART_INTERVAL` episodes
+
+
 def register_keyboard_interrupt(env: gym.Env):
     def handle_keyboard_interrupt(env: gym.Env, signum, frame):
         env.close()
@@ -177,9 +180,7 @@ class RimWorldEnv(gym.Env):
         self._reset_times += 1
         self._steped_times = 0
 
-        if (
-            self._reset_times >= 3
-        ):  # Client will restart after 300 resets, re-reset to reconfig game.
+        if self._reset_times >= RESTART_INTERVAL:
             self._game.restart()
             StateCollector.reset()
             StateCollector.receive_state(self._server)

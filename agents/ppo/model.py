@@ -88,7 +88,7 @@ class ActorCritic(nn.Module):
         action_x, action_y = dist_x.sample(), dist_y.sample()
         action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
         return (
-            [action_x.cpu().numpy(), action_y.cpu().numpy()],
+            [action_x.cpu().numpy()[0], action_y.cpu().numpy()[0]],
             action_log_prob,
             state_values,
         )

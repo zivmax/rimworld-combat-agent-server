@@ -217,8 +217,8 @@ class RimWorldEnv(gym.Env):
         }
 
         self._server.send_to_client(message)
-        logger.info(
-            f"Sent action to clients at tick {StateCollector.state.tick}:\n{to_json(game_action)}"
+        logger.debug(
+            f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
         StateCollector.receive_state(self._server)
 

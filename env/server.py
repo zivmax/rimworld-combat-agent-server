@@ -9,7 +9,7 @@ from socket import socket as Socket
 from utils.logger import get_file_logger, get_cli_logger
 from utils.timestamp import timestamp
 
-logging_level = logging.DEBUG
+logging_level = logging.INFO
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
 cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
@@ -107,7 +107,7 @@ class GameServer:
         except Exception as e:
             logger.error(f"Error closing client connection: {e}")
         self.server.close()
-        logger.info("\nServer stopped")
+        logger.info("Server stopped")
 
     def send_to_client(self, message: str) -> bool:
         """Send a message to a specific client"""

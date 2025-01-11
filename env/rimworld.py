@@ -118,7 +118,7 @@ class RimWorldEnv(gym.Env):
         self._update_all()
 
         self.action_space: Dict[int, spaces.Box] = {}
-        for idx, ally in enumerate(self._allies, start=1):
+        for idx, ally in enumerate(self._allies, start=0):
             ally_space = spaces.Box(
                 low=-self._options.action_range,
                 high=self._options.action_range,
@@ -225,7 +225,7 @@ class RimWorldEnv(gym.Env):
         info = None
 
         pawn_actions = {}
-        for idx, ally in enumerate(self._allies, start=1):
+        for idx, ally in enumerate(self._allies, start=0):
             pawn_actions[ally.label] = PawnAction(
                 label=ally.label,
                 x=int(action[idx][0] + ally.loc.x),
@@ -433,9 +433,9 @@ class RimWorldEnv(gym.Env):
                 - action_space (list): List of available actions
         """
         pawn_in_ID = {}
-        for idx, ally in enumerate(self._allies, start=1):
+        for idx, ally in enumerate(self._allies, start=0):
             pawn_in_ID[idx] = ally
-        for idx, enemy in enumerate(self._enemies, start=4):
+        for idx, enemy in enumerate(self._enemies, start=3):
             pawn_in_ID[idx] = enemy
 
         return {

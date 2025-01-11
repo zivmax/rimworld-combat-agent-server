@@ -226,7 +226,9 @@ class Game:
         with open(self.stdout_log_file, "w") as log:
             while self.logging:
                 output = self.process.stdout.readline()
-                if output == "" and self.process.poll() is not None:
+                if not self.process or (
+                    output == "" and self.process.poll() is not None
+                ):
                     break
                 if output:
                     log.write(output)

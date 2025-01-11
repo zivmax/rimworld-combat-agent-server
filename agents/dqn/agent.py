@@ -31,39 +31,40 @@ class DQNAgent:
 
     def __init__(
         self,
+        n_envs: int,
         obs_space: Box,
         act_space: Box,
         device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
     ) -> None:
-        self.device: str = device
-        self.obs_space: Box = obs_space
-        self.act_space: Box = act_space
+        self.device = device
+        self.n_envs = n_envs
+        self.obs_space = obs_space
+        self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma: float = 0.85
+        self.gamma = 0.85
 
-        self.batch_size: int = 512
-        self.learning_rate: float = 0.00015
+        self.batch_size = 512
+        self.learning_rate = 0.00015
 
-        self.epsilon_start: float = 1.0
-        self.epsilon_final: float = 0.001
-        self.epsilon_decay: float = 0.999995
+        self.epsilon_start = 1.0
+        self.epsilon_final = 0.001
+        self.epsilon_decay = 0.999995
 
-        self.beta: float = 0.4
-        self.beta_increment_per_sampling: float = 0.001
+        self.beta = 0.4
+        self.beta_increment_per_sampling = 0.001
 
-        self.steps: int = 0
-        self.explore: bool = True
+        self.steps = 0
+        self.updates = 0
+        self.explore = True
 
-        self.policy_net: DQN = DQN(self.obs_space, self.act_space).to(device)
-        self.target_net: DQN = DQN(self.obs_space, self.act_space).to(device)
+        self.policy_net = DQN(self.obs_space, self.act_space).to(device)
+        self.target_net = DQN(self.obs_space, self.act_space).to(device)
         self.update_target_network()
         self.target_net.eval()
         self.target_net_update_freq = 3000
 
-        self.optimizer: optim.Adam = optim.Adam(
-            self.policy_net.parameters(), lr=self.learning_rate
-        )
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 
         # History tracking
         self.loss_history: List[float] = []
@@ -73,21 +74,24 @@ class DQNAgent:
 
     def remember(
         self,
-        state: NDArray,
-        next_state: NDArray,
-        action: NDArray,
-        reward: float,
-        done: bool,
+        states: NDArray,
+        next_states: NDArray,
+        actions: NDArray,
+        rewards: NDArray,
+        dones: NDArray,
     ) -> None:
-        state = torch.from_numpy(state).to(self.device)
-        next_state = torch.from_numpy(next_state).to(self.device)
-        action = torch.from_numpy(action).to(self.device)
-        reward = torch.tensor(reward, device=self.device)
-        done = torch.tensor(done, device=self.device)
-        max_priority = max(self.memory.priorities) if self.memory.priorities else 1.0
-        self.memory.push((state, next_state, action, reward, done), max_priority)
+        for i in range(self.n_envs):
+            state = torch.from_numpy(states[i]).to(self.device)
+            next_state = torch.from_numpy(next_states[i]).to(self.device)
+            action = torch.tensor(actions[i]).to(self.device)
+            reward = torch.tensor(rewards[i], device=self.device)
+            done = torch.tensor(dones[i], device=self.device)
+            max_priority = (
+                max(self.memory.priorities) if self.memory.priorities else 1.0
+            )
+            self.memory.push((state, next_state, action, reward, done), max_priority)
 
-    def act(self, state: NDArray) -> Dict:
+    def act(self, states: NDArray) -> NDArray:
         self.steps += 1
 
         eps_threshold = max(
@@ -96,25 +100,48 @@ class DQNAgent:
         )
         self.eps_threshold_history.append(eps_threshold)
 
-        self.explore = np.random.rand() < eps_threshold
-        if self.explore or len(self.memory) < self.batch_size:
-            return self.act_space.sample()
-        else:
-            with torch.no_grad():
-                state = torch.from_numpy(state).unsqueeze(0).to(self.device)
-                output = self.policy_net.forward(state).max(1)[1].item()
-                width = self.act_space.high[0] - self.act_space.low[0]
-                x = output % width
-                y = output // width
+        batch_actions = np.zeros((self.n_envs, 1, 2))
+        explores = np.random.rand(self.n_envs) < eps_threshold
+        self.explore = explores.any()
 
-                x += self.act_space.low[0]
-                y += self.act_space.low[0]
+        # Handle random exploration
+        random_indices = np.where(explores)[0]
+        if len(random_indices) > 0:
+            batch_actions[random_indices] = np.array(
+                [
+                    np.array([self.act_space.sample()])
+                    for _ in range(len(random_indices))
+                ],
+                dtype=np.int8,
+            )
 
-                return np.array([x, y])
+        # Handle exploitation
+        if len(self.memory) >= self.batch_size:
+            exploit_indices = np.where(~explores)[0]
+            if len(exploit_indices) > 0:
+                with torch.no_grad():
+                    states_tensor = torch.from_numpy(states[exploit_indices]).to(
+                        self.device
+                    )
+                    outputs = (
+                        self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
+                    )
+                    width = self.act_space.high[0] - self.act_space.low[0]
+
+                    x = outputs % width + self.act_space.low[0]
+                    y = outputs // width + self.act_space.low[0]
+
+                    batch_actions[exploit_indices] = np.array(
+                        [np.stack([x, y], axis=1, dtype=np.int8)]
+                    )
+
+        return batch_actions
 
     def train(self) -> None:
         if self.explore or len(self.memory.buffer) < self.batch_size:
             return
+
+        self.updates += 1
 
         self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
@@ -127,7 +154,7 @@ class DQNAgent:
         reward_batch = torch.tensor(batch.rewards, device=self.device)
         done_batch = torch.tensor(batch.done, device=self.device)
 
-        action_idx_batch = (
+        action_idx_batch: torch.Tensor = (
             action_batch[:, 0] - self.act_space.low[0]
         ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
 
@@ -166,7 +193,7 @@ class DQNAgent:
         priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
         self.memory.update_priorities(indices, priorities)
 
-        if self.steps % self.target_net_update_freq == 0:
+        if self.updates % self.target_net_update_freq == 0:
             self.update_target_network()
 
     def update_target_network(self) -> None:

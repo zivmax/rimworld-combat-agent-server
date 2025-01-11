@@ -12,9 +12,9 @@ from env.wrappers import VectorFrameStackObservation
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 10
-N_EPISODES = 20000
-SAVING_INTERVAL = 500
+N_ENVS = 2
+N_STEPS = int(100e4)
+SAVING_INTERVAL = 50000
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -47,65 +47,51 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
-    n_episodes = N_EPISODES
+    n_steps = int(N_STEPS / N_ENVS)
+    saving_interval = int(SAVING_INTERVAL / N_ENVS)
+    ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     envs = gym.vector.AsyncVectorEnv(
         [
-            lambda: gym.make(
-                rimworld_env, options=ENV_OPTIONS, port=np.random.randint(1000, 20000)
-            )
-            for _ in range(N_ENVS)
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
         ],
         daemon=True,
         shared_memory=True,
     )
-    envs = VectorFrameStackObservation(envs, stack_size=4)
-    envs = RecordEpisodeStatistics(envs, buffer_length=n_episodes)
+
+    envs = VectorFrameStackObservation(envs, stack_size=8)
+    envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
     register_keyboard_interrupt(envs)
-    agent = Agent(obs_space=envs.observation_space, act_space=envs.action_space[1])
+    agent = Agent(
+        n_envs=N_ENVS,
+        obs_space=envs.single_observation_space,
+        act_space=envs.single_action_space[1],
+    )
     agent.policy_net.train()
 
-    try:
-        for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
-            next_state, _ = envs.reset()
-            next_state.swapaxes(0, 1)
-            while True:
-                current_state = next_state
-                action = agent.act(current_state)
-                action = {1: action}
+    next_states, _ = envs.reset()
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
+        current_states = next_states
+        actions = agent.act(current_states)
 
-                next_obs, reward, terminated, truncated, _ = envs.step(action)
-                done = terminated or truncated
+        next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+        dones = np.logical_or(terminateds, truncateds)
 
-                next_state = next_obs
+        agent.remember(current_states, next_states, actions, rewards, dones)
 
-                agent.remember(current_state, next_state, action[1], reward, done)
-                agent.train()
+        agent.train()
 
-                if done:
-                    break
+        if step % saving_interval == 0 and step > 0:
+            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step:04d}.pth")
+            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{step:04d}.png")
+            agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{step:04d}.png")
+            draw(
+                envs,
+                save_path=f"agents/dqn/plots/env/{timestamp}/{step:04d}.png",
+            )
+            saving(envs, agent, timestamp, step)
 
-            if episode % SAVING_INTERVAL == 0 and episode > 0:
-                agent.policy_net.save(
-                    f"agents/dqn/models/{timestamp}/{episode:04d}.pth"
-                )
-                agent.draw_model(
-                    f"agents/dqn/plots/training/{timestamp}/{episode:04d}.png"
-                )
-                agent.draw_agent(
-                    f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
-                )
-                draw(
-                    envs,
-                    save_path=f"agents/dqn/plots/env/{timestamp}/{episode:04d}.png",
-                )
-                saving(envs, agent, timestamp, episode)
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        envs.close()
-
-    finally:
-        envs.close()
+    envs.close()
 
 
 def saving(

@@ -16,7 +16,7 @@ class VectorFrameStackObservation(VectorWrapper):
 
         # Modify observation space to add new stack dimension
         old_obs_space = env.single_observation_space
-        new_shape = old_obs_space.shape[:-1] + (stack_size, old_obs_space.shape[-1])
+        new_shape = (stack_size,) + old_obs_space.shape
 
         # Create new bounds matching the desired shape
         low = np.repeat(old_obs_space.low[np.newaxis, :], stack_size, axis=0)

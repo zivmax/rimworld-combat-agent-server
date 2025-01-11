@@ -62,9 +62,9 @@ class DQN(nn.Module):
         # Convert the entire tensor to float
         x = x.float()
 
-        x = x / (torch.tensor(self.obs_space.high, device=x.device)).repeat(
-            x.shape[0], *(len(self.obs_space.high.shape) * [1])
-        )
+        x = x / (
+            torch.tensor(self.obs_space.high - self.obs_space.low, device=x.device)
+        ).repeat(x.shape[0], *(len(self.obs_space.shape) * [1]))
 
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten

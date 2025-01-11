@@ -128,7 +128,7 @@ class Game:
             self.monitor_thread.start()
 
             logger.info(
-                f"RimWorld launched in headless mode with server address {self.server_addr} and port {self.port}."
+                f"RimWorld launched in headless mode with server address {self.options.server_addr} and port {self.port}."
             )
             logger.info(f"Game stdout is being logged to: {self.stdout_log_file}")
             logger.info(f"Game process PID: {self.process.pid}")

@@ -2,6 +2,7 @@ import gymnasium as gym
 from env import rimworld_env
 import signal
 import sys
+import tqdm
 
 
 def handle_keyboard_interrupt(signum, frame):
@@ -44,9 +45,10 @@ try:
     )
 
     observations, infos = envs.reset(seed=42)
-    observations, rewards, terminations, truncations, infos = envs.step(
-        envs.action_space.sample()
-    )
+    for _ in tqdm.trange(1000):
+        observations, rewards, terminations, truncations, infos = envs.step(
+            envs.action_space.sample()
+        )
 
     print(observations, rewards, terminations, truncations, infos)
 

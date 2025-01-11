@@ -178,20 +178,22 @@ class Game:
 
     def _monitor_process(self):
         """
-        Monitor the process status and log an error if it terminates unexpectedly.
+        Monitor the process status and restart the game if it crashes.
         """
-        while self.process and self.process.poll() is None:
-            time.sleep(5)  # Check every 5 seconds
-
         while self.monitoring:
             if self.process and self.process.poll() is not None:
                 pid = self.process.pid
                 returncode = self.process.returncode
                 self.process = None  # Reset the process object
                 logger.error(
-                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}"
+                    f"Game process (PID: {pid}) terminated unexpectedly with return code {returncode}. Restarting..."
                 )
-                raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
+                try:
+                    self.restart()  # Restart the game
+                except Exception as e:
+                    logger.error(f"Failed to restart the game: {e}")
+                    break  # Exit the monitoring loop if restart fails
+            time.sleep(5)  # Check every 5 seconds
 
     def _log_output(self):
         """

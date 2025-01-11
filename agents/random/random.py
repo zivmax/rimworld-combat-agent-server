@@ -1,7 +1,7 @@
 from random import randint
 from numpy.typing import NDArray
 from typing import Dict, Tuple
-from gymnasium.spaces import MultiDiscrete
+from gymnasium.spaces import Box
 import numpy as np
 from utils.json import to_json
 from env.state import PawnState, MapState, Loc
@@ -22,17 +22,19 @@ logger = f_logger
 
 class RandomAgent(Agent):
 
-    def __init__(self, action_space: Dict, observation_space: MultiDiscrete):
-        super().__init__(action_space, observation_space)
+    def __init__(self, act_space: Box, obs_space: Box):
+        self.act_space = act_space
+        self.obs_space = obs_space
 
     def act(
         self,
+        obs: NDArray,
     ) -> GameAction:
-        space = self.action_space
+        space = self.act_space
 
-        act = space[1].sample()
+        act = space.sample()
 
-        return {1: act}
+        return act
 
     def save(self):
         pass

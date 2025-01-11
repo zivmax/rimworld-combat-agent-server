@@ -1,52 +1,74 @@
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
-
-from env import rimworld_env
-from agents.random import RandomAgent
-from utils.draw import draw
+from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
+from tqdm import tqdm
 
 
-OPTIONS = {
-    "interval": 0.5,
-    "speed": 3,
-    "action_range": 1,
-    "max_steps": None,
-    "is_remote": False,
-    "remain_still_threshold": 300,
-    "rewarding": {
-        "original": 0,
-        "win": 0,
-        "lose": -0,
-        "ally_defeated": -100,
-        "enemy_defeated": 100,
-        "ally_danger": -200,
-        "enemy_danger": 200,
-        "invalid_action": -0.25,
-        "remain_still": -0.25,
-    },
-}
+from agents.random import RandomAgent as Agent
+from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
+
+
+N_EPISODES = 100
+
+ENV_OPTIONS = EnvOptions(
+    action_range=1,
+    max_steps=800,
+    remain_still_threshold=100,
+    rewarding=EnvOptions.Rewarding(
+        original=0,
+        win=50,
+        lose=-50,
+        ally_defeated=0,
+        enemy_defeated=0,
+        ally_danger=-200,
+        enemy_danger=200,
+        invalid_action=-0.25,
+        remain_still=0.05,
+    ),
+    game=GameOptions(
+        agent_control=True,
+        team_size=1,
+        map_size=15,
+        gen_trees=True,
+        gen_ruins=True,
+        random_seed=4048,
+        can_flee=False,
+        actively_attack=True,
+        interval=0.5,
+        speed=4,
+    ),
+)
 
 
 def main():
-    env = gym.make(rimworld_env, options=OPTIONS)
-    env = RecordEpisodeStatistics(env, buffer_length=4)
-    agent = RandomAgent(
-        action_space=env.action_space, observation_space=env.observation_space
-    )
-    n_episodes = 3
+    n_episodes = N_EPISODES
+    env = gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="human", port=10086)
+    env = FrameStackObservation(env, stack_size=4)
+    env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
+    register_keyboard_interrupt(env)
+    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
+    try:
+        for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+            next_state, _ = env.reset()
+            while True:
+                current_state = next_state
+                action = agent.act(current_state)
+                action = {1: action}
 
-    for episode in range(n_episodes):
-        _, _ = env.reset()
-        done = False
-        episode_reward = 0
+                next_obs, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
 
-        while not done:
-            action = agent.act()
-            _, reward, done, _, _ = env.step(action)
-            episode_reward += reward
+                next_state = next_obs
 
-    env.close()
-    draw(env, "agents/random/plot/episode_stats.png")
+                if done:
+                    break
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        env.close()
+
+    finally:
+        env.close()
 
 
-main()
+if __name__ == "__main__":
+    main()

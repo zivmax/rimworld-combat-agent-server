@@ -3,7 +3,6 @@
     "build": {
         "dockerfile": "Dockerfile"
     },
-
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/sshd:1": {}
@@ -14,6 +13,7 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.black-formatter",
+                "ms-dotnettools.csdevkit",
                 "w88975.code-translate",
                 "github.copilot"
             ],
@@ -25,6 +25,12 @@
             }
         }
     },
-    "runArgs": ["--gpus", "all"],
-    "postCreateCommand": "bash .devcontainer/git.sh"
+    "mounts": [
+        "source=${localWorkspaceFolder}/../game,target=/mnt/game,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--gpus",
+        "all"
+    ],
+    "postCreateCommand": "bash .devcontainer/git.sh && bash .devcontainer/init-mod.sh"
 }

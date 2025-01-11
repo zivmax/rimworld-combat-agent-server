@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List
 
-from env.server import server
+from env.server import GameServer
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
@@ -222,7 +222,7 @@ class StateCollector:
         return cls.state is None or tick > cls.state.tick
 
     @classmethod
-    def receive_state(cls) -> None:
+    def receive_state(cls, server: GameServer) -> None:
         while True:
             if server.client is None:
                 cls.reset()

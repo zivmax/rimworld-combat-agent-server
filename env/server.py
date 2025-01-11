@@ -8,8 +8,9 @@ from socket import socket as Socket
 
 from utils.logger import get_file_logger, get_cli_logger
 from utils.timestamp import timestamp
+from .const import SERVER_LOGGING_LEVEL
 
-logging_level = logging.INFO
+logging_level = SERVER_LOGGING_LEVEL
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
 cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger

@@ -6,6 +6,27 @@
         "version": "0.2.0",
         "configurations": [
             {
+                "name": "Test-Vector",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "test.test-vector",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "Random-Deploy",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.random.deploy",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "Random-Eval",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.random.eval",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "DQN-Train",
                 "type": "debugpy",
                 "request": "launch",
@@ -24,13 +45,6 @@
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.dqn.retrain",
-                "console": "integratedTerminal"
-            },
-            {
-                "name": "Random-Deploy",
-                "type": "debugpy",
-                "request": "launch",
-                "module": "agents.random.deploy",
                 "console": "integratedTerminal"
             },
             {

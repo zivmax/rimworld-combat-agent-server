@@ -3,7 +3,10 @@ import time
 import os
 import psutil
 import threading
+from dataclasses import dataclass
+from typing import Optional
 import logging
+
 from utils.timestamp import timestamp
 from utils.logger import get_cli_logger, get_file_logger
 
@@ -14,8 +17,24 @@ cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
 
 
+@dataclass
+class GameOptions:
+    agent_control: bool = True
+    team_size: int = 1
+    map_size: int = 15
+    gen_trees: bool = True
+    gen_ruins: bool = True
+    random_seed: Optional[int] = 4048
+    can_flee: bool = False
+    actively_attack: bool = False
+    interval: float = 1.0
+    speed: int = 1
+    server_addr: str = "localhost"
+    server_port: int = 10086
+
+
 class Game:
-    def __init__(self, game_path, server_addr="127.0.0.1", port=10086):
+    def __init__(self, game_path, options: Optional[GameOptions] = None):
         """
         Initialize the RimWorldHeadlessLauncher with the path to the RimWorld executable,
         server address, and port.
@@ -25,8 +44,7 @@ class Game:
         :param port: Port number (default: 10086).
         """
         self.rimworld_path = game_path
-        self.server_addr = server_addr
-        self.port = port
+        self.options = options if options else GameOptions()
         self.process: subprocess.Popen = None  # Store the process object
         self.log_dir = "env/logs/game"  # Directory for log files
         self.ensure_log_dir_exists()  # Ensure the log directory exists
@@ -57,11 +75,6 @@ class Game:
             raise Exception(f"Game process (PID: {pid}) terminated unexpectedly")
 
     def launch(self):
-        """
-        Launch RimWorld in headless mode with the specified server address and port.
-        Redirect stdout and stderr to separate log files without blocking.
-        """
-        # Generate log file names using the timestamp
         self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
 
         env_copy = os.environ.copy()
@@ -73,8 +86,18 @@ class Game:
             "-no-stereo-rendering",
             "-systemallocator",
             "-quicktest",
-            f"-server={self.server_addr}",
-            f"-port={self.port}",
+            f"-server={self.options.server_addr}",
+            f"-port={self.options.server_port}",
+            f"-agent-control={self.options.agent_control}",
+            f"-team-size={self.options.team_size}",
+            f"-map-size={self.options.map_size}",
+            f"-gen-trees={self.options.gen_trees}",
+            f"-gen-ruins={self.options.gen_ruins}",
+            f"-seed={self.options.random_seed}",
+            f"-can-flee={self.options.can_flee}",
+            f"-actively-attack={self.options.actively_attack}",
+            f"-interval={self.options.interval}",
+            f"-speed={self.options.speed}",
         ]
 
         try:

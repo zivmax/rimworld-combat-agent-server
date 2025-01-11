@@ -3,34 +3,53 @@ from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
 import pandas as pd
 import os
+import signal
+import sys
+from functools import partial
 
 from agents.dqn import DQNAgent as Agent
-from env import rimworld_env
+from env import rimworld_env, GameOptions, EnvOptions
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-ENV_OPTIONS = {
-    "interval": 0.5,
-    "speed": 4,
-    "action_range": 1,
-    "max_steps": 800,
-    "is_remote": False,
-    "remain_still_threshold": 100,
-    "rewarding": {
-        "original": 0,
-        "win": 50,
-        "lose": -50,
-        "ally_defeated": -0,
-        "enemy_defeated": 0,
-        "ally_danger": -200,
-        "enemy_danger": 200,
-        "invalid_action": -0.25,
-        "remain_still": 0,
-    },
-}
 
 N_EPISODES = 20000
 SAVING_INTERVAL = 500
+
+ENV_OPTIONS = EnvOptions(
+    action_range=1,
+    max_steps=800,
+    is_remote=False,
+    remain_still_threshold=100,
+    rewarding=EnvOptions.Rewarding(
+        original=0,
+        win=50,
+        lose=-50,
+        ally_defeated=0,
+        enemy_defeated=0,
+        ally_danger=-200,
+        enemy_danger=200,
+        invalid_action=-0.25,
+        remain_still=0.05,
+    ),
+    game=GameOptions(
+        agent_control=True,
+        team_size=1,
+        map_size=15,
+        gen_trees=True,
+        gen_ruins=True,
+        random_seed=4048,
+        can_flee=False,
+        actively_attack=False,
+        interval=0.5,
+        speed=4,
+    ),
+)
+
+
+def handle_keyboard_interrupt(env: gym.Env, signum, frame):
+    env.close()
+    sys.exit(0)
 
 
 def main():
@@ -38,6 +57,7 @@ def main():
     env = gym.make(rimworld_env, options=ENV_OPTIONS)
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
+    signal.signal(signal.SIGINT, partial(handle_keyboard_interrupt, env))
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
     agent.policy_net.train()
 
@@ -76,7 +96,8 @@ def main():
                 )
                 saving(env, agent, timestamp, episode)
 
-    except KeyboardInterrupt:
+    except Exception as e:
+        print(f"An error occurred: {e}")
         env.close()
 
     finally:

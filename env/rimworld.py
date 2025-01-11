@@ -2,9 +2,10 @@ import gymnasium as gym
 import numpy as np
 import logging
 from numpy.typing import NDArray
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from gymnasium import spaces
 from time import sleep
+from dataclasses import dataclass, field
 
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
@@ -12,7 +13,7 @@ from utils.json import to_json
 from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
-from .game import Game
+from .game import Game, GameOptions
 
 logging_level = logging.INFO
 f_logger = get_file_logger(
@@ -23,8 +24,38 @@ cli_logger = get_cli_logger(__name__, logging_level)
 logger = f_logger
 
 
+@dataclass
+class EnvOptions:
+    @dataclass
+    class Rewarding:
+        original: int = 0
+        ally_defeated: int = 0
+        enemy_defeated: int = 0
+        ally_danger: float = 0
+        enemy_danger: float = 0
+        invalid_action: int = 0
+        remain_still: int = 0
+        win: int = 0
+        lose: int = 0
+
+    interval: float = 1.0
+    speed: int = 1
+    action_range: int = 4
+    max_steps: Optional[int] = None
+    is_remote: bool = False
+    remain_still_threshold: int = 100
+    rewarding: Rewarding = field(default_factory=Rewarding)
+    game: GameOptions = field(default_factory=GameOptions)
+
+
 class RimWorldEnv(gym.Env):
-    def __init__(self, options: Dict = None, port: int = 10086, bootsleep: int = 0):
+    def __init__(
+        self,
+        options: EnvOptions = None,
+        addr: str = "localhost",
+        port: int = 10086,
+        bootsleep: int = 0,
+    ):
         super().__init__()
 
         sleep(bootsleep)
@@ -42,37 +73,18 @@ class RimWorldEnv(gym.Env):
         self._valid_positions_prev: Tuple[Loc] = None
         self._steped_times: int = 0
 
-        self._options: Dict = {
-            "interval": options.get("interval", 1.0),
-            "speed": options.get("speed", 1),
-            "action_range": options.get("action_range", 4),
-            "max_steps": options.get("max_steps", None),
-            "is_remote": options.get("is_remote", False),
-            "remain_still_threshold": options.get("remain_still_threshold", 100),
-            "rewarding": options.get(
-                "rewarding",
-                {
-                    "original": 0,
-                    "ally_defeated": -7,
-                    "enemy_defeated": 10,
-                    "ally_danger": 0.5,
-                    "enemy_danger": -0.5,
-                    "invalid_action": -2,
-                    "remain_still_threshold": -2,
-                    "win": 0,
-                    "lose": 0,
-                },
-            ),
-        }
+        self._options = options if options else EnvOptions()
 
         self._server_thread, self._server = GameServer.create_server_thread(
-            self._options["is_remote"],
+            self._options.is_remote,
             port=port,
         )
+
+        self._options.game.server_port = port
+        self._options.game.server_addr = addr
         self._game = Game(
             game_path="/mnt/game/RimWorldLinux",
-            server_addr="localhost",
-            port=self._server.port,
+            options=self._options.game,
         )
 
         self._game.launch()
@@ -84,8 +96,8 @@ class RimWorldEnv(gym.Env):
         self.action_space: Dict[int, spaces.Box] = {}
         for idx, ally in enumerate(self._allies, start=1):
             ally_space = spaces.Box(
-                low=-self._options["action_range"],
-                high=self._options["action_range"],
+                low=-self._options.action_range,
+                high=self._options.action_range,
                 shape=(2,),
                 dtype=np.int8,
             )
@@ -125,8 +137,6 @@ class RimWorldEnv(gym.Env):
         Args:
             seed (int, optional): Random seed to use. Defaults to None.
             options (dict, optional): Configuration options for reset. Defaults to None.
-                Supported options:
-                    - interval (float): Time interval between ticks. Defaults to 1.0.
         Returns:
             tuple: A tuple containing:
                 - observation: Initial environment observation
@@ -135,37 +145,20 @@ class RimWorldEnv(gym.Env):
             This will send a reset signal to connected clients and reinitialize the state collector.
             The state will be updated and new observation will be generated based on the reset state.
         """
-        if options is not None:
-            self._options["interval"] = (
-                options.get("interval", self._options["interval"])
-                if options is not None
-                else self._options["interval"]
-            )
-            self._options["speed"] = (
-                options.get("speed", self._options["speed"])
-                if options is not None
-                else self._options["speed"]
-            )
-
-        # Validate options, interval be positive, speed between 0 - 4
-        if self._options["interval"] <= 0:
-            raise ValueError("Interval must be a positive number")
-        if self._options["speed"] < 0 or self._options["speed"] > 4:
-            raise ValueError("Speed must be between 0 and 4")
 
         message = {
             "Type": "Response",
             "Data": {
                 "Action": None,
                 "Reset": True,
-                "Interval": self._options["interval"],
-                "Speed": self._options["speed"],
             },
         }
         self._server.send_to_client(message)
         logger.info(f"Sent reset signal to clients at tick {StateCollector.state.tick}")
 
-        super().reset(seed=seed)  # We need the following line to seed self.np_random
+        super().reset(
+            seed=seed, options=options
+        )  # We need the following line to seed self.np_random
         StateCollector.reset()
         StateCollector.receive_state(self._server)
 
@@ -211,8 +204,6 @@ class RimWorldEnv(gym.Env):
             "Data": {
                 "Action": dict(game_action),
                 "Reset": False,
-                "Interval": self._options["interval"],
-                "Speed": self._options["speed"],
             },
         }
 
@@ -229,8 +220,8 @@ class RimWorldEnv(gym.Env):
         reward = self._get_reward()
         terminated = StateCollector.state.status != GameStatus.RUNNING
         truncated = (
-            self._steped_times >= self._options["max_steps"]
-            if self._options["max_steps"] is not None
+            self._steped_times >= self._options.max_steps
+            if self._options.max_steps is not None
             else False
         )
         info = self._get_info()
@@ -420,14 +411,14 @@ class RimWorldEnv(gym.Env):
 
     def _get_reward(self) -> float:
         """Calculate the total reward based on game state."""
-        reward = self._options["rewarding"]["original"]
+        reward = self._options.rewarding.original
 
         reward += self._calculate_allies_reward()
         reward += self._calculate_enemies_reward()
         if StateCollector.state.status == GameStatus.WIN:
-            reward += self._options["rewarding"]["win"]
+            reward += self._options.rewarding.win
         elif StateCollector.state.status == GameStatus.LOSE:
-            reward += self._options["rewarding"]["lose"]
+            reward += self._options.rewarding.lose
 
         return reward
 
@@ -454,7 +445,7 @@ class RimWorldEnv(gym.Env):
         )
         if self._valid_positions_prev:
             if prev_action_loc not in self._valid_positions_prev:
-                return self._options["rewarding"]["invalid_action"]
+                return self._options.rewarding.invalid_action
         return 0
 
     def _calculate_ally_state_change(self, idx: int, ally: PawnState) -> float:
@@ -464,11 +455,9 @@ class RimWorldEnv(gym.Env):
 
         ally_prev = self._allies_prev[idx]
         if ally.is_incapable and not ally_prev.is_incapable:
-            return self._options["rewarding"]["ally_defeated"]
+            return self._options.rewarding.ally_defeated
 
-        return self._options["rewarding"]["ally_danger"] * abs(
-            ally.danger - ally_prev.danger
-        )
+        return self._options.rewarding.ally_danger * abs(ally.danger - ally_prev.danger)
 
     def _calculate_enemy_state_change(self, idx: int, enemy: PawnState) -> float:
         """Calculate reward based on enemy's state changes."""
@@ -477,9 +466,9 @@ class RimWorldEnv(gym.Env):
 
         enemy_prev = self._enemies_prev[idx]
         if enemy.is_incapable and not enemy_prev.is_incapable:
-            return self._options["rewarding"]["enemy_defeated"]
+            return self._options.rewarding.enemy_defeated
 
-        return self._options["rewarding"]["enemy_danger"] * abs(
+        return self._options.rewarding.enemy_danger * abs(
             enemy.danger - enemy_prev.danger
         )
 
@@ -487,10 +476,9 @@ class RimWorldEnv(gym.Env):
         """Calculate penalty for remaining still too long."""
 
         excess_still_count = (
-            self._allies_still_count[ally.label]
-            - self._options["remain_still_threshold"]
+            self._allies_still_count[ally.label] - self._options.remain_still_threshold
         )
 
         if excess_still_count > 0:
-            return self._options["rewarding"]["remain_still"]
+            return self._options.rewarding.remain_still
         return 0

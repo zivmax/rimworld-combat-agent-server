@@ -61,16 +61,24 @@ class EnvOptions:
 
 
 class RimWorldEnv(gym.Env):
+    metadata = {"render_modes": ["human", "headless"]}
+
     def __init__(
         self,
         options: EnvOptions = None,
         addr: str = "localhost",
+        render_mode: str = "headless",
         port: int = 10086,
         bootsleep: int = 0,
     ):
         super().__init__()
 
         sleep(bootsleep)
+
+        if render_mode not in ["headless", "human"]:
+            raise ValueError(
+                "Invalid render mode. Must be either 'headless' or 'human'."
+            )
 
         self._reset_times: int = 0
         self._pawns: Dict[str, PawnState] = None
@@ -84,22 +92,26 @@ class RimWorldEnv(gym.Env):
         self._valid_positions: Tuple[Loc] = None
         self._valid_positions_prev: Tuple[Loc] = None
         self._steped_times: int = 0
+        self._render_mode = render_mode
+        self._game: Game = None
 
         self._options = options if options else EnvOptions()
 
+        port = GameServer.find_available_port(port)
         self._server_thread, self._server = GameServer.create_server_thread(
             self._options.is_remote,
             port=port,
         )
 
-        self._options.game.server_port = port
-        self._options.game.server_addr = addr
-        self._game = Game(
-            game_path="/mnt/game/RimWorldLinux",
-            options=self._options.game,
-        )
+        if self._render_mode == "headless":
+            self._options.game.server_port = port
+            self._options.game.server_addr = addr
+            self._game = Game(
+                game_path="/mnt/game/RimWorldLinux",
+                options=self._options.game,
+            )
 
-        self._game.launch()
+            self._game.launch()
 
         StateCollector.receive_state(self._server)
 
@@ -254,7 +266,8 @@ class RimWorldEnv(gym.Env):
 
     def close(self):
         self._server.stop()
-        self._game.shutdown()
+        if self._render_mode == "headless":
+            self._game.shutdown()
         super().close()
 
     def _update_allies(self):

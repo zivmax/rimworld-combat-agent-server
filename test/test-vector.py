@@ -45,12 +45,11 @@ try:
         ),
     )
 
+    ports = [np.random.randint(10000, 20000) for _ in range(10)]
     envs = gym.vector.AsyncVectorEnv(
         [
-            lambda: gym.make(
-                rimworld_env, options=ENV_OPTIONS, port=np.random.randint(1000, 20000)
-            )
-            for _ in range(10)
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
         ],
         daemon=True,
         shared_memory=True,

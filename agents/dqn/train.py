@@ -1,23 +1,24 @@
 import gymnasium as gym
-from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
+from gymnasium.wrappers.vector import RecordEpisodeStatistics
 from tqdm import tqdm
 import pandas as pd
+import numpy as np
 import os
 
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
+from env.wrappers import VectorFrameStackObservation
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-
+N_ENVS = 10
 N_EPISODES = 20000
 SAVING_INTERVAL = 500
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=800,
-    is_remote=False,
     remain_still_threshold=100,
     rewarding=EnvOptions.Rewarding(
         original=0,
@@ -47,23 +48,32 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     n_episodes = N_EPISODES
-    env = gym.make(rimworld_env, options=ENV_OPTIONS)
-    env = FrameStackObservation(env, stack_size=4)
-    env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
-    register_keyboard_interrupt(env)
-    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
+    envs = gym.vector.AsyncVectorEnv(
+        [
+            lambda: gym.make(
+                rimworld_env, options=ENV_OPTIONS, port=np.random.randint(1000, 20000)
+            )
+            for _ in range(N_ENVS)
+        ],
+        daemon=True,
+        shared_memory=True,
+    )
+    envs = VectorFrameStackObservation(envs, stack_size=4)
+    envs = RecordEpisodeStatistics(envs, buffer_length=n_episodes)
+    register_keyboard_interrupt(envs)
+    agent = Agent(obs_space=envs.observation_space, act_space=envs.action_space[1])
     agent.policy_net.train()
 
     try:
         for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
-            next_state, _ = env.reset()
+            next_state, _ = envs.reset()
             next_state.swapaxes(0, 1)
             while True:
                 current_state = next_state
                 action = agent.act(current_state)
                 action = {1: action}
 
-                next_obs, reward, terminated, truncated, _ = env.step(action)
+                next_obs, reward, terminated, truncated, _ = envs.step(action)
                 done = terminated or truncated
 
                 next_state = next_obs
@@ -85,16 +95,17 @@ def main():
                     f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
                 )
                 draw(
-                    env, save_path=f"agents/dqn/plots/env/{timestamp}/{episode:04d}.png"
+                    envs,
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{episode:04d}.png",
                 )
-                saving(env, agent, timestamp, episode)
+                saving(envs, agent, timestamp, episode)
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        env.close()
+        envs.close()
 
     finally:
-        env.close()
+        envs.close()
 
 
 def saving(

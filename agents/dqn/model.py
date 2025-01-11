@@ -77,4 +77,7 @@ class DQN(nn.Module):
         torch.save(self.state_dict(), filepath)
 
     def load(self, filepath: str) -> None:
-        self.load_state_dict(torch.load(filepath, weights_only=True))
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.load_state_dict(
+            torch.load(filepath, map_location=device, weights_only=True)
+        )

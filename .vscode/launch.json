@@ -13,6 +13,13 @@
                 "console": "integratedTerminal"
             },
             {
+                "name": "Test-Vector-Framestack",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "test.test-vec-framestack",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "Random-Deploy",
                 "type": "debugpy",
                 "request": "launch",

@@ -90,6 +90,7 @@ class Game:
             "-no-stereo-rendering",
             "-systemallocator",
             "-quicktest",
+            "-headless=True",
             f"-server-addr={self.options.server_addr}",
             f"-server-port={self.options.server_port}",
             f"-agent-control={self.options.agent_control}",

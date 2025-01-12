@@ -191,12 +191,9 @@ class RimWorldEnv(gym.Env):
             StateCollector.reset()
             sleep(1)
         else:
-            logger.info(f"Reset the client game.")
-            self._reset_times = 0
-
-        logger.info(f"Env reset!")
-        self._reset_times += 1
-        self._steped_times = 0
+            logger.info(f"Game reset!")
+            self._reset_times += 1
+            self._steped_times = 0
 
         if self._reset_times >= RESTART_INTERVAL:
             self._game.restart()

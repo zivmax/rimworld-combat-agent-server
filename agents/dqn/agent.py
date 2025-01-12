@@ -126,10 +126,10 @@ class DQNAgent:
                     outputs = (
                         self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
                     )
-                    width = self.act_space.high[0] - self.act_space.low[0]
+                    width = self.act_space.high[0] - self.act_space.low[0] + 1
 
                     x = outputs % width + self.act_space.low[0]
-                    y = outputs // width + self.act_space.low[0]
+                    y = outputs // width + self.act_space.low[1]
 
                     batch_actions[exploit_indices] = [
                         np.stack([x, y], axis=1, dtype=self.act_space.dtype)

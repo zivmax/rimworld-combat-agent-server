@@ -92,6 +92,10 @@ class DQNAgent:
             self.memory.push((state, next_state, action, reward, done), max_priority)
 
     def act(self, states: NDArray) -> NDArray:
+        assert self.obs_space.contains(
+            states
+        ), "States are not within the observation space"
+
         self.steps += 1
 
         eps_threshold = max(

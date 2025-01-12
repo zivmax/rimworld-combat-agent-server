@@ -34,7 +34,7 @@ class DQNAgent:
         n_envs: int,
         obs_space: Box,
         act_space: Box,
-        device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.device = device
         self.n_envs = n_envs

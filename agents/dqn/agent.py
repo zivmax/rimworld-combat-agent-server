@@ -105,96 +105,88 @@ class DQNAgent:
         self.eps_threshold_history.append(eps_threshold)
 
         batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
-        explores = np.random.rand(self.n_envs) < eps_threshold
-        self.explore = explores.any()
+        self.explore = np.random.rand() < eps_threshold
 
         # Handle random exploration
-        random_indices = np.where(explores)[0]
-        if len(random_indices) > 0:
-            batch_actions[random_indices] = [
-                self.act_space.sample() for _ in range(len(random_indices))
-            ]
-
+        if self.explore:
+            batch_actions = np.array(
+                [self.act_space.sample() for _ in range(self.n_envs)]
+            )
         # Handle exploitation
-        if len(self.memory) >= self.batch_size:
-            exploit_indices = np.where(~explores)[0]
-            if len(exploit_indices) > 0:
-                with torch.no_grad():
-                    states_tensor = torch.from_numpy(states[exploit_indices]).to(
-                        self.device
-                    )
-                    outputs = (
-                        self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
-                    )
-                    width = self.act_space.high[0] - self.act_space.low[0] + 1
+        elif len(self.memory) >= self.batch_size:
+            with torch.no_grad():
+                states_tensor = torch.from_numpy(states).to(self.device)
+                outputs = self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
+                width = self.act_space.high[0] - self.act_space.low[0] + 1
 
-                    x = outputs % width + self.act_space.low[0]
-                    y = outputs // width + self.act_space.low[1]
+                x = outputs % width + self.act_space.low[0]
+                y = outputs // width + self.act_space.low[1]
 
-                    batch_actions[exploit_indices] = [
-                        np.stack([x, y], axis=1, dtype=self.act_space.dtype)
-                    ]
+                batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
 
     def train(self) -> None:
-        if self.explore or len(self.memory.buffer) < self.batch_size:
+        if self.explore or len(self.memory.buffer) < self.batch_size * self.n_envs:
             return
 
-        self.updates += 1
+        for _ in range(self.n_envs):
+            self.updates += 1
 
-        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
+            self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
-        transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
-        batch = self.Transition(*zip(*transitions))
+            transitions, indices, weights = self.memory.sample(
+                self.batch_size, self.beta
+            )
+            batch = self.Transition(*zip(*transitions))
 
-        state_batch = torch.stack(batch.states)
-        next_state_batch = torch.stack(batch.next_states)
-        action_batch = torch.stack(batch.actions)
-        reward_batch = torch.tensor(batch.rewards, device=self.device)
-        done_batch = torch.tensor(batch.done, device=self.device)
+            state_batch = torch.stack(batch.states)
+            next_state_batch = torch.stack(batch.next_states)
+            action_batch = torch.stack(batch.actions)
+            reward_batch = torch.tensor(batch.rewards, device=self.device)
+            done_batch = torch.tensor(batch.done, device=self.device)
 
-        action_idx_batch: torch.Tensor = (
-            action_batch[:, 0] - self.act_space.low[0]
-        ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
+            action_idx_batch: torch.Tensor = (
+                action_batch[:, 0] - self.act_space.low[0]
+            ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
 
-        q_values_batch = self.policy_net.forward(state_batch)
-        q_values_batch = q_values_batch.gather(
-            1, action_idx_batch.long().unsqueeze(1)
-        ).squeeze()
+            q_values_batch = self.policy_net.forward(state_batch)
+            q_values_batch = q_values_batch.gather(
+                1, action_idx_batch.long().unsqueeze(1)
+            ).squeeze()
 
-        with torch.no_grad():
-            max_next_q_value_batch = (
-                self.target_net.forward(next_state_batch).max(1)[0].detach()
+            with torch.no_grad():
+                max_next_q_value_batch = (
+                    self.target_net.forward(next_state_batch).max(1)[0].detach()
+                )
+
+            target_value_batch = (
+                reward_batch
+                + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
             )
 
-        target_value_batch = (
-            reward_batch
-            + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
-        )
+            td_errors = q_values_batch - target_value_batch
+            loss = (
+                torch.tensor(weights, device=self.device)
+                * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
+            ).mean()
 
-        td_errors = q_values_batch - target_value_batch
-        loss = (
-            torch.tensor(weights, device=self.device)
-            * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
-        ).mean()
+            # Store history
+            self.loss_history.append(loss.item())
+            self.q_value_history.append(q_values_batch.mean().item())
+            self.td_error_history.append(td_errors.mean().item())
 
-        # Store history
-        self.loss_history.append(loss.item())
-        self.q_value_history.append(q_values_batch.mean().item())
-        self.td_error_history.append(td_errors.mean().item())
+            self.optimizer.zero_grad()
+            loss.backward()
+            for param in self.policy_net.parameters():
+                param.grad.data.clamp_(-1, 1)
+            self.optimizer.step()
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        for param in self.policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        self.optimizer.step()
+            priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
+            self.memory.update_priorities(indices, priorities)
 
-        priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
-        self.memory.update_priorities(indices, priorities)
-
-        if self.updates % self.target_net_update_freq == 0:
-            self.update_target_network()
+            if self.updates % self.target_net_update_freq == 0:
+                self.update_target_network()
 
     def update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())

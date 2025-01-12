@@ -243,10 +243,11 @@ class RimWorldEnv(gym.Env):
             },
         }
 
-        self._server.send_to_client(message)
         logger.debug(
             f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
+        self._server.send_to_client(message)
+        logger.debug("Wait for response...")
         StateCollector.receive_state(self._server)
 
         self._actions_prev = pawn_actions

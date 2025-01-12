@@ -88,11 +88,6 @@ class FrameStackObservation(VectorWrapper):
                [[ 1.        , -1.        ,  0.        ,  2.        ],
                 [ 1.        , -1.        ,  0.        ,  2.        ],
                 [ 0.01823519, -0.0446179 , -0.02796401, -0.03156282]]], dtype=float32), {})
-
-    Change logs:
-     * v0.15.0 - Initially add as ``FrameStack`` with support for lz4
-     * v1.0.0 - Rename to ``FrameStackObservation`` and remove lz4 and ``LazyFrame`` support
-                along with adding the ``padding_type`` parameter
     """
 
     def __init__(

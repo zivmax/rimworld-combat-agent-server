@@ -45,14 +45,14 @@ def main():
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     register_keyboard_interrupt(env)
-    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
+    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[0])
     try:
         for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
             next_state, _ = env.reset()
             while True:
                 current_state = next_state
                 action = agent.act(current_state)
-                action = {1: action}
+                action = [action]
 
                 next_obs, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated

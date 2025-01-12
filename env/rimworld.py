@@ -178,7 +178,7 @@ class RimWorldEnv(gym.Env):
             },
         }
         self._server.send_to_client(message)
-        logger.info(f"Sent reset signal to clients at tick {StateCollector.state.tick}")
+        logger.info(f"Waiting for reset at tick {StateCollector.state.tick}")
 
         super().reset(
             seed=seed, options=options
@@ -198,6 +198,7 @@ class RimWorldEnv(gym.Env):
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
             self._game.restart()
             StateCollector.reset()
+            logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
             while not StateCollector.receive_state(self._server):
                 logger.warning(f"Timeout to restart the game, restarting the game.")
                 self._game.restart()
@@ -247,7 +248,7 @@ class RimWorldEnv(gym.Env):
             f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
         self._server.send_to_client(message)
-        logger.debug("Wait for response...")
+        logger.info(f"Wait for response at tick {StateCollector.state.tick}")
         StateCollector.receive_state(self._server)
 
         self._actions_prev = pawn_actions

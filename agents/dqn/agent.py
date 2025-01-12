@@ -41,8 +41,8 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.65
+        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
+        self.gamma = 0.7
 
         self.batch_size = 1024
         self.learning_rate = 0.00015
@@ -102,7 +102,7 @@ class DQNAgent:
             self.epsilon_final,
             self.epsilon_start * (1 - np.exp(-5 * self.epsilon_decay**self.steps)),
         )
-        self.eps_threshold_history.append(eps_threshold)
+        self.eps_threshold_history.extend([eps_threshold] * self.n_envs)
 
         batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
         self.explore = np.random.rand() < eps_threshold
@@ -127,7 +127,7 @@ class DQNAgent:
         return batch_actions
 
     def train(self) -> None:
-        if self.explore or len(self.memory.buffer) < self.batch_size * self.n_envs:
+        if self.explore or len(self.memory.buffer) < self.batch_size:
             return
 
         for _ in range(self.n_envs):

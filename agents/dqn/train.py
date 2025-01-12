@@ -98,7 +98,7 @@ def main():
             pbar.update(completed_episodes)
 
             # Save model and plots at the specified interval
-            if episode_count % SAVING_INTERVAL == 0:
+            if (episode_count % SAVING_INTERVAL) <= (N_ENVS / 10) and episode_count > 0:
                 agent.policy_net.save(
                     f"agents/dqn/models/{timestamp}/{episode_count:04d}.pth"
                 )

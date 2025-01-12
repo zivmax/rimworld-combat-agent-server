@@ -195,7 +195,7 @@ class RimWorldEnv(gym.Env):
             self._reset_times += 1
             self._steped_times = 0
 
-        if self._reset_times >= RESTART_INTERVAL:
+        if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
             self._game.restart()
             StateCollector.reset()
             while not StateCollector.receive_state(self._server):

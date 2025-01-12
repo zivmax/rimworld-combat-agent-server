@@ -127,7 +127,7 @@ class RimWorldEnv(gym.Env):
             )
             self.action_space[idx] = ally_space
 
-        self.action_space = spaces.Dict(self.action_space)
+        self.action_space: spaces.Dict = spaces.Dict(self.action_space)
 
         """
         Observation space has 6 layers:
@@ -217,7 +217,11 @@ class RimWorldEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action: Dict):
+    def step(self, action: spaces.Dict):
+        assert self.action_space.contains(
+            action
+        ), f"Invalid action: {action} not in {self.action_space}."
+
         observation = None
         reward = 0
         terminated = False

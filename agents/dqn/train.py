@@ -8,7 +8,7 @@ import os
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers.vector import FrameStackObservation
+from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
@@ -60,6 +60,7 @@ def main():
     )
 
     envs = FrameStackObservation(envs, stack_size=8)
+    envs = SwapObservationAxes(envs, swap=(0, 1))
     envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
     register_keyboard_interrupt(envs)
     agent = Agent(
@@ -70,14 +71,19 @@ def main():
     agent.policy_net.train()
 
     next_states, _ = envs.reset()
+
     for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
         current_states = next_states
         actions = agent.act(current_states)
 
+        actions = {
+            0: [actions[i] for i in range(N_ENVS)],
+        }
+
         next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
         dones = np.logical_or(terminateds, truncateds)
 
-        agent.remember(current_states, next_states, actions, rewards, dones)
+        agent.remember(current_states, next_states, actions[0], rewards, dones)
 
         agent.train()
 

@@ -191,8 +191,7 @@ class RimWorldEnv(gym.Env):
             StateCollector.reset()
             sleep(1)
         else:
-            logger.info(f"Reset the client game.")
-            self._reset_times = 0
+            logger.info(f"Reset the client game, done {self._reset_times} times.")
 
         logger.info(f"Env reset!")
         self._reset_times += 1

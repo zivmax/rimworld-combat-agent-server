@@ -3,6 +3,7 @@ import torch.optim as optim
 from typing import Dict
 from gymnasium.spaces import Box
 import numpy as np
+from numpy.typing import NDArray
 from .memory import PPOMemory, Transition
 from .model import ActorCritic
 
@@ -10,6 +11,7 @@ from .model import ActorCritic
 class PPOAgent:
     def __init__(
         self,
+        n_envs,
         obs_space: Box,
         act_space: Box,
         lr: float = 1e-4,
@@ -22,6 +24,7 @@ class PPOAgent:
         reuse_time: int = 8,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
+        self.n_envs = n_envs
         self.device = device
         self.gamma = gamma
         self.k_epochs = k_epochs
@@ -31,22 +34,37 @@ class PPOAgent:
         self.batch_size = batch_size
         self.reuse_time = reuse_time
         self.state_values_store = []
+        self.current_transitions = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PPOMemory()
 
-    def select_action(self, state: torch.Tensor) -> Dict:
-        state = torch.FloatTensor(state).to(self.device)
-        action, log_prob, state_values = self.policy.act(state)
-        self.state_values_store.append(state_values)
-        self.current_transition = {
-            "state": state,
-            "action": torch.tensor(action),
-            "log_prob": log_prob,
-        }
-        action = {1: action}
-        return action
+    def select_action(self, states: NDArray) -> NDArray:
+        states = np.array(states)
+        states_tensor = torch.FloatTensor(states).to(self.device)
+        batch_actions, batch_log_probs, batch_state_values = (
+            np.zeros((self.n_envs, 1, 2)),
+            np.zeros((self.n_envs, 1)),
+            np.zeros((self.n_envs, 1)),
+        )
+
+        for i in range(self.n_envs):
+            actions, log_probs, state_values = self.policy.act(states_tensor[i])
+            self.state_values_store.extend(state_values.cpu().detach().numpy())
+            batch_actions[i] = actions
+            log_probs = log_probs.cpu().detach().item()
+            state_values = state_values.cpu().detach().item()
+            batch_log_probs[i] = log_probs
+            batch_state_values[i] = state_values
+            self.current_transitions.append(
+                {
+                    "state": states_tensor[i],
+                    "action": actions,
+                    "log_prob": log_probs,
+                }
+            )
+        return np.array(batch_actions)
 
     def store_transition(
         self,
@@ -54,16 +72,16 @@ class PPOAgent:
         next_state: torch.Tensor,
         done: bool,
     ) -> None:
-        transition = self.current_transition
-        self.memory.store_transition(
-            state=transition["state"],
-            action=transition["action"],
-            log_prob=transition["log_prob"],
-            reward=torch.tensor(reward).to(self.device),
-            next_state=torch.tensor(next_state).to(self.device),
-            done=torch.tensor(done).to(self.device),
-        )
-        self.current_transition = {}
+        for transition in self.current_transitions:
+            self.memory.store_transition(
+                state=transition["state"],
+                action=transition["action"],
+                log_prob=transition["log_prob"],
+                reward=torch.tensor(reward).to(self.device),
+                next_state=torch.tensor(next_state).to(self.device),
+                done=torch.tensor(done).to(self.device),
+            )
+        self.current_transitions = []
 
     def update(self) -> None:
         states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)

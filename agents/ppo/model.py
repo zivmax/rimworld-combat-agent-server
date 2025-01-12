@@ -10,7 +10,7 @@ class ActorCritic(nn.Module):
     def __init__(self, obs_space: Box, act_space: Dict) -> None:
         super(ActorCritic, self).__init__()
         self.obs_space = obs_space
-        self.act_space = act_space[1]
+        self.act_space = act_space
         self.act_size = int(np.prod(self.act_space.high - self.act_space.low + 1))
         self.num_actions = (
             self.act_space.shape[0] * len(self.act_space.spaces)

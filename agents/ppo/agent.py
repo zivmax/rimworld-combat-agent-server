@@ -25,6 +25,7 @@ class PPOAgent:
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
+        self.act_space = act_space
         self.device = device
         self.gamma = gamma
         self.k_epochs = k_epochs
@@ -44,19 +45,31 @@ class PPOAgent:
         states = np.array(states)
         states_tensor = torch.FloatTensor(states).to(self.device)
         batch_actions, batch_log_probs, batch_state_values = (
-            np.zeros((self.n_envs, 1, 2)),
+            np.zeros((self.n_envs, 2), dtype=self.act_space.dtype),
             np.zeros((self.n_envs, 1)),
             np.zeros((self.n_envs, 1)),
         )
 
         for i in range(self.n_envs):
             actions, log_probs, state_values = self.policy.act(states_tensor[i])
+            actions[0] = max(
+                min(actions[0], self.act_space.high[0]),
+                self.act_space.low[0],
+            )
+            actions[1] = max(
+                min(actions[1], self.act_space.high[1]),
+                self.act_space.low[1],
+            )
+
             self.state_values_store.extend(state_values.cpu().detach().numpy())
-            batch_actions[i] = actions
+
             log_probs = log_probs.cpu().detach().item()
             state_values = state_values.cpu().detach().item()
+
+            batch_actions[i] = actions
             batch_log_probs[i] = log_probs
             batch_state_values[i] = state_values
+
             self.current_transitions.append(
                 {
                     "state": states_tensor[i],
@@ -64,7 +77,7 @@ class PPOAgent:
                     "log_prob": log_probs,
                 }
             )
-        return np.array(batch_actions)
+        return batch_actions
 
     def store_transition(
         self,

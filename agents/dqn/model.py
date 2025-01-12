@@ -58,6 +58,8 @@ class DQN(nn.Module):
             nn.Linear(in_features=512, out_features=act_space_size),
         )
 
+        self.softmax = nn.Softmax(dim=1)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Convert the entire tensor to float
         x = x.float()
@@ -69,6 +71,7 @@ class DQN(nn.Module):
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten
         x = self.fc(x)
+        x = self.softmax(x)
         return x
 
     def save(self, filepath: str) -> None:

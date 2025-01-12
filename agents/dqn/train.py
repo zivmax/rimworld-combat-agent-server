@@ -65,7 +65,7 @@ def main():
     agent = Agent(
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
-        act_space=envs.single_action_space[1],
+        act_space=envs.single_action_space[0],
     )
     agent.policy_net.train()
 

@@ -12,10 +12,10 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 5
+N_ENVS = 2
 N_STEPS = int(100e4)
 SAVING_INTERVAL = 50000
-UPDATE_INTERVAL = 1024
+UPDATE_INTERVAL = 10
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -85,7 +85,8 @@ def main():
         next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
         dones = np.logical_or(terminateds, truncateds)
 
-        agent.store_transition(rewards, next_states, dones)
+        for i in range(N_ENVS):
+            agent.store_transition(rewards[i], next_states[i], dones[i])
 
         if step % UPDATE_INTERVAL == 0:
             agent.update()

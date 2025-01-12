@@ -44,11 +44,7 @@ class PPOAgent:
     def select_action(self, states: NDArray) -> NDArray:
         states = np.array(states)
         states_tensor = torch.FloatTensor(states).to(self.device)
-        batch_actions, batch_log_probs, batch_state_values = (
-            np.zeros((self.n_envs, 2), dtype=self.act_space.dtype),
-            np.zeros((self.n_envs, 1)),
-            np.zeros((self.n_envs, 1)),
-        )
+        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
 
         for i in range(self.n_envs):
             actions, log_probs, state_values = self.policy.act(states_tensor[i])
@@ -63,17 +59,12 @@ class PPOAgent:
 
             self.state_values_store.extend(state_values.cpu().detach().numpy())
 
-            log_probs = log_probs.cpu().detach().item()
-            state_values = state_values.cpu().detach().item()
-
             batch_actions[i] = actions
-            batch_log_probs[i] = log_probs
-            batch_state_values[i] = state_values
 
             self.current_transitions.append(
                 {
                     "state": states_tensor[i],
-                    "action": actions,
+                    "action": torch.tensor(actions).to(self.device),
                     "log_prob": log_probs,
                 }
             )
@@ -161,8 +152,12 @@ class PPOAgent:
         advantage = 0
         previous_value = 0
         for step in reversed(range(len(rewards))):
-            mask = 1.0 - dones[step].float()
-            delta = rewards[step] + GAMMA * previous_value * mask - state_values[step]
+            mask = 1.0 - dones[step].float().cpu().numpy()
+            delta = (
+                rewards[step].cpu().numpy()
+                + GAMMA * previous_value * mask
+                - state_values[step]
+            )
             advantage = delta + GAMMA * GAE_LAMBDA * mask * advantage
             advantages.insert(0, advantage)
             previous_value = state_values[step]

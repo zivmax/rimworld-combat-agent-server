@@ -191,11 +191,9 @@ class RimWorldEnv(gym.Env):
             StateCollector.reset()
             sleep(1)
         else:
-            logger.info(f"Reset the client game, done {self._reset_times} times.")
-
-        logger.info(f"Env reset!")
-        self._reset_times += 1
-        self._steped_times = 0
+            logger.info(f"Client game reset, done {self._reset_times} times.")
+            self._reset_times += 1
+            self._steped_times = 0
 
         if self._reset_times >= RESTART_INTERVAL:
             self._game.restart()
@@ -245,10 +243,11 @@ class RimWorldEnv(gym.Env):
             },
         }
 
-        self._server.send_to_client(message)
         logger.debug(
             f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
+        self._server.send_to_client(message)
+        logger.debug("Wait for response...")
         StateCollector.receive_state(self._server)
 
         self._actions_prev = pawn_actions

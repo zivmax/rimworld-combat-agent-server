@@ -96,7 +96,7 @@ class DQNAgent:
             states[0]
         ), f"Invalid state: {states[0]} not in {self.obs_space}."
 
-        self.steps += 1
+        self.steps += self.n_envs
 
         eps_threshold = max(
             self.epsilon_final,

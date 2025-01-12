@@ -8,7 +8,7 @@ import os
 
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers.vector.frame_stack import FrameStackObservation
+from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
@@ -65,6 +65,7 @@ def main():
     )
 
     envs = FrameStackObservation(envs, stack_size=8)
+    envs = SwapObservationAxes(envs, swap=(0, 1))
     envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
     register_keyboard_interrupt(envs)
     agent = Agent(
@@ -78,10 +79,13 @@ def main():
         current_states = next_states
         actions = agent.select_action(current_states)
 
+        actions = {
+            0: [actions[i] for i in range(N_ENVS)],
+        }
         next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
         dones = np.logical_or(terminateds, truncateds)
 
-        agent.store_transitions(current_states, actions, rewards, dones)
+        agent.store_transition(current_states, actions, rewards, dones)
 
         if step % UPDATE_INTERVAL == 0:
             agent.update()

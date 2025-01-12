@@ -6,7 +6,7 @@ from tqdm import tqdm
 rimworld_path = "/mnt/game/RimWorldLinux"
 
 # Number of restarts
-RESTART_COUNT = 50
+RESTART_COUNT = 5
 
 options = GameOptions(
     agent_control=True,
@@ -36,7 +36,7 @@ try:
                 game.launch()
 
                 # Wait for some time to let the game run
-                sleep(30)
+                sleep(60)
 
             except Exception as e:
                 print(f"Error during iteration {i + 1}: {e}")

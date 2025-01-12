@@ -1,4 +1,4 @@
-from env.game import Game
+from env.game import Game, GameOptions
 from time import sleep
 from tqdm import tqdm
 
@@ -8,6 +8,20 @@ rimworld_path = "/mnt/game/RimWorldLinux"
 # Number of restarts
 RESTART_COUNT = 50
 
+options = GameOptions(
+    agent_control=True,
+    team_size=1,
+    map_size=15,
+    gen_trees=True,
+    gen_ruins=True,
+    random_seed=4048,
+    can_flee=False,
+    actively_attack=True,
+    interval=0.5,
+    speed=4,
+)
+
+
 try:
     # Create progress bar
     with tqdm(total=RESTART_COUNT, desc="Game Tests") as pbar:
@@ -15,7 +29,7 @@ try:
             pbar.set_description(f"Running test {i + 1}/{RESTART_COUNT}")
 
             # Create an instance of the launcher with custom server address and port
-            game = Game(rimworld_path, server_addr="192.168.1.100", port=12345)
+            game = Game(rimworld_path, options)
 
             try:
                 # Launch the game

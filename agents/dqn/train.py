@@ -8,7 +8,7 @@ import os
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers import VectorFrameStackObservation
+from env.wrappers.vector import FrameStackObservation
 from utils.draw import draw
 from utils.timestamp import timestamp
 
@@ -59,7 +59,7 @@ def main():
         shared_memory=True,
     )
 
-    envs = VectorFrameStackObservation(envs, stack_size=8)
+    envs = FrameStackObservation(envs, stack_size=8)
     envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
     register_keyboard_interrupt(envs)
     agent = Agent(

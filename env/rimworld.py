@@ -127,7 +127,7 @@ class RimWorldEnv(gym.Env):
             )
             self.action_space[idx] = ally_space
 
-        self.action_space = spaces.Dict(self.action_space)
+        self.action_space: spaces.Dict = spaces.Dict(self.action_space)
 
         """
         Observation space has 6 layers:

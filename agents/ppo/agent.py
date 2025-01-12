@@ -82,7 +82,7 @@ class PPOAgent:
     def store_transition(
         self,
         reward: float,
-        next_state: torch.Tensor,
+        next_state: NDArray,
         done: bool,
     ) -> None:
         for transition in self.current_transitions:

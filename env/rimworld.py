@@ -17,7 +17,7 @@ from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
 from .game import Game, GameOptions
-from .const import RESTART_INTERVAL, RIMWORLD_LOGGING_LEVEL
+from .config import RESTART_INTERVAL, RIMWORLD_LOGGING_LEVEL
 
 logging_level = RIMWORLD_LOGGING_LEVEL
 f_logger = get_file_logger(

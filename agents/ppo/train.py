@@ -85,7 +85,7 @@ def main():
         next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
         dones = np.logical_or(terminateds, truncateds)
 
-        agent.store_transition(current_states, actions, rewards, dones)
+        agent.store_transition(rewards, next_states, dones)
 
         if step % UPDATE_INTERVAL == 0:
             agent.update()

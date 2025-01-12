@@ -25,13 +25,13 @@ options = GameOptions(
 try:
     # Create progress bar
     with tqdm(total=RESTART_COUNT, desc="Game Tests") as pbar:
+        game = Game(rimworld_path, options)
+
         for i in range(RESTART_COUNT):
             pbar.set_description(f"Running test {i + 1}/{RESTART_COUNT}")
-
-            # Create an instance of the launcher with custom server address and port
-            game = Game(rimworld_path, options)
-
             try:
+
+                # Create an instance of the launcher with custom server address and port
                 # Launch the game
                 game.launch()
 
@@ -43,7 +43,7 @@ try:
 
             finally:
                 # Make sure to shut down the game properly
-                game.shutdown()
+                game.restart()
                 sleep(2)  # Give some time between restarts
                 pbar.update(1)
 

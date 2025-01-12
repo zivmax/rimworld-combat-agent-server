@@ -42,9 +42,9 @@ class DQNAgent:
         self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.85
+        self.gamma = 0.65
 
-        self.batch_size = 512
+        self.batch_size = 1024
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0

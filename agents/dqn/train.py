@@ -90,11 +90,12 @@ def main():
 
             agent.train()
 
-            # Update episode count
-            episode_count += dones.sum()
-            pbar.update(
-                dones.sum()
-            )  # Update progress bar by the number of completed episodes
+            # Calculate completed episodes while preventing overflow
+            completed_episodes = min(dones.sum(), N_EPISODES - episode_count)
+
+            # Update episode count and progress bar
+            episode_count += completed_episodes
+            pbar.update(completed_episodes)
 
             # Save model and plots at the specified interval
             if episode_count % SAVING_INTERVAL == 0 and episode_count > 0:

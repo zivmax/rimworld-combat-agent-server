@@ -60,16 +60,16 @@ next_states, _ = envs.reset(seed=42)
 episode_count = 0  # Initialize episode counter
 with tqdm(total=N_EPISODES, desc="Test Progress") as pbar:
     while episode_count < N_EPISODES:
-
         next_states, rewards, terminateds, truncateds, _ = envs.step(
             envs.action_space.sample()
         )
         dones: np.typing.NDArray = np.logical_or(terminateds, truncateds)
 
-        # Update episode count
-        episode_count += dones.sum()
-        pbar.update(
-            dones.sum()
-        )  # Update progress bar by the number of completed episodes
+        # Calculate completed episodes while preventing overflow
+        completed_episodes = min(dones.sum(), N_EPISODES - episode_count)
+
+        # Update episode count and progress bar
+        episode_count += completed_episodes
+        pbar.update(completed_episodes)
 
 envs.close()

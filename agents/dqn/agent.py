@@ -42,9 +42,9 @@ class DQNAgent:
         self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.85
+        self.gamma = 0.65
 
-        self.batch_size = 512
+        self.batch_size = 1024
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
@@ -96,7 +96,7 @@ class DQNAgent:
             states[0]
         ), f"Invalid state: {states[0]} not in {self.obs_space}."
 
-        self.steps += 1
+        self.steps += self.n_envs
 
         eps_threshold = max(
             self.epsilon_final,
@@ -126,10 +126,10 @@ class DQNAgent:
                     outputs = (
                         self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
                     )
-                    width = self.act_space.high[0] - self.act_space.low[0]
+                    width = self.act_space.high[0] - self.act_space.low[0] + 1
 
                     x = outputs % width + self.act_space.low[0]
-                    y = outputs // width + self.act_space.low[0]
+                    y = outputs // width + self.act_space.low[1]
 
                     batch_actions[exploit_indices] = [
                         np.stack([x, y], axis=1, dtype=self.act_space.dtype)

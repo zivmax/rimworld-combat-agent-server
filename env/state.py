@@ -6,7 +6,7 @@ from time import time
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .const import RESET_TIMEOUT
+from .config import RESET_TIMEOUT
 from .server import GameServer
 
 logging_level = logging.INFO

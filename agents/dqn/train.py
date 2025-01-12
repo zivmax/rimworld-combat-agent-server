@@ -1,20 +1,23 @@
 import gymnasium as gym
-from gymnasium.wrappers.vector import RecordEpisodeStatistics
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import os
 
-
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
+from env.wrappers.vector import (
+    FrameStackObservation,
+    SwapObservationAxes,
+    RecordEpisodeStatistics,
+)
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 2
-N_STEPS = int(100e4)
-SAVING_INTERVAL = 50000
+
+N_ENVS = 10
+N_EPISODES = 10000  # Define the total number of episodes to train for
+SAVING_INTERVAL = 500  # Save every 500 episodes
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -47,8 +50,6 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
-    n_steps = int(N_STEPS / N_ENVS)
-    saving_interval = int(SAVING_INTERVAL / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     envs = gym.vector.AsyncVectorEnv(
         [
@@ -61,7 +62,7 @@ def main():
 
     envs = FrameStackObservation(envs, stack_size=8)
     envs = SwapObservationAxes(envs, swap=(0, 1))
-    envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
+    envs = RecordEpisodeStatistics(envs, buffer_length=N_EPISODES)
     register_keyboard_interrupt(envs)
     agent = Agent(
         n_envs=N_ENVS,
@@ -72,30 +73,45 @@ def main():
 
     next_states, _ = envs.reset()
 
-    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
-        current_states = next_states
-        actions = agent.act(current_states)
+    episode_count = 0  # Initialize episode counter
+    with tqdm(total=N_EPISODES, desc="Training Progress (Episodes)") as pbar:
+        while episode_count < N_EPISODES:
+            current_states = next_states
+            actions = agent.act(current_states)
 
-        actions = {
-            0: [actions[i] for i in range(N_ENVS)],
-        }
+            actions = {
+                0: [actions[i] for i in range(N_ENVS)],
+            }
 
-        next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
-        dones = np.logical_or(terminateds, truncateds)
+            next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+            dones: np.typing.NDArray = np.logical_or(terminateds, truncateds)
 
-        agent.remember(current_states, next_states, actions[0], rewards, dones)
+            agent.remember(current_states, next_states, actions[0], rewards, dones)
 
-        agent.train()
+            agent.train()
 
-        if step % saving_interval == 0 and step > 0:
-            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step:04d}.pth")
-            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{step:04d}.png")
-            agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{step:04d}.png")
-            draw(
-                envs,
-                save_path=f"agents/dqn/plots/env/{timestamp}/{step:04d}.png",
-            )
-            saving(envs, agent, timestamp, step)
+            # Update episode count
+            episode_count += dones.sum()
+            pbar.update(
+                dones.sum()
+            )  # Update progress bar by the number of completed episodes
+
+            # Save model and plots at the specified interval
+            if episode_count % SAVING_INTERVAL == 0 and episode_count > 0:
+                agent.policy_net.save(
+                    f"agents/dqn/models/{timestamp}/{episode_count:04d}.pth"
+                )
+                agent.draw_model(
+                    f"agents/dqn/plots/training/{timestamp}/{episode_count:04d}.png"
+                )
+                agent.draw_agent(
+                    f"agents/dqn/plots/threshold/{timestamp}/{episode_count:04d}.png"
+                )
+                draw(
+                    envs,
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{episode_count:04d}.png",
+                )
+                saving(envs, agent, timestamp, episode_count)
 
     envs.close()
 

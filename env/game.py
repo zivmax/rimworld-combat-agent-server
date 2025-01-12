@@ -61,7 +61,7 @@ class Game:
         """
         self.rimworld_path = game_path
         self.options = options if options else GameOptions()
-        self.log_dir = "env/logs/game"  # Directory for log files
+        self.log_dir = f"env/logs/game/{timestamp}"  # Directory for log files
         self._ensure_log_dir_exists()  # Ensure the log directory exists
         self.process: subprocess.Popen = None  # Store the process object
         self.monitor_thread: threading.Thread = (
@@ -77,7 +77,9 @@ class Game:
 
         :return: The subprocess.Popen object representing the game process, or None if the launch fails.
         """
-        self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
+        self.stdout_log_file = os.path.join(
+            self.log_dir, f"{self.options.server_port}.log"
+        )
 
         env_copy = os.environ.copy()
         command = [

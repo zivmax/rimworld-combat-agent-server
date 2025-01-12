@@ -104,20 +104,16 @@ class DQNAgent:
         )
         self.eps_threshold_history.append(eps_threshold)
 
-        batch_actions = np.zeros((self.n_envs, 1, 2))
+        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
         explores = np.random.rand(self.n_envs) < eps_threshold
         self.explore = explores.any()
 
         # Handle random exploration
         random_indices = np.where(explores)[0]
         if len(random_indices) > 0:
-            batch_actions[random_indices] = np.array(
-                [
-                    np.array([self.act_space.sample()])
-                    for _ in range(len(random_indices))
-                ],
-                dtype=np.int8,
-            )
+            batch_actions[random_indices] = [
+                self.act_space.sample() for _ in range(len(random_indices))
+            ]
 
         # Handle exploitation
         if len(self.memory) >= self.batch_size:
@@ -135,9 +131,9 @@ class DQNAgent:
                     x = outputs % width + self.act_space.low[0]
                     y = outputs // width + self.act_space.low[0]
 
-                    batch_actions[exploit_indices] = np.array(
-                        [np.stack([x, y], axis=1, dtype=np.int8)]
-                    )
+                    batch_actions[exploit_indices] = [
+                        np.stack([x, y], axis=1, dtype=self.act_space.dtype)
+                    ]
 
         return batch_actions
 

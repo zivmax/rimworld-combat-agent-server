@@ -12,7 +12,7 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 2
+N_ENVS = 20
 N_STEPS = int(100e4)
 SAVING_INTERVAL = 50000
 UPDATE_INTERVAL = 1024
@@ -40,7 +40,7 @@ ENV_OPTIONS = EnvOptions(
         gen_ruins=True,
         random_seed=4048,
         can_flee=False,
-        actively_attack=True,
+        actively_attack=False,
         interval=0.5,
         speed=4,
     ),

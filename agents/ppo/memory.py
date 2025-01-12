@@ -1,5 +1,6 @@
 from dataclasses import dataclass, astuple
-from typing import List
+from collections import deque
+from typing import List, Deque
 import torch
 
 
@@ -18,7 +19,7 @@ class Transition:
 
 class PPOMemory:
     def __init__(self) -> None:
-        self.transitions: List[Transition] = []
+        self.transitions: Deque[Transition] = deque(maxlen=300000)
 
     def store_transition(
         self,

@@ -1,7 +1,7 @@
 import gymnasium as gym
 import signal
 import sys
-import tqdm
+from tqdm import tqdm
 from env import rimworld_env, GameOptions, EnvOptions
 import numpy as np
 
@@ -15,6 +15,8 @@ def handle_keyboard_interrupt(signum, frame):
 
 signal.signal(signal.SIGINT, handle_keyboard_interrupt)
 
+N_EPISODES = 100  # Define the total number of episodes to train for
+N_ENV = 20  # Define the number of environments to run in parallel
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=800,
@@ -44,7 +46,7 @@ ENV_OPTIONS = EnvOptions(
     ),
 )
 
-ports = [np.random.randint(10000, 20000) for _ in range(10)]
+ports = [np.random.randint(10000, 20000) for _ in range(N_ENV)]
 envs = gym.vector.AsyncVectorEnv(
     [
         lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
@@ -54,10 +56,20 @@ envs = gym.vector.AsyncVectorEnv(
     shared_memory=True,
 )
 
-observations, infos = envs.reset(seed=42)
-for _ in tqdm.trange(1000):
-    observations, rewards, terminations, truncations, infos = envs.step(
-        envs.action_space.sample()
-    )
+next_states, _ = envs.reset(seed=42)
+episode_count = 0  # Initialize episode counter
+with tqdm(total=N_EPISODES, desc="Test Progress") as pbar:
+    while episode_count < N_EPISODES:
+
+        next_states, rewards, terminateds, truncateds, _ = envs.step(
+            envs.action_space.sample()
+        )
+        dones: np.typing.NDArray = np.logical_or(terminateds, truncateds)
+
+        # Update episode count
+        episode_count += dones.sum()
+        pbar.update(
+            dones.sum()
+        )  # Update progress bar by the number of completed episodes
 
 envs.close()

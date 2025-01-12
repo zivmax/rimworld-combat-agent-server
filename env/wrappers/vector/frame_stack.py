@@ -136,6 +136,9 @@ class FrameStackObservation(VectorWrapper):
         self.single_observation_space = batch_space(
             env.single_observation_space, n=stack_size
         )
+        self.observation_space = batch_space(
+            batch_space(env.single_observation_space, n=stack_size), n=self.num_envs
+        )
         self.stack_size: Final[int] = stack_size
         self.padding_type: Final[str] = padding_type
 

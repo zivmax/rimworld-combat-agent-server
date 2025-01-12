@@ -218,7 +218,9 @@ class RimWorldEnv(gym.Env):
         return observation, info
 
     def step(self, action: spaces.Dict):
-        assert self.action_space.contains(action), "Invalid action space"
+        assert self.action_space.contains(
+            action
+        ), f"Invalid action: {action} not in {self.action_space}."
 
         observation = None
         reward = 0

@@ -93,8 +93,8 @@ class DQNAgent:
 
     def act(self, states: NDArray) -> NDArray:
         assert self.obs_space.contains(
-            states
-        ), "States are not within the observation space"
+            states[0]
+        ), f"Invalid state: {states[0]} not in {self.obs_space}."
 
         self.steps += 1
 

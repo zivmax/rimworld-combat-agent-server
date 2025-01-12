@@ -15,7 +15,7 @@ from utils.timestamp import timestamp
 N_ENVS = 2
 N_STEPS = int(100e4)
 SAVING_INTERVAL = 50000
-UPDATE_INTERVAL = 10
+UPDATE_INTERVAL = 1024
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,

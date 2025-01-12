@@ -184,7 +184,7 @@ class Game:
             finally:
                 self.process = None  # Reset the process object
         else:
-            logger.info("No RimWorld game process is currently running.")
+            logger.warning("Shutting down a not found process.")
 
     def restart(self):
         """

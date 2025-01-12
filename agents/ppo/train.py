@@ -1,18 +1,25 @@
-# INSERT_YOUR_REWRITE_HERE
 import gymnasium as gym
+from gymnasium.wrappers.vector import RecordEpisodeStatistics
+from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
-from gymnasium.wrappers import RecordEpisodeStatistics, FrameStackObservation
+import pandas as pd
+import numpy as np
+import os
+
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
+from env.wrappers.vector.frame_stack import FrameStackObservation
 from utils.draw import draw
 from utils.timestamp import timestamp
-import pandas as pd
-import os
+
+N_ENVS = 5
+N_STEPS = int(100e4)
+SAVING_INTERVAL = 50000
+UPDATE_INTERVAL = 1024
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=800,
-    is_remote=False,
     remain_still_threshold=100,
     rewarding=EnvOptions.Rewarding(
         original=0,
@@ -33,63 +40,64 @@ ENV_OPTIONS = EnvOptions(
         gen_ruins=True,
         random_seed=4048,
         can_flee=False,
-        actively_attack=False,
+        actively_attack=True,
         interval=0.5,
         speed=4,
     ),
 )
 
-N_EPISODES = 10000
-SAVING_INTERVAL = 200
-UPDATE_INTERVAL = 1024
+
+def create_env():
+    return gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="headless")
+
 
 def main():
-    env = gym.make(rimworld_env, options=ENV_OPTIONS)
-    env = FrameStackObservation(env, stack_size=4)
-    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
-    register_keyboard_interrupt(env)
-    agent = Agent(obs_space=env.observation_space, act_space=env.action_space)
+    n_steps = int(N_STEPS / N_ENVS)
+    saving_interval = int(SAVING_INTERVAL / N_ENVS)
+    ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
+    envs = AsyncVectorEnv(
+        [
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
+        ],
+        daemon=True,
+        shared_memory=True,
+    )
 
+    envs = FrameStackObservation(envs, stack_size=8)
+    envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
+    register_keyboard_interrupt(envs)
+    agent = Agent(
+        n_envs=N_ENVS,
+        obs_space=envs.single_observation_space,
+        act_space=envs.single_action_space[0],
+    )
 
-    episode_rewards = []
-    try:
-        for episode in tqdm(range(1, N_EPISODES + 1), desc="Training Progress"):
-            state, _ = env.reset()
-            done = False
-            episode_reward = 0
+    next_states, _ = envs.reset()
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
+        current_states = next_states
+        actions = agent.select_action(current_states)
 
-            while not done:
-                action = agent.select_action(state)
+        next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+        dones = np.logical_or(terminateds, truncateds)
 
-                next_state, reward, terminated, truncated, _ = env.step(action)
-                done = terminated or truncated
+        agent.store_transitions(current_states, actions, rewards, dones)
 
-                agent.store_transition(
-                    reward,
-                    next_state,
-                    done,
-                )
-                episode_reward += reward
-                state = next_state
+        if step % UPDATE_INTERVAL == 0:
+            agent.update()
 
-                if len(agent.memory.transitions) >= UPDATE_INTERVAL:
-                    agent.update()
+        if step % saving_interval == 0 and step > 0:
+            agent.policy_net.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
+            agent.draw_model(f"agents/ppo/plots/training/{timestamp}/{step:04d}.png")
+            agent.draw_agent(f"agents/ppo/plots/threshold/{timestamp}/{step:04d}.png")
+            draw(
+                envs,
+                save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
+            )
+            saving(envs, agent, timestamp, step)
 
-            episode_rewards.append(episode_reward)
+    envs.close()
 
-            if episode % SAVING_INTERVAL == 0:
-                agent.policy_net.save(f"agents/ppo/models/{timestamp}/ppo_{episode}.pth")
-                agent.draw_model(f"agents/ppo/plots/training/{timestamp}/ppo_{episode}.png")
-                agent.draw_agent(f"agents/ppo/plots/threshold/{timestamp}/ppo_{episode}.png")
-                draw(env, save_path=f"agents/ppo/plots/env/{timestamp}/env_{episode}.png")
-                saving(env, agent, timestamp, episode)
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        env.close()
-
-    finally:
-        env.close()
 
 def saving(
     env: RecordEpisodeStatistics, agent: Agent, timestamp: str, episode: int
@@ -139,6 +147,7 @@ def saving(
     thres_df.to_csv(
         f"agents/ppo/histories/{timestamp}/threshold/{episode:04d}.csv", index=False
     )
+
 
 if __name__ == "__main__":
     main()

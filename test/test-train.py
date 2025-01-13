@@ -25,14 +25,14 @@ ENV_OPTIONS = EnvOptions(
         remain_still=0.05,
     ),
     game=GameOptions(
-        agent_control=True,
+        agent_control=False,
         team_size=1,
         map_size=15,
         gen_trees=True,
         gen_ruins=True,
         random_seed=4048,
         can_flee=False,
-        actively_attack=True,
+        actively_attack=False,
         interval=0.5,
         speed=4,
     ),
@@ -41,7 +41,7 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     n_episodes = N_EPISODES
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="human", port=10086)
+    env = gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="human")
     env = FrameStackObservation(env, stack_size=4)
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     register_keyboard_interrupt(env)
@@ -52,7 +52,7 @@ def main():
             while True:
                 current_state = next_state
                 action = agent.act(current_state)
-                action = [action]
+                action = {0: action}
 
                 next_obs, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated

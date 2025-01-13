@@ -13,7 +13,7 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 N_ENVS = 20
-N_STEPS = int(2000)
+N_STEPS = int(2e4)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.5)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.1)
 

@@ -148,9 +148,9 @@ class PPOAgent:
 
             self.optimizer.step()
 
-            self.policy_loss_history.append(actor_loss.detach().cpu().numpy())
-            self.value_loss_history.append(critic_loss.detach().cpu().numpy())
-            self.loss_history.append(loss.detach().cpu().numpy())
+            self.policy_loss_history.append(actor_loss.mean().item())
+            self.value_loss_history.append(critic_loss.mean().item())
+            self.loss_history.append(loss.mean().item())
 
         self.state_values_store.clear()
         self.memory.clear()
@@ -175,8 +175,10 @@ class PPOAgent:
             previous_value = state_values[step]
             returns.insert(0, advantage + state_values[step])
 
-        advantages = torch.tensor(advantages, dtype=torch.float32).to(self.device)
+        advantages = torch.tensor(np.array(advantages), dtype=torch.float32).to(
+            self.device
+        )
 
-        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        returns = torch.tensor(np.array(returns), dtype=torch.float32).to(self.device)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         return returns, advantages

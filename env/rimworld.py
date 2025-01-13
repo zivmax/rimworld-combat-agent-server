@@ -1,6 +1,5 @@
 import gymnasium as gym
 import numpy as np
-import logging
 import signal
 import sys
 from functools import partial

@@ -11,3 +11,4 @@ agents/**/logs/
 env/**/logs/
 *.png
 /result.json
+/agents.*.json

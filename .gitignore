@@ -10,3 +10,4 @@ agents/**/plots/
 agents/**/logs/
 env/**/logs/
 *.png
+/result.json

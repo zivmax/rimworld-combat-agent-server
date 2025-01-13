@@ -6,7 +6,7 @@ import os
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers import (
+from env.wrappers.vector import (
     FrameStackObservation,
     SwapObservationAxes,
     RecordEpisodeStatistics,
@@ -15,7 +15,7 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 
-N_ENVS = 1
+N_ENVS = 10
 N_EPISODES = 10000  # Define the total number of episodes to train for
 SAVING_INTERVAL = 500  # Save every 500 episodes
 
@@ -51,45 +51,52 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=ports[0])
+    envs = gym.vector.AsyncVectorEnv(
+        [
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
+        ],
+        daemon=True,
+        shared_memory=True,
+    )
 
-    env = FrameStackObservation(env, stack_size=8)
-    env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
-    register_keyboard_interrupt(env)
+    envs = FrameStackObservation(envs, stack_size=8)
+    envs = SwapObservationAxes(envs, swap=(0, 1))
+    envs = RecordEpisodeStatistics(envs, buffer_length=N_EPISODES)
+    register_keyboard_interrupt(envs)
     agent = Agent(
         n_envs=N_ENVS,
-        obs_space=env.observation_space,
-        act_space=env.action_space[0],
+        obs_space=envs.single_observation_space,
+        act_space=envs.single_action_space[0],
         device="cuda:1",
     )
     agent.policy_net.train()
 
-    next_state, _ = env.reset()
+    next_states, _ = envs.reset()
 
     episode_count = 0  # Initialize episode counter
     with tqdm(total=N_EPISODES, desc="Training Progress (Episodes)") as pbar:
         while episode_count < N_EPISODES:
-            current_state = next_state
-            actions = agent.act([current_state])
+            current_states = next_states
+            actions = agent.act(current_states)
 
-            action = {
-                0: actions[0],
+            actions = {
+                0: [actions[i] for i in range(N_ENVS)],
             }
 
-            next_state, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
+            next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+            dones: np.typing.NDArray = np.logical_or(terminateds, truncateds)
 
-            agent.remember([current_state], [next_state], [action[0]], [reward], [done])
+            agent.remember(current_states, next_states, actions[0], rewards, dones)
 
             agent.train()
 
             # Calculate completed episodes while preventing overflow
-            if done:
-                episode_count += 1
-                env.reset()
-                # Update episode count and progress bar
-                pbar.update(1)
+            completed_episodes = min(dones.sum(), N_EPISODES - episode_count)
+
+            # Update episode count and progress bar
+            episode_count += completed_episodes
+            pbar.update(completed_episodes)
 
             # Save model and plots at the specified interval
             if (episode_count % SAVING_INTERVAL) <= (N_ENVS / 10) and episode_count > 0:
@@ -103,12 +110,12 @@ def main():
                     f"agents/dqn/plots/threshold/{timestamp}/{episode_count:04d}.png"
                 )
                 draw(
-                    env,
+                    envs,
                     save_path=f"agents/dqn/plots/env/{timestamp}/{episode_count:04d}.png",
                 )
-                saving(env, agent, timestamp, episode_count)
+                saving(envs, agent, timestamp, episode_count)
 
-    env.close()
+    envs.close()
 
 
 def saving(

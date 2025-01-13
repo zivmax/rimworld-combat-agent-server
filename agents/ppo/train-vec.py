@@ -1,22 +1,20 @@
 import gymnasium as gym
+from gymnasium.wrappers.vector import RecordEpisodeStatistics
 from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import os
+from viztracer import VizTracer
 
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers import (
-    FrameStackObservation,
-    SwapObservationAxes,
-    RecordEpisodeStatistics,
-)
+from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
 N_ENVS = 1
-N_STEPS = int(2e1)
+N_STEPS = int(2e3)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
@@ -57,30 +55,38 @@ def create_env():
 def main():
     n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=ports[0])
-
-    env = FrameStackObservation(env, stack_size=8)
-    env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=n_steps)
-    register_keyboard_interrupt(env)
-    agent = Agent(
-        n_envs=N_ENVS,
-        obs_space=env.observation_space,
-        act_space=env.action_space[0],
+    envs = AsyncVectorEnv(
+        [
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
+        ],
+        daemon=True,
+        shared_memory=True,
     )
 
-    next_state, _ = env.reset()
+    envs = FrameStackObservation(envs, stack_size=8)
+    envs = SwapObservationAxes(envs, swap=(0, 1))
+    envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
+    register_keyboard_interrupt(envs)
+    agent = Agent(
+        n_envs=N_ENVS,
+        obs_space=envs.single_observation_space,
+        act_space=envs.single_action_space[0],
+    )
+
+    next_states, _ = envs.reset()
     for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
-        current_state = next_state
-        actions = agent.select_action([current_state])
+        current_states = next_states
+        actions = agent.select_action(current_states)
 
-        action = {
-            0: actions[0],
+        actions = {
+            0: [actions[i] for i in range(N_ENVS)],
         }
-        next_state, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
+        next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+        dones = np.logical_or(terminateds, truncateds)
 
-        agent.store_transition(reward, next_state, done)
+        for i in range(N_ENVS):
+            agent.store_transition(rewards[i], next_states[i], dones[i])
 
         if step % UPDATE_INTERVAL == 0:
             agent.update()
@@ -88,12 +94,12 @@ def main():
         if step % SAVING_INTERVAL == 0 and step > 0:
             agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
             draw(
-                env,
+                envs,
                 save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
             )
-            saving(env, agent, timestamp, step)
+            saving(envs, agent, timestamp, step)
 
-    env.close()
+    envs.close()
 
 
 def saving(
@@ -131,4 +137,8 @@ def saving(
 
 
 if __name__ == "__main__":
+    tracer = VizTracer(ignore_frozen=True, ignore_c_function=True)
+    tracer.start()
     main()
+    tracer.stop()
+    tracer.save("agents/ppo/logs/trace.json")

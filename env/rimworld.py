@@ -252,11 +252,10 @@ class RimWorldEnv(gym.Env):
         while not StateCollector.receive_state(self._server):
             logger.warning(f"Timeout to receive response, restarting the game.")
             self._game.restart()
-            sleep(30)
-            return self.reset()
-        else:
             logger.info(f"Restarted the client game.")
             self._reset_times = 0
+            sleep(30)
+            return self.reset()
 
         self._actions_prev = pawn_actions
         self._update_all()

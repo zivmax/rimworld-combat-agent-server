@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import os
+from viztracer import VizTracer
 
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
@@ -12,8 +13,8 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 10
-N_STEPS = int(2e5)
+N_ENVS = 1
+N_STEPS = int(2e3)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
@@ -74,7 +75,7 @@ def main():
     )
 
     next_states, _ = envs.reset()
-    for step in tqdm(range(1, n_steps + 2), desc="Training Progress"):
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
         current_states = next_states
         actions = agent.select_action(current_states)
 
@@ -136,4 +137,8 @@ def saving(
 
 
 if __name__ == "__main__":
+    tracer = VizTracer(ignore_frozen=True, ignore_c_function=True)
+    tracer.start()
     main()
+    tracer.stop()
+    tracer.save("agents/ppo/logs/trace.json")

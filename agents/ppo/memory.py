@@ -19,7 +19,7 @@ class Transition:
 
 class PPOMemory:
     def __init__(self) -> None:
-        self.transitions: Deque[Transition] = deque(maxlen=300000)
+        self.transitions: Deque[Transition] = deque(maxlen=100000)
 
     def store_transition(
         self,

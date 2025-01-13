@@ -36,38 +36,42 @@ class PPOAgent:
         self.reuse_time = reuse_time
         self.state_values_store = []
         self.current_transitions = []
+        self.policy_loss_history = []
+        self.value_loss_history = []
+        self.loss_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PPOMemory()
 
     def select_action(self, states: NDArray) -> NDArray:
-        states = np.array(states)
-        states_tensor = torch.FloatTensor(states).to(self.device)
-        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        with torch.no_grad():
+            states = np.array(states)
+            states_tensor = torch.FloatTensor(states).to(self.device)
+            batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
 
-        for i in range(self.n_envs):
-            actions, log_probs, state_values = self.policy.act(states_tensor[i])
-            actions[0] = max(
-                min(actions[0], self.act_space.high[0]),
-                self.act_space.low[0],
-            )
-            actions[1] = max(
-                min(actions[1], self.act_space.high[1]),
-                self.act_space.low[1],
-            )
+            for i in range(self.n_envs):
+                actions, log_probs, state_values = self.policy.act(states_tensor[i])
+                actions[0] = max(
+                    min(actions[0], self.act_space.high[0]),
+                    self.act_space.low[0],
+                )
+                actions[1] = max(
+                    min(actions[1], self.act_space.high[1]),
+                    self.act_space.low[1],
+                )
 
-            self.state_values_store.extend(state_values.cpu().detach().numpy())
+                self.state_values_store.extend(state_values.cpu().detach().numpy())
 
-            batch_actions[i] = actions
+                batch_actions[i] = actions
 
-            self.current_transitions.append(
-                {
-                    "state": states_tensor[i],
-                    "action": torch.tensor(actions).to(self.device),
-                    "log_prob": log_probs,
-                }
-            )
+                self.current_transitions.append(
+                    {
+                        "state": states_tensor[i],
+                        "action": torch.tensor(actions).to(self.device),
+                        "log_prob": log_probs,
+                    }
+                )
         return batch_actions
 
     def store_transition(
@@ -89,7 +93,6 @@ class PPOAgent:
 
     def update(self) -> None:
         states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
-
         actions = torch.stack([t.action for t in self.memory.transitions]).to(
             self.device
         )
@@ -100,8 +103,11 @@ class PPOAgent:
             self.device
         )
         dones = torch.stack([t.done for t in self.memory.transitions]).to(self.device)
+
         returns, advantages = self.compute_advantages(rewards, dones)
+
         batch_size = min(self.batch_size, len(self.memory.transitions))
+
         dataset = torch.utils.data.TensorDataset(
             states, actions, old_log_probs, returns, advantages
         )
@@ -117,30 +123,36 @@ class PPOAgent:
                 batch_returns,
                 batch_advantages,
             ) = batch
+
             log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
             ratios = torch.exp(log_probs - batch_old_log_probs.detach())
-            # surr1 = ratios * batch_advantages
-            surr1 = log_probs.detach() * batch_advantages.detach()
-            # surr2 = (
-            #     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
-            #     * batch_advantages
-            # )
+
+            surr1 = ratios * batch_advantages
+            surr2 = (
+                torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
+                * batch_advantages
+            )
+
             entropy_bonus = self.entropy_coef * entropy
-            # actor_loss = -torch.min(surr1, surr2) - entropy_bonus
-            actor_loss = -surr1.mean() - entropy_bonus.mean()
-            # critic_loss = (
-            #     self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
-            # )
-            critic_loss = self.critic_coef * batch_advantages.detach().mean().pow(2)
-            # critic_loss = batch_advantages.pow(2)
+
+            actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+
+            critic_loss = self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
 
             loss = actor_loss + critic_loss
+
             self.optimizer.zero_grad()
-            loss.backward()
+            loss.mean().backward()
+            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=1.0)
+
             self.optimizer.step()
 
-        self.state_values_store = []
+            self.policy_loss_history.append(actor_loss.mean().item())
+            self.value_loss_history.append(critic_loss.mean().item())
+            self.loss_history.append(loss.mean().item())
+
+        self.state_values_store.clear()
         self.memory.clear()
 
     def compute_advantages(self, rewards, dones):
@@ -163,10 +175,10 @@ class PPOAgent:
             previous_value = state_values[step]
             returns.insert(0, advantage + state_values[step])
 
-        advantages = torch.tensor(
-            advantages, dtype=torch.float32, requires_grad=True
-        ).to(self.device)
+        advantages = torch.tensor(np.array(advantages), dtype=torch.float32).to(
+            self.device
+        )
 
-        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        returns = torch.tensor(np.array(returns), dtype=torch.float32).to(self.device)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         return returns, advantages

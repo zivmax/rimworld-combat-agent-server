@@ -15,7 +15,7 @@ from utils.timestamp import timestamp
 N_ENVS = 20
 N_STEPS = int(100e4)
 SAVING_INTERVAL = 50000
-UPDATE_INTERVAL = 1024
+UPDATE_INTERVAL = 512
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -30,7 +30,7 @@ ENV_OPTIONS = EnvOptions(
         ally_danger=-200,
         enemy_danger=200,
         invalid_action=-0.25,
-        remain_still=0.05,
+        remain_still=0.00,
     ),
     game=GameOptions(
         agent_control=True,
@@ -40,7 +40,7 @@ ENV_OPTIONS = EnvOptions(
         gen_ruins=True,
         random_seed=4048,
         can_flee=False,
-        actively_attack=False,
+        actively_attack=True,
         interval=0.5,
         speed=4,
     ),

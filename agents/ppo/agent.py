@@ -42,32 +42,33 @@ class PPOAgent:
         self.memory = PPOMemory()
 
     def select_action(self, states: NDArray) -> NDArray:
-        states = np.array(states)
-        states_tensor = torch.FloatTensor(states).to(self.device)
-        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        with torch.no_grad():
+            states = np.array(states)
+            states_tensor = torch.FloatTensor(states).to(self.device)
+            batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
 
-        for i in range(self.n_envs):
-            actions, log_probs, state_values = self.policy.act(states_tensor[i])
-            actions[0] = max(
-                min(actions[0], self.act_space.high[0]),
-                self.act_space.low[0],
-            )
-            actions[1] = max(
-                min(actions[1], self.act_space.high[1]),
-                self.act_space.low[1],
-            )
+            for i in range(self.n_envs):
+                actions, log_probs, state_values = self.policy.act(states_tensor[i])
+                actions[0] = max(
+                    min(actions[0], self.act_space.high[0]),
+                    self.act_space.low[0],
+                )
+                actions[1] = max(
+                    min(actions[1], self.act_space.high[1]),
+                    self.act_space.low[1],
+                )
 
-            self.state_values_store.extend(state_values.cpu().detach().numpy())
+                self.state_values_store.extend(state_values.cpu().detach().numpy())
 
-            batch_actions[i] = actions
+                batch_actions[i] = actions
 
-            self.current_transitions.append(
-                {
-                    "state": states_tensor[i],
-                    "action": torch.tensor(actions).to(self.device),
-                    "log_prob": log_probs,
-                }
-            )
+                self.current_transitions.append(
+                    {
+                        "state": states_tensor[i],
+                        "action": torch.tensor(actions).to(self.device),
+                        "log_prob": log_probs,
+                    }
+                )
         return batch_actions
 
     def store_transition(

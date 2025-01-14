@@ -54,12 +54,19 @@ class DQNAgent:
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
 
-        self.n_step = 3
+        self.n_step = 4
         self.n_step_buffer = []
         self.gamma_n = self.gamma**self.n_step
 
-        self.policy_net = DQN(self.obs_space, self.act_space).to(device)
-        self.target_net = DQN(self.obs_space, self.act_space).to(device)
+        def create_dqn():
+            net = DQN(self.obs_space, self.act_space).to(device)
+            net.v_max = 150
+            net.v_min = -150
+            net.atoms = 102
+            return net
+
+        self.policy_net = create_dqn()
+        self.target_net = create_dqn()
         self._update_target_network()
         self.target_net.eval()
         self.target_net_update_freq = 3000

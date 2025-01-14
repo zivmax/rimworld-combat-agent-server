@@ -173,11 +173,44 @@ class DQNAgent:
         width = self.act_space.high[0] - self.act_space.low[0] + 1
         return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
 
+    def _coord_to_index_batch(self, action0s_tensor: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Extract x and y coordinates from the tensor
+        x_coords = action0s_tensor[:, 0]
+        y_coords = action0s_tensor[:, 1]
+
+        # Compute the indices using tensor operations
+        indices = (y_coords - self.act_space.low[1]) * width + (
+            x_coords - self.act_space.low[0]
+        )
+
+        return indices
+
     def _index_to_coord(self, action_index):
         width = self.act_space.high[0] - self.act_space.low[0] + 1
         x = action_index % width + self.act_space.low[0]
         y = action_index // width + self.act_space.low[1]
         return x, y
+
+    def _index_to_coord_batch(self, action_indices: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Ensure action_indices is a tensor and move it to the GPU
+        if not isinstance(action_indices, torch.Tensor):
+            action_indices = torch.tensor(action_indices, dtype=torch.long)
+        action_indices = action_indices.cuda()
+
+        # Compute x and y coordinates using tensor operations
+        x_coords = (action_indices % width) + self.act_space.low[0]
+        y_coords = (action_indices // width) + self.act_space.low[1]
+
+        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
+        coords = torch.stack((x_coords, y_coords), dim=1)
+
+        return coords
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)
@@ -244,11 +277,7 @@ class DQNAgent:
             dones_batch = torch.stack(batch.dones)
 
             # Convert 2D coordinates to action indices
-            action_idx_batch = torch.tensor(
-                [self._coord_to_index(x, y) for x, y in action0s_batch],
-                dtype=torch.long,
-            )
-
+            action_idx_batch = self._coord_to_index_batch(action0s_batch)
             # Get Q-values for initial state-action pairs
             Q_dists_batch = self.policy_net.forward(state0s_batch.to(self.device))
             Q_dists_batch = Q_dists_batch[

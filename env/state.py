@@ -9,12 +9,6 @@ from utils.json import to_json
 from .config import RESPONSE_TIMEOUT, RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
 from .server import GameServer
 
-logging_level = STATE_COLLECTOR_LOGGING_LEVEL
-f_logger = get_file_logger(__name__, f"env/logs/state/{timestamp}.log", logging_level)
-cli_logger = get_cli_logger(__name__, logging_level)
-
-logger = f_logger
-
 
 @dataclass
 class Loc:
@@ -216,6 +210,16 @@ class StateCollector:
     state = None
 
     @classmethod
+    def init(cls, port: int) -> None:
+        logging_level = STATE_COLLECTOR_LOGGING_LEVEL
+        f_logger = get_file_logger(
+            __name__, f"env/logs/state/{timestamp}/{port}.log", logging_level
+        )
+        cli_logger = get_cli_logger(__name__, logging_level)
+
+        cls.logger = f_logger
+
+    @classmethod
     def reset(cls) -> None:
         cls.state = None
 
@@ -246,10 +250,12 @@ class StateCollector:
 
                 cls.state = GameState.from_dict(message["Data"])
 
-                logger.debug(
+                cls.logger.debug(
                     f"Pawn state (tick {cls.state.tick}): \n{to_json(cls.state.pawns, indent=2)}"
                 )
-                logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
+                cls.logger.debug(
+                    f"Game status (tick {cls.state.tick}): {cls.state.status}"
+                )
                 break
 
         else:

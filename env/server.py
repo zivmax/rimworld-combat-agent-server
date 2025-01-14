@@ -10,10 +10,6 @@ from utils.logger import get_file_logger, get_cli_logger
 from utils.timestamp import timestamp
 from .config import SERVER_LOGGING_LEVEL
 
-logging_level = SERVER_LOGGING_LEVEL
-f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
-cli_logger = get_cli_logger(__name__, logging_level)
-logger = f_logger
 
 stop_event = Event()
 
@@ -26,6 +22,13 @@ class GameServer:
     QUEUE_SIZE: int = 10
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = 10086) -> None:
+        logging_level = SERVER_LOGGING_LEVEL
+        f_logger = get_file_logger(
+            __name__, f"env/logs/server/{timestamp}/{port}.log", logging_level
+        )
+        cli_logger = get_cli_logger(__name__, logging_level)
+        self.logger = f_logger
+
         self.host = host
         self.port = port
         self.running: bool = True
@@ -40,17 +43,17 @@ class GameServer:
         self.server.bind((self.host, self.port))
         self.server.listen(1)
 
-        logger.info(f"Server starting on {self.host}:{self.port}")
+        self.logger.info(f"Server starting on {self.host}:{self.port}")
         while self.running:
             try:
                 self.client, self.client_addr = self.server.accept()
-                logger.info(f"Connected to client at {self.client_addr}")
+                self.logger.info(f"Connected to client at {self.client_addr}")
 
                 client_thread = Thread(target=self.handle_client, daemon=True)
                 client_thread.start()
 
             except Exception as e:
-                logger.error(f"Error accepting connection: {e}")
+                self.logger.error(f"Error accepting connection: {e}")
 
     def handle_client(self) -> None:
         buffer = ""
@@ -62,7 +65,7 @@ class GameServer:
                     if not data:
                         self.client.close()
                         self.client = None
-                        logger.info(f"Client {self.client_addr} disconnected")
+                        self.logger.info(f"Client {self.client_addr} disconnected")
                         break
 
                     buffer += data.decode(self.ENCODING)
@@ -72,27 +75,29 @@ class GameServer:
                         try:
                             data = json.loads(message)
                             if data["Type"] == "Log":
-                                logger.debug(
+                                self.logger.debug(
                                     f"Client {self.client_addr}: {data['Data']}"
                                 )
                                 continue
                             self.message_queue.put(data)
-                            logger.debug(
+                            self.logger.debug(
                                 f"Received data from {self.client_addr}, Type: {data['Type']}"
                             )
 
                         except json.JSONDecodeError as e:
-                            logger.error(f"Invalid JSON from {self.client_addr}: {e}")
-                            logger.error(f"Raw String:\n {message}")
+                            self.logger.error(
+                                f"Invalid JSON from {self.client_addr}: {e}"
+                            )
+                            self.logger.error(f"Raw String:\n {message}")
                             continue
 
                 except (ConnectionResetError, ConnectionAbortedError) as e:
                     self.client.close()
                     self.client = None
-                    logger.info(f"Client {self.client_addr} disconnected: {e}")
+                    self.logger.info(f"Client {self.client_addr} disconnected: {e}")
                     break
                 except Exception as e:
-                    logger.error(
+                    self.logger.error(
                         f"Unexpected error handling client {self.client_addr}: {e}"
                     )
                     break
@@ -106,16 +111,18 @@ class GameServer:
             if self.client:
                 self.client.close()
         except Exception as e:
-            logger.error(f"Error closing client connection: {e}")
+            self.logger.error(f"Error closing client connection: {e}")
         self.server.close()
-        logger.info("Server stopped")
+        self.logger.info("Server stopped")
 
     def send_to_client(self, message: str) -> bool:
         """Send a message to a specific client"""
         try:
             json_string = json.dumps(message)
             self.client.send(f"{json_string}\n".encode(self.ENCODING))
-            logger.debug(f"Sent message to {self.client_addr}, Type: {message['Type']}")
+            self.logger.debug(
+                f"Sent message to {self.client_addr}, Type: {message['Type']}"
+            )
             return True
         except (ConnectionResetError, ConnectionAbortedError):
             self.client.close()

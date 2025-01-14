@@ -258,17 +258,17 @@ class DQNAgent:
                 next_dist = self.target_net.forward(stateNs_batch.to(self.device)).cpu()
                 next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
                 next_dist = next_dist[torch.arange(next_dist.size(0)), next_action, :]
-                target_dist_batch = self._project_distribution(
+                t_dist_batch = self._project_distribution(
                     next_dist,
                     rewardNs_batch,
                     dones_batch,
                 )
 
             # Calculate TD errors and loss
-            td_errors = (q_dist_batch - target_dist_batch).to(self.device)
+            td_errors = (q_dist_batch - t_dist_batch).to(self.device)
             loss = -torch.sum(
                 weights.to(self.device).unsqueeze(1)  # Apply weights
-                * target_dist_batch
+                * t_dist_batch
                 * torch.log(
                     q_dist_batch + 1e-8
                 ),  # Add small epsilon for numerical stability
@@ -284,7 +284,7 @@ class DQNAgent:
             # Update priorities using KL divergence
             kl_div = F.kl_div(
                 F.log_softmax(q_dist_batch, dim=1),
-                F.softmax(target_dist_batch, dim=1),
+                F.softmax(t_dist_batch, dim=1),
                 reduction="none",
             ).sum(dim=1)
             priorities = kl_div.abs().detach().cpu().numpy() + 1e-5

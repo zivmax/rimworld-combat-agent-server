@@ -74,6 +74,13 @@
                 "request": "launch",
                 "module": "agents.ppo.deploy",
                 "console": "integratedTerminal"
+            },
+            {
+                "name": "PG-Train",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.pg.train",
+                "console": "integratedTerminal"
             }
         ]
     }

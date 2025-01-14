@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from agents.ppo import PPOAgent as Agent
+from agents.pg import PGAgent as Agent  # Updated import path
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from env.wrappers import (
     FrameStackObservation,
@@ -15,7 +15,7 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 N_ENVS = 1
-N_STEPS = int(20e4)
+N_STEPS = int(2e3)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
@@ -50,6 +50,7 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
+    n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     env = gym.make(
         rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
@@ -57,7 +58,7 @@ def main():
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=N_STEPS)
+    env = RecordEpisodeStatistics(env, buffer_length=n_steps)
     register_keyboard_interrupt(env)
     agent = Agent(
         n_envs=N_ENVS,
@@ -66,7 +67,7 @@ def main():
     )
 
     next_state, _ = env.reset()
-    for step in tqdm(range(1, N_STEPS + 1), desc="Training Progress (Steps)"):
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
         current_state = next_state
         actions = agent.select_action([current_state])
 
@@ -85,10 +86,10 @@ def main():
             agent.update()
 
         if step % SAVING_INTERVAL == 0 and step > 0:
-            agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
+            agent.policy.save(f"agents/pg/models/{timestamp}/{step:04d}.pth")
             draw(
                 env,
-                save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
+                save_path=f"agents/pg/plots/env/{timestamp}/{step:04d}.png",
             )
             saving(env, agent, timestamp, step)
 
@@ -113,19 +114,18 @@ def saving(
             "Update": range(len(agent.loss_history)),
             "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
-            "Value Loss": agent.value_loss_history,
         }
     )
 
-    os.makedirs(f"agents/ppo/histories/{timestamp}/env/", exist_ok=True)
-    os.makedirs(f"agents/ppo/histories/{timestamp}/training/", exist_ok=True)
+    os.makedirs(f"agents/pg/histories/{timestamp}/env/", exist_ok=True)
+    os.makedirs(f"agents/pg/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/pg/histories/{timestamp}/env/{episode:04d}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/pg/histories/{timestamp}/training/{episode:04d}.csv", index=False
     )
 
 
@@ -138,4 +138,4 @@ if __name__ == "__main__":
         main()
     finally:
         tracer.stop()
-        tracer.save("agents/ppo/logs/tracing.json")
+        tracer.save("agents/pg/logs/tracing.json")

@@ -6,9 +6,9 @@ import numpy as np
 import torch.distributions as distributions
 
 
-class ActorCritic(nn.Module):
+class PolicyNetwork(nn.Module):
     def __init__(self, obs_space: Box, act_space: Dict) -> None:
-        super(ActorCritic, self).__init__()
+        super(PolicyNetwork, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space
         self.act_size = int(np.prod(self.act_space.high - self.act_space.low + 1))
@@ -40,6 +40,7 @@ class ActorCritic(nn.Module):
         conv_out = self.conv(dummy)
         conv_out_size = conv_out.view(conv_out.size(0), -1).size(1)
 
+        # Actor Network
         self.actor = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
@@ -49,22 +50,7 @@ class ActorCritic(nn.Module):
         )
         self.log_std = nn.Parameter(torch.zeros(self.num_actions))
 
-        self.critic = nn.Sequential(
-            nn.Linear(conv_out_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Linear(256, 1),
-        )
-        self.eval_critic = nn.Sequential(
-            nn.Linear(conv_out_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Linear(256, 1),
-        )
-
-    def forward(self, state: torch.Tensor, eval: bool = False):
+    def forward(self, state: torch.Tensor):
         x = state.float()
         x = x.unsqueeze(0) if len(x.shape) != 5 else x
         x = x / (torch.tensor(self.obs_space.high, device=x.device)).repeat(
@@ -76,11 +62,10 @@ class ActorCritic(nn.Module):
         action_mean = action_mean * self.act_size
         action_log_std = self.log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
-        state_values = self.critic(x) if not eval else self.eval_critic(x)
-        return action_mean, action_std, state_values
+        return action_mean, action_std
 
     def act(self, state: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(state)
+        action_mean, action_std = self.forward(state)
         action_mean = action_mean.view(-1, 2, self.num_actions // 2)
 
         dist_x, dist_y = distributions.Normal(
@@ -93,20 +78,19 @@ class ActorCritic(nn.Module):
         return (
             [action_x.cpu().item(), action_y.cpu().item()],
             action_log_prob,
-            state_values,
         )
 
-    def evaluate(self, states: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(states, eval=True)
+    def evaluate(self, states: torch.Tensor, actions: torch.Tensor):
+        action_mean, action_std = self.forward(states)
         action_mean = action_mean.view(-1, 2, self.num_actions // 2)
         dist_x, dist_y = distributions.Normal(
-            action_mean[0, 0], action_std[0, 0]
-        ), distributions.Normal(action_mean[0, 1], action_std[0, 1])
-        action_x, action_y = dist_x.sample(), dist_y.sample()
-        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+            action_mean[:, 0, :], action_std[:, 0, :]
+        ), distributions.Normal(action_mean[:, 1, :], action_std[:, 1, :])
+        action_log_probs = dist_x.log_prob(actions[:, 0]) + dist_y.log_prob(
+            actions[:, 1]
+        )
         entropy = dist_x.entropy() + dist_y.entropy()
-
-        return action_log_prob, entropy, state_values
+        return action_log_probs, entropy
 
     def save(self, filepath: str) -> None:
         directory = os.path.dirname(filepath) if os.path.dirname(filepath) else "."

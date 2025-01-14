@@ -1,5 +1,5 @@
 import subprocess
-import time
+from time import sleep
 import os
 import psutil
 import threading
@@ -51,6 +51,13 @@ class GameOptions:
     server_port: int = 10086
 
 
+def kill(proc_pid):
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+        proc.kill()
+    process.kill()
+
+
 class Game:
     def __init__(self, game_path, options: Optional[GameOptions] = None):
         """
@@ -59,9 +66,10 @@ class Game:
         :param game_path: Path to the game executable.
         :param options: Optional GameOptions object to configure the game (default: None).
         """
+        self.restarted_times: int = 0  # Number of times the game has been restarted
         self.rimworld_path = game_path
         self.options = options if options else GameOptions()
-        self.log_dir = "env/logs/game"  # Directory for log files
+        self.log_dir = f"env/logs/game/{timestamp}"  # Directory for log files
         self._ensure_log_dir_exists()  # Ensure the log directory exists
         self.process: subprocess.Popen = None  # Store the process object
         self.monitor_thread: threading.Thread = (
@@ -77,9 +85,12 @@ class Game:
 
         :return: The subprocess.Popen object representing the game process, or None if the launch fails.
         """
-        self.stdout_log_file = os.path.join(self.log_dir, f"{timestamp}.log")
+        self.logging = True
+        self.monitoring = True
+        self.stdout_log_file = os.path.join(
+            self.log_dir, f"{self.options.server_port}-{self.restarted_times}.log"
+        )
 
-        env_copy = os.environ.copy()
         command = [
             self.rimworld_path,
             "-batchmode",
@@ -88,6 +99,7 @@ class Game:
             "-no-stereo-rendering",
             "-systemallocator",
             "-quicktest",
+            "-headless=True",
             f"-server-addr={self.options.server_addr}",
             f"-server-port={self.options.server_port}",
             f"-agent-control={self.options.agent_control}",
@@ -105,16 +117,11 @@ class Game:
         try:
             # Start the process and redirect stdout and stderr to PIPE
             self.process = subprocess.Popen(
-                f"{' '.join(command)}",
-                # command,
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-                env=env_copy,
-                cwd=os.path.dirname(self.rimworld_path),
                 text=True,
-                bufsize=0,  # Disable buffering
                 encoding="utf-8",  # Specify the encoding
-                shell=True,
             )
 
             # Start a thread to log stdout
@@ -153,35 +160,19 @@ class Game:
                 self.logging = False
                 self.monitoring = False
 
-                # Get the process and all its children
-                parent = psutil.Process(self.process.pid)
-                children = parent.children(recursive=True)
-
-                # Terminate all child processes
-                for child in children:
-                    child.terminate()
-
-                # Wait for child processes to terminate
-                gone, still_alive = psutil.wait_procs(children, timeout=10)
-                for child in still_alive:
-                    child.kill()  # Forcefully kill any remaining child processes
-
                 # Terminate the parent process
-                self.process.terminate()
-                self.process.wait(timeout=60)  # Wait for the process to terminate
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    kill(self.process.pid)
+                sleep(5)  # Add a short delay after termination
                 logger.info("RimWorld game process has been terminated.")
-            except subprocess.TimeoutExpired:
-                logger.warning(
-                    "RimWorld game process did not terminate gracefully. Forcefully killing..."
-                )
-                self.process.kill()
-                logger.info("RimWorld game process was forcefully terminated.")
             except Exception as e:
                 logger.error(f"Failed to terminate RimWorld game process: {e}")
             finally:
                 self.process = None  # Reset the process object
         else:
-            logger.info("No RimWorld game process is currently running.")
+            logger.warning("Shutting down a not found process.")
 
     def restart(self):
         """
@@ -189,7 +180,12 @@ class Game:
         """
         logger.info("Restarting RimWorld...")
         self.shutdown()  # Shutdown the current process
-        time.sleep(10)  # Add a short delay before relaunching
+        self.restarted_times += 1
+
+        # Close the old log file if it's open
+        if hasattr(self, "log_file") and self.log_file:
+            self.log_file.close()
+
         self.launch()  # Launch the game again
 
     def _ensure_log_dir_exists(self):
@@ -204,7 +200,9 @@ class Game:
         """
         Monitor the process status and restart the game if it crashes.
         """
-        while self.monitoring:
+        while True:
+            if not self.monitoring:
+                break
             if self.process and self.process.poll() is not None:
                 pid = self.process.pid
                 returncode = self.process.returncode
@@ -217,19 +215,21 @@ class Game:
                 except Exception as e:
                     logger.error(f"Failed to restart the game: {e}")
                     break  # Exit the monitoring loop if restart fails
-            time.sleep(5)  # Check every 5 seconds
+            sleep(5)  # Check every 5 seconds
 
     def _log_output(self):
         """
         Log the output of the process to a file.
         """
-        with open(self.stdout_log_file, "w") as log:
-            while self.logging:
-                output = self.process.stdout.readline()
-                if not self.process or (
-                    output == "" and self.process.poll() is not None
-                ):
-                    break
-                if output:
-                    log.write(output)
-                    log.flush()
+        self.log_file = open(self.stdout_log_file, "w")  # Open the log file
+        while True:
+            if not self.logging:
+                break
+
+            output = self.process.stdout.readline()
+            if not self.process or (output == "" and self.process.poll() is not None):
+                break
+            if output:
+                self.log_file.write(output)
+                self.log_file.flush()
+        self.log_file.close()  # Close the log file when done

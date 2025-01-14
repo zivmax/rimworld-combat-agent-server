@@ -13,6 +13,13 @@
                 "console": "integratedTerminal"
             },
             {
+                "name": "Test-Vector-Framestack",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "test.test-vec-framestack",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "Random-Deploy",
                 "type": "debugpy",
                 "request": "launch",
@@ -55,10 +62,24 @@
                 "console": "integratedTerminal"
             },
             {
+                "name": "PPO-Train-Vec",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.ppo.train-vec",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "PPO-Deploy",
                 "type": "debugpy",
                 "request": "launch",
                 "module": "agents.ppo.deploy",
+                "console": "integratedTerminal"
+            },
+            {
+                "name": "PG-Train",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.pg.train",
                 "console": "integratedTerminal"
             }
         ]

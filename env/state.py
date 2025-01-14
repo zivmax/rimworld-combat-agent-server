@@ -6,14 +6,8 @@ from time import time
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .const import RESET_TIMEOUT
+from .config import RESPONSE_TIMEOUT, RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
 from .server import GameServer
-
-logging_level = logging.INFO
-f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
-cli_logger = get_cli_logger(__name__, logging_level)
-
-logger = cli_logger
 
 
 @dataclass
@@ -216,6 +210,16 @@ class StateCollector:
     state = None
 
     @classmethod
+    def init(cls, port: int) -> None:
+        logging_level = STATE_COLLECTOR_LOGGING_LEVEL
+        f_logger = get_file_logger(
+            __name__, f"env/logs/state/{timestamp}/{port}.log", logging_level
+        )
+        cli_logger = get_cli_logger(__name__, logging_level)
+
+        cls.logger = f_logger
+
+    @classmethod
     def reset(cls) -> None:
         cls.state = None
 
@@ -224,14 +228,14 @@ class StateCollector:
         return cls.state is None or tick > cls.state.tick
 
     @classmethod
-    def receive_state(cls, server: GameServer) -> bool:
+    def receive_state(cls, server: GameServer, reseting: bool = False) -> bool:
+        while server.client is None:
+            cls.reset()
+            continue
+
         start_time = time()
-        while True:
-            if time() - start_time > RESET_TIMEOUT:
-                return False
-            if server.client is None:
-                cls.reset()
-                continue
+        TIMEOUT = RESET_TIMEOUT if reseting else RESPONSE_TIMEOUT
+        while time() - start_time < TIMEOUT:
             if server.message_queue.qsize() > 0:
                 # Peek at message without removing it
                 message = server.message_queue.queue[0]
@@ -246,14 +250,15 @@ class StateCollector:
 
                 cls.state = GameState.from_dict(message["Data"])
 
-                logger.debug(f"Collected game state at tick {cls.state.tick}")
-                logger.debug(
-                    f"Map state (tick {cls.state.tick}): \n{to_json(cls.state.map, indent=2)}"
-                )
-                logger.debug(
+                cls.logger.debug(
                     f"Pawn state (tick {cls.state.tick}): \n{to_json(cls.state.pawns, indent=2)}"
                 )
-                logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
+                cls.logger.debug(
+                    f"Game status (tick {cls.state.tick}): {cls.state.status}"
+                )
                 break
+
+        else:
+            return False
 
         return True

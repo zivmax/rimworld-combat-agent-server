@@ -43,9 +43,9 @@ class DQNAgent:
         self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.85
+        self.gamma = 0.7
 
-        self.batch_size = 512
+        self.batch_size = 1024
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
@@ -133,48 +133,39 @@ class DQNAgent:
             return self.target_net(state).gather(1, next_action.unsqueeze(1)).squeeze()
 
     def act(self, states: NDArray) -> NDArray:
-        self.steps += 1
+        states = np.array(states)
+
+        assert self.obs_space.contains(
+            states[0]
+        ), f"Invalid state: {states[0]} not in {self.obs_space}."
+
+        self.steps += self.n_envs
 
         eps_threshold = max(
             self.epsilon_final,
             self.epsilon_start * (1 - np.exp(-5 * self.epsilon_decay**self.steps)),
         )
-        self.eps_threshold_history.append(eps_threshold)
+        self.eps_threshold_history.extend([eps_threshold] * self.n_envs)
 
-        batch_actions = np.zeros((self.n_envs, 1, 2))
-        explores = np.random.rand(self.n_envs) < eps_threshold
-        self.explore = explores.any()
+        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        self.explore = np.random.rand() < eps_threshold
 
         # Handle random exploration
-        random_indices = np.where(explores)[0]
-        if len(random_indices) > 0:
-            batch_actions[random_indices] = np.array(
-                [
-                    np.array([self.act_space.sample()])
-                    for _ in range(len(random_indices))
-                ],
-                dtype=np.int8,
+        if self.explore:
+            batch_actions = np.array(
+                [self.act_space.sample() for _ in range(self.n_envs)]
             )
-
         # Handle exploitation
-        if len(self.memory) >= self.batch_size:
-            exploit_indices = np.where(~explores)[0]
-            if len(exploit_indices) > 0:
-                with torch.no_grad():
-                    states_tensor = torch.from_numpy(states[exploit_indices]).to(
-                        self.device
-                    )
-                    outputs = (
-                        self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
-                    )
-                    width = self.act_space.high[0] - self.act_space.low[0]
+        elif len(self.memory) >= self.batch_size:
+            with torch.no_grad():
+                states_tensor = torch.from_numpy(states).to(self.device)
+                outputs = self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
+                width = self.act_space.high[0] - self.act_space.low[0] + 1
 
-                    x = outputs % width + self.act_space.low[0]
-                    y = outputs // width + self.act_space.low[0]
+                x = outputs % width + self.act_space.low[0]
+                y = outputs // width + self.act_space.low[1]
 
-                    batch_actions[exploit_indices] = np.array(
-                        [np.stack([x, y], axis=1, dtype=np.int8)]
-                    )
+                batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
 
@@ -182,9 +173,9 @@ class DQNAgent:
         if self.explore or len(self.memory.buffer) < self.batch_size:
             return
 
-        self.updates += 1
-
         for _ in range(self.n_envs):
+            self.updates += 1
+
             self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
             transitions, indices, weights = self.memory.sample(
@@ -198,56 +189,51 @@ class DQNAgent:
             reward_batch = torch.tensor(batch.rewards, device=self.device)
             done_batch = torch.tensor(batch.done, device=self.device)
 
-            # Double Q-learning action selection
-            with torch.no_grad():
-                next_actions = self.policy_net(next_state_batch).argmax(1)
-                next_q_values = self.target_net(next_state_batch)
-                next_q_values = next_q_values.gather(
-                    1, next_actions.unsqueeze(1)
-                ).squeeze()
-
-                target_value_batch = (
-                    reward_batch
-                    + torch.logical_not(done_batch) * next_q_values * self.gamma_n
-                )
-
-            # Current Q-values
-            q_values = self.policy_net(state_batch)
-            action_idx_batch = (
+            action_idx_batch: torch.Tensor = (
                 action_batch[:, 0] - self.act_space.low[0]
             ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
-            q_values = q_values.gather(
+
+            q_values_batch = self.policy_net.forward(state_batch)
+            q_values_batch = q_values_batch.gather(
                 1, action_idx_batch.long().unsqueeze(1)
             ).squeeze()
 
-            # Compute loss and update priorities
-            td_errors = q_values - target_value_batch
+            with torch.no_grad():
+                max_next_q_value_batch = (
+                    self.target_net.forward(next_state_batch).max(1)[0].detach()
+                )
+
+            target_value_batch = (
+                reward_batch
+                + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
+            )
+
+            td_errors = q_values_batch - target_value_batch
             loss = (
                 torch.tensor(weights, device=self.device)
-                * F.smooth_l1_loss(q_values, target_value_batch, reduction="none")
+                * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
             ).mean()
 
             # Store history
             self.loss_history.append(loss.item())
-            self.q_value_history.append(q_values.mean().item())
+            self.q_value_history.append(q_values_batch.mean().item())
             self.td_error_history.append(td_errors.mean().item())
 
-            # Update networks
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 10)
+            for param in self.policy_net.parameters():
+                param.grad.data.clamp_(-1, 1)
             self.optimizer.step()
 
-            # Update priorities in buffer
             priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
 
-        if self.updates % self.target_net_update_freq == 0:
-            self.update_target_network()
+            if self.updates % self.target_net_update_freq == 0:
+                self.update_target_network()
 
-            # Reset noisy layers
-            self.policy_net.reset_noise()
-            self.target_net.reset_noise()
+                # Reset noisy layers
+                self.policy_net.reset_noise()
+                self.target_net.reset_noise()
 
     def update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())

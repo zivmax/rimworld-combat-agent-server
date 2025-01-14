@@ -1,1 +1,3 @@
-from env.wrappers.vec_frame_stack import VectorFrameStackObservation
+from gymnasium.wrappers import FrameStackObservation
+from .swap_axes import SwapObservationAxes
+from gymnasium.wrappers import RecordEpisodeStatistics

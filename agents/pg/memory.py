@@ -17,7 +17,7 @@ class Transition:
         return iter(astuple(self))
 
 
-class PPOMemory:
+class PGMemory:
     def __init__(self) -> None:
         self.transitions: Deque[Transition] = deque(maxlen=100000)
 

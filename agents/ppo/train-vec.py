@@ -1,4 +1,6 @@
 import gymnasium as gym
+from gymnasium.wrappers.vector import RecordEpisodeStatistics
+from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
@@ -6,17 +8,15 @@ import os
 
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers import (
-    FrameStackObservation,
-    SwapObservationAxes,
-    RecordEpisodeStatistics,
-)
+from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 1
-N_STEPS = int(20e4)
-SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
+N_ENVS = 20
+N_STEPS = int(40e4)
+SNAPSHOTS = 5
+
+SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
 ENV_OPTIONS = EnvOptions(
@@ -51,48 +51,54 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    env = gym.make(
-        rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
+    envs = AsyncVectorEnv(
+        [
+            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
+            for port in ports
+        ],
+        daemon=True,
+        shared_memory=True,
     )
 
-    env = FrameStackObservation(env, stack_size=8)
-    env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=N_STEPS)
-    register_keyboard_interrupt(env)
+    envs = FrameStackObservation(envs, stack_size=8)
+    envs = SwapObservationAxes(envs, swap=(0, 1))
+    envs = RecordEpisodeStatistics(envs, buffer_length=N_STEPS)
+    register_keyboard_interrupt(envs)
     agent = Agent(
         n_envs=N_ENVS,
-        obs_space=env.observation_space,
-        act_space=env.action_space[0],
+        obs_space=envs.single_observation_space,
+        act_space=envs.single_action_space[0],
     )
 
-    next_state, _ = env.reset()
-    for step in tqdm(range(1, N_STEPS + 1), desc="Training Progress (Steps)"):
-        current_state = next_state
-        actions = agent.select_action([current_state])
+    next_states, _ = envs.reset()
+    with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
+        for step in range(1, int(N_STEPS / N_ENVS) + 1):
+            current_states = next_states
+            actions = agent.select_action(current_states)
 
-        action = {
-            0: actions[0],
-        }
-        next_state, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
+            actions = {
+                0: [actions[i] for i in range(N_ENVS)],
+            }
+            next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+            dones = np.logical_or(terminateds, truncateds)
 
-        agent.store_transition(reward, next_state, done)
+            for i in range(N_ENVS):
+                agent.store_transition(rewards[i], next_states[i], dones[i])
 
-        if done:
-            next_state, _ = env.reset()
+            if step % UPDATE_INTERVAL == 0:
+                agent.update()
 
-        if step % UPDATE_INTERVAL == 0:
-            agent.update()
+            if step % SAVING_INTERVAL == 0 and step > 0:
+                agent.policy.save(f"agents/ppo/models/{timestamp}/{step*N_ENVS}.pth")
+                draw(
+                    envs,
+                    save_path=f"agents/ppo/plots/env/{timestamp}/{step*N_ENVS}.png",
+                )
+                saving(envs, agent, timestamp, step)
 
-        if step % SAVING_INTERVAL == 0 and step > 0:
-            agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
-            draw(
-                env,
-                save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
-            )
-            saving(env, agent, timestamp, step)
+            pbar.update(N_ENVS)
 
-    env.close()
+    envs.close()
 
 
 def saving(

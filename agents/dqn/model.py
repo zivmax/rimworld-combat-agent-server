@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import os
 import torch.nn.functional as F
 from gymnasium import spaces
 import numpy as np
@@ -103,7 +104,10 @@ class DQN(nn.Module):
         self.advantage = LinearLayer(512, act_space_size * self.atoms)
         self.value = LinearLayer(512, self.atoms)
 
-    def forward(self, x):
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Convert the entire tensor to float
         x = x.float()
         x = x / (
             torch.tensor(self.obs_space.high - self.obs_space.low, device=x.device)
@@ -128,3 +132,14 @@ class DQN(nn.Module):
         for module in self.modules():
             if isinstance(module, NoisyLinear):
                 module.reset_noise()
+
+    def save(self, filepath: str) -> None:
+        directory = os.path.dirname(filepath) if os.path.dirname(filepath) else "."
+        os.makedirs(directory, exist_ok=True)
+        torch.save(self.state_dict(), filepath)
+
+    def load(self, filepath: str) -> None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.load_state_dict(
+            torch.load(filepath, map_location=device, weights_only=True)
+        )

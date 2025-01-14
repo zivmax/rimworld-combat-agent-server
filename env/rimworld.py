@@ -247,7 +247,7 @@ class RimWorldEnv(gym.Env):
             f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
         self._server.send_to_client(message)
-        logger.info(f"Wait for response at tick {StateCollector.state.tick}")
+        logger.debug(f"Wait for response at tick {StateCollector.state.tick}")
         while not StateCollector.receive_state(self._server):
             logger.warning(f"Timeout to receive response, restarting the game.")
             self._game.restart()

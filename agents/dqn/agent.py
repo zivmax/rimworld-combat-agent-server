@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, astuple
 from typing import Dict, List
+from collections import deque
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -55,7 +56,7 @@ class DQNAgent:
         self.beta_increment_per_sampling = 0.001
 
         self.n_step = 4
-        self.n_step_buffer = []
+        self.n_step_buffer = [deque(maxlen=self.n_step) for _ in range(self.n_envs)]
         self.gamma_n = self.gamma**self.n_step
 
         def create_dqn():
@@ -108,14 +109,14 @@ class DQNAgent:
             done = torch.tensor(dones[i]).cpu()
 
             # N-step returns
-            self.n_step_buffer.append((state, next_state, action, reward, done))
-            if len(self.n_step_buffer) < self.n_step:
+            self.n_step_buffer[i].append((state, next_state, action, reward, done))
+            if len(self.n_step_buffer[i]) < self.n_step:
                 return
 
             # Calculate n-step return
-            state_0, _, action_0, _, _ = self.n_step_buffer[0]
+            state_0, _, action_0, _, _ = self.n_step_buffer[i][0]
             state_n = next_state
-            rewards_n = [transition[3] for transition in self.n_step_buffer]
+            rewards_n = [transition[3] for transition in self.n_step_buffer[i]]
 
             # Get value estimate for final state
             next_state_value = self._get_value_estimate(state_n.to(self.device))
@@ -132,7 +133,7 @@ class DQNAgent:
                 (state_0, state_n, action_0, n_step_return, done), max_priority
             )
 
-            self.n_step_buffer.pop(0)
+            self.n_step_buffer[i].pop(0)
 
     def _get_value_estimate(self, state: Tensor) -> Tensor:
         # Double Q-learning value estimate

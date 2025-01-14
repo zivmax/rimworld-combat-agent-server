@@ -16,7 +16,11 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 N_ENVS = 1
+<<<<<<< HEAD
+N_STEPS = int(40)
+=======
 N_STEPS = int(2e1)
+>>>>>>> 6567439f8ba5d32e95043c12d3c23976c4a2948b
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
@@ -71,10 +75,17 @@ def main():
         act_space=env.action_space[0],
     )
 
+<<<<<<< HEAD
+    next_states, _ = envs.reset()
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
+        current_states = next_states
+        actions = agent.select_action(current_states)
+=======
     next_state, _ = env.reset()
     for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
         current_state = next_state
         actions = agent.select_action([current_state])
+>>>>>>> 6567439f8ba5d32e95043c12d3c23976c4a2948b
 
         action = {
             0: actions[0],

@@ -52,15 +52,15 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.7
+        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
+        self.gamma = 0.85
 
         self.batch_size = 1024
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
         self.epsilon_final = 0.001
-        self.epsilon_decay = 0.999995
+        self.epsilon_decay = 0.99999975
 
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
@@ -135,11 +135,13 @@ class DQNAgent:
             next_state_value = self._get_next_act_value_estimate(stateN.to(self.device))
 
             return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
+            done = done.unsqueeze(0)
 
             # Store transition with n-step return
             max_priority = (
                 max(self.memory.priorities) if self.memory.priorities else 1.0
             )
+
             self.memory.push(
                 (state0.cpu(), stateN.cpu(), action0.cpu(), return_n.cpu(), done.cpu()),
                 max_priority,
@@ -153,7 +155,9 @@ class DQNAgent:
             next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
             next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
             target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
-            return self._get_expected_q_values(target_dists).squeeze()[next_action]
+            return (
+                self._get_expected_q_values(target_dists).squeeze()[next_action]
+            )
 
     def _compute_n_step_reward(
         self, rewards: List[Tensor], next_value: Tensor, done: Tensor
@@ -341,15 +345,17 @@ class DQNAgent:
     def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def _project_distribution(self, next_dist: Tensor, rewards: Tensor, dones: Tensor):
+    def _project_distribution(
+        self, next_dists_batch: Tensor, reward_batch: Tensor, done_batch: Tensor
+    ):
         assert (
-            next_dist.is_cuda or self.device == "cpu"
+            next_dists_batch.is_cuda or self.device == "cpu"
         ), "Expected next_dist to be on CUDA device."
         assert (
-            rewards.is_cuda or self.device == "cpu"
+            reward_batch.is_cuda or self.device == "cpu"
         ), "Expected rewards to be on CUDA device."
         assert (
-            dones.is_cuda or self.device == "cpu"
+            done_batch.is_cuda or self.device == "cpu"
         ), "Expected dones to be on CUDA device."
 
         v_min, v_max = -self.v_range, self.v_range
@@ -357,13 +363,15 @@ class DQNAgent:
 
         # Create a buffer for the projected distribution
         projected_dist = torch.zeros(
-            (self.batch_size, self.atoms), device=self.device, dtype=next_dist.dtype
+            (self.batch_size, self.atoms),
+            device=self.device,
+            dtype=next_dists_batch.dtype,
         )
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
-        t_z = rewards.unsqueeze(1) + (
-            torch.logical_not(dones).unsqueeze(1)
-        ) * self.gamma_n * self.supports.view(1, -1)
+        t_z = reward_batch + (
+            torch.logical_not(done_batch)
+        ) * self.gamma_n * self.supports.unsqueeze(0)
         t_z = torch.clamp(t_z, v_min, v_max)
 
         # Distribute probabilities for each atom
@@ -372,20 +380,20 @@ class DQNAgent:
         u = b.ceil().long()
 
         # Compute the fractional part (pj)
-        pj = (b - l.float()).to(dtype=next_dist.dtype)
+        pj = (b - l.float()).to(dtype=next_dists_batch.dtype)
 
         # Create masks for valid upper bounds
         valid_u_mask = u < self.atoms
 
         # Use scatter_add_ to accumulate probabilities into the projected distribution
         # For the lower bound (l)
-        projected_dist.scatter_add_(1, l, next_dist * (1 - pj))
+        projected_dist.scatter_add_(1, l, next_dists_batch * (1 - pj))
 
         # For the upper bound (u), only where valid
         projected_dist.scatter_add_(
             1,
             torch.where(valid_u_mask, u, torch.zeros_like(u)),
-            next_dist * pj * valid_u_mask.float(),
+            next_dists_batch * pj * valid_u_mask.float(),
         )
 
         return projected_dist

@@ -21,6 +21,16 @@ from .model import DQN
 class DQNAgent:
     @dataclass
     class Transition:
+        """
+        Dataclass to store transitions in the replay buffer.
+
+        - `state0s`: the initial states
+        - `stateNs`: the n step states
+        - `action0s`: the initial actions
+        - `rewardNs`: the n step rewards
+        - `dones`: the done flags
+        """
+
         state0s: Tensor
         stateNs: Tensor
         action0s: Tensor

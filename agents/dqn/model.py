@@ -65,6 +65,7 @@ class DQN(nn.Module):
         self.v_max = 10
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms)
         self.delta_z = (self.v_max - self.v_min) / (self.atoms - 1)
+        self.act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
         # Convolutional layers remain the same
         self.conv = nn.Sequential(
@@ -88,7 +89,6 @@ class DQN(nn.Module):
         dummy = torch.zeros(1, *obs_space.shape)
         out = self.conv(dummy)
         conv_out_size = out.view(out.size(0), -1).size(1)
-        act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
         # Dueling networks architecture
         LinearLayer = NoisyLinear if noisy else nn.Linear
@@ -101,10 +101,8 @@ class DQN(nn.Module):
             LinearLayer(conv_out_size, 512), nn.ReLU(), LinearLayer(512, 512), nn.ReLU()
         )
 
-        self.advantage = LinearLayer(512, act_space_size * self.atoms)
+        self.advantage = LinearLayer(512, self.act_space_size * self.atoms)
         self.value = LinearLayer(512, self.atoms)
-
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Convert the entire tensor to float

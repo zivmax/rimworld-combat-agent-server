@@ -110,7 +110,7 @@ class DQNAgent:
             rewards_n = [transition[3] for transition in self.n_step_buffer[i]]
 
             # Get value estimate for final state
-            next_state_value = self._get_value_estimate(state_n.to(self.device))
+            next_state_value = self._get_next_act_value_estimate(stateN.to(self.device))
 
             n_step_return = self._compute_n_step_returns(
                 rewards_n, next_state_value, done
@@ -124,18 +124,15 @@ class DQNAgent:
                 (state_0, state_n, action_0, n_step_return, done), max_priority
             )
 
-            self.n_step_buffer[i].pop(0)
+            self.n_step_buffer[i].popleft()
 
-    def _get_value_estimate(self, state: Tensor) -> Tensor:
-        # Double Q-learning value estimate
+    def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
+        # Distributional DQN value estimate
         with torch.no_grad():
-            next_action = self.policy_net.forward(state.to(self.device)).argmax(1)
-            return (
-                self.target_net.forward(state.to(self.device))
-                .gather(1, next_action.unsqueeze(1))
-                .squeeze()
-                .cpu()
-            )
+            next_dist = self.policy_net.forward(state.unsqueeze(0).to(self.device))
+            next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
+            target_dist = self.target_net.forward(state.unsqueeze(0).to(self.device))
+            return self._get_expected_q_values(target_dist)[next_action]
 
     def _compute_n_step_reward(self, rewards, next_value, done):
         n_step_reward = next_value

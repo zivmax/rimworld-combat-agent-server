@@ -200,11 +200,8 @@ class DQNAgent:
             ).squeeze()
 
             with torch.no_grad():
-                next_actions = self.policy_net.forward(next_state_batch).argmax(1)
                 max_next_q_value_batch = (
-                    self.target_net.forward(next_state_batch)
-                    .gather(1, next_actions.unsqueeze(1))
-                    .squeeze()
+                    self.target_net.forward(next_state_batch).max(1)[0].detach()
                 )
 
             target_value_batch = (

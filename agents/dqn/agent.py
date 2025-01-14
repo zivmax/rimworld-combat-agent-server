@@ -96,8 +96,8 @@ class DQNAgent:
             state = torch.from_numpy(states[i]).to(self.device)
             next_state = torch.from_numpy(next_states[i]).to(self.device)
             action = torch.tensor(actions[i]).to(self.device)
-            reward = torch.tensor(rewards[i], device=self.device)
-            done = torch.tensor(dones[i], device=self.device)
+            reward = torch.tensor(rewards[i]).to(self.device)
+            done = torch.tensor(dones[i]).to(self.device)
 
             # N-step returns
             self.n_step_buffer.append((state, next_state, action, reward, done))
@@ -107,14 +107,14 @@ class DQNAgent:
             # Calculate n-step return
             state_0, _, action_0, _, _ = self.n_step_buffer[0]
             state_n = next_state
-            rewards = [transition[3] for transition in self.n_step_buffer]
+            rewards_n = [transition[3] for transition in self.n_step_buffer]
 
             # Get value estimate for final state
             with torch.no_grad():
                 next_state_value = self.get_value_estimate(state_n)
 
             n_step_return = self._compute_n_step_returns(
-                rewards, next_state_value, done
+                rewards_n, next_state_value, done
             )
 
             # Store transition with n-step return

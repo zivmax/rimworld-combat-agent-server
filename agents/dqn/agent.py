@@ -141,7 +141,7 @@ class DQNAgent:
             self.n_step_buffer[i].popleft()
 
     def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
-        # Distributional DQN value estimate
+        """Get the value estimate for the next state-action pair."""
         with torch.no_grad():
             next_Q_dists = self.policy_net.forward(
                 state.unsqueeze(0).to(self.device)
@@ -153,6 +153,7 @@ class DQNAgent:
             return self._get_expected_q_values(target_dists)[next_action]
 
     def _compute_n_step_reward(self, rewards, next_value, done):
+        """Compute the n-step return for a given trajectory."""
         n_step_reward = next_value
         for reward in reversed(rewards):
             n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
@@ -161,6 +162,7 @@ class DQNAgent:
         return n_step_reward
 
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
+        """Get expected Q-values from distributional Q-values."""
         assert q_dist.is_cpu, "Expected q_dist to be on CPU."
         return torch.sum(
             q_dist * self.policy_net.supports.view(1, 1, -1), dim=2

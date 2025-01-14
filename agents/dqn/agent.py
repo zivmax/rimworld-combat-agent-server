@@ -166,7 +166,7 @@ class DQNAgent:
 
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values."""
-        assert q_dist.is_cuda, "Expected q_dist to be on CUDA."
+        assert q_dist.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
         return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2)
 
     def _coord_to_index(self, x, y):
@@ -342,9 +342,15 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def _project_distribution(self, next_dist: Tensor, rewards: Tensor, dones: Tensor):
-        assert next_dist.is_cuda, "Expected next_dist to be on CUDA device."
-        assert rewards.is_cuda, "Expected rewards to be on CUDA device."
-        assert dones.is_cuda, "Expected dones to be on CUDA device."
+        assert (
+            next_dist.is_cuda or self.device == "cpu"
+        ), "Expected next_dist to be on CUDA device."
+        assert (
+            rewards.is_cuda or self.device == "cpu"
+        ), "Expected rewards to be on CUDA device."
+        assert (
+            dones.is_cuda or self.device == "cpu"
+        ), "Expected dones to be on CUDA device."
 
         v_min, v_max = -self.v_range, self.v_range
         delta_z = (v_max - v_min) / (self.atoms - 1)

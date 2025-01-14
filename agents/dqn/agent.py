@@ -84,14 +84,6 @@ class DQNAgent:
         self.updates = 0
         self.explore = True
 
-    def _compute_n_step_returns(self, rewards, next_value, done):
-        n_step_return = next_value
-        for reward in reversed(rewards):
-            n_step_return = reward + self.gamma * n_step_return * torch.logical_not(
-                done
-            )
-        return n_step_return
-
     def remember(
         self,
         states: NDArray,
@@ -144,6 +136,17 @@ class DQNAgent:
                 .squeeze()
                 .cpu()
             )
+
+    def _compute_n_step_reward(self, rewards, next_value, done):
+        n_step_reward = next_value
+        for reward in reversed(rewards):
+            n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
+                done
+            )
+        return n_step_reward
+
+    def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
+        return torch.sum(q_dist * self.policy_net.supports.view(1, 1, -1), dim=2).cpu()
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)

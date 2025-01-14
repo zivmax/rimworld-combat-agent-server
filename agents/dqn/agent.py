@@ -60,10 +60,9 @@ class DQNAgent:
         self.gamma_n = self.gamma**self.n_step
 
         def create_dqn():
-            net = DQN(self.obs_space, self.act_space).to(device)
-            net.v_max = 150
-            net.v_min = -150
-            net.atoms = 102
+            net = DQN(
+                self.obs_space, self.act_space, v_max=150, v_min=-150, atoms=102
+            ).to(device)
             return net
 
         self.policy_net = create_dqn()

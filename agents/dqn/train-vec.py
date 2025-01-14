@@ -14,6 +14,7 @@ from env.wrappers.vector import (
 from utils.draw import draw
 from utils.timestamp import timestamp
 
+envs: gym.vector.AsyncVectorEnv = None
 
 N_ENVS = 20
 N_STEPS = int(40e4)
@@ -53,6 +54,7 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
+    global envs
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     envs = gym.vector.AsyncVectorEnv(
         [
@@ -116,10 +118,6 @@ def main():
     envs.close()
 
 
-if __name__ == "__main__":
-    main()
-
-
 def saving(
     env: RecordEpisodeStatistics, agent: Agent, timestamp: str, episode: int
 ) -> None:
@@ -177,5 +175,6 @@ if __name__ == "__main__":
     try:
         main()
     finally:
+        envs.close()
         tracer.stop()
         tracer.save("agents/dqn/logs/tracing.json")

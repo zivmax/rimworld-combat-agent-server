@@ -12,6 +12,8 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
+envs: AsyncVectorEnv = None
+
 N_ENVS = 20
 N_STEPS = int(40e4)
 SNAPSHOTS = 5
@@ -50,6 +52,7 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
+    global envs
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     envs = AsyncVectorEnv(
         [
@@ -143,5 +146,6 @@ if __name__ == "__main__":
     try:
         main()
     finally:
+        envs.close()
         tracer.stop()
         tracer.save("agents/ppo/logs/tracing.json")

@@ -15,9 +15,12 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 
-N_ENVS = 10
-N_EPISODES = 10000  # Define the total number of episodes to train for
-SAVING_INTERVAL = 500  # Save every 500 episodes
+N_ENVS = 20
+N_STEPS = int(40e4)
+SNAPSHOTS = 5
+
+SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
+UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -62,7 +65,7 @@ def main():
 
     envs = FrameStackObservation(envs, stack_size=8)
     envs = SwapObservationAxes(envs, swap=(0, 1))
-    envs = RecordEpisodeStatistics(envs, buffer_length=N_EPISODES)
+    envs = RecordEpisodeStatistics(envs, buffer_length=N_STEPS)
     register_keyboard_interrupt(envs)
     agent = Agent(
         n_envs=N_ENVS,
@@ -74,9 +77,9 @@ def main():
 
     next_states, _ = envs.reset()
 
-    episode_count = 0  # Initialize episode counter
-    with tqdm(total=N_EPISODES, desc="Training Progress (Episodes)") as pbar:
-        while episode_count < N_EPISODES:
+    step_count = 0  # Initialize step counter
+    with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
+        while step_count < N_STEPS:
             current_states = next_states
             actions = agent.act(current_states)
 
@@ -91,31 +94,30 @@ def main():
 
             agent.train()
 
-            # Calculate completed episodes while preventing overflow
-            completed_episodes = min(dones.sum(), N_EPISODES - episode_count)
-
-            # Update episode count and progress bar
-            episode_count += completed_episodes
-            pbar.update(completed_episodes)
+            # Update step count and progress bar
+            step_count += N_ENVS
+            pbar.update(N_ENVS)
 
             # Save model and plots at the specified interval
-            if (episode_count % SAVING_INTERVAL) <= (N_ENVS / 10) and episode_count > 0:
-                agent.policy_net.save(
-                    f"agents/dqn/models/{timestamp}/{episode_count:04d}.pth"
-                )
+            if step_count % SAVING_INTERVAL == 0 and step_count > 0:
+                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step_count}.pth")
                 agent.draw_model(
-                    f"agents/dqn/plots/training/{timestamp}/{episode_count:04d}.png"
+                    f"agents/dqn/plots/training/{timestamp}/{step_count}.png"
                 )
                 agent.draw_agent(
-                    f"agents/dqn/plots/threshold/{timestamp}/{episode_count:04d}.png"
+                    f"agents/dqn/plots/threshold/{timestamp}/{step_count}.png"
                 )
                 draw(
                     envs,
-                    save_path=f"agents/dqn/plots/env/{timestamp}/{episode_count:04d}.png",
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{step_count}.png",
                 )
-                saving(envs, agent, timestamp, episode_count)
+                saving(envs, agent, timestamp, step_count)
 
     envs.close()
+
+
+if __name__ == "__main__":
+    main()
 
 
 def saving(

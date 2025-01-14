@@ -12,9 +12,11 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 10
-N_STEPS = int(2e4)
-SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
+N_ENVS = 20
+N_STEPS = int(40e4)
+SNAPSHOTS = 5
+
+SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
 ENV_OPTIONS = EnvOptions(
@@ -87,10 +89,10 @@ def main():
                 agent.update()
 
             if step % SAVING_INTERVAL == 0 and step > 0:
-                agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
+                agent.policy.save(f"agents/ppo/models/{timestamp}/{step*N_ENVS}.pth")
                 draw(
                     envs,
-                    save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
+                    save_path=f"agents/ppo/plots/env/{timestamp}/{step*N_ENVS}.png",
                 )
                 saving(envs, agent, timestamp, step)
 

@@ -34,7 +34,8 @@ class DQNAgent:
         n_envs: int,
         obs_space: Box,
         act_space: Box,
-        device: str = "cuda:1" if torch.cuda.is_available() else "cpu",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        n_step=3,
     ) -> None:
         self.device = device
         self.n_envs = n_envs
@@ -72,6 +73,16 @@ class DQNAgent:
         self.td_error_history: List[float] = []
         self.eps_threshold_history: List[float] = []
 
+        self.n_step = n_step
+        self.n_step_buffer = []
+        self.gamma_n = self.gamma**self.n_step
+
+    def _compute_n_step_returns(self, rewards, next_value, done):
+        n_step_return = next_value
+        for reward in reversed(rewards):
+            n_step_return = reward + self.gamma * n_step_return * (1 - done)
+        return n_step_return
+
     def remember(
         self,
         states: NDArray,
@@ -86,10 +97,40 @@ class DQNAgent:
             action = torch.tensor(actions[i]).to(self.device)
             reward = torch.tensor(rewards[i], device=self.device)
             done = torch.tensor(dones[i], device=self.device)
+
+            # N-step returns
+            self.n_step_buffer.append((state, next_state, action, reward, done))
+            if len(self.n_step_buffer) < self.n_step:
+                return
+
+            # Calculate n-step return
+            state_0, _, action_0, _, _ = self.n_step_buffer[0]
+            state_n = next_state
+            rewards = [transition[3] for transition in self.n_step_buffer]
+
+            # Get value estimate for final state
+            with torch.no_grad():
+                next_state_value = self.get_value_estimate(state_n)
+
+            n_step_return = self._compute_n_step_returns(
+                rewards, next_state_value, done
+            )
+
+            # Store transition with n-step return
             max_priority = (
                 max(self.memory.priorities) if self.memory.priorities else 1.0
             )
-            self.memory.push((state, next_state, action, reward, done), max_priority)
+            self.memory.push(
+                (state_0, state_n, action_0, n_step_return, done), max_priority
+            )
+
+            self.n_step_buffer.pop(0)
+
+    def get_value_estimate(self, state):
+        # Double Q-learning value estimate
+        with torch.no_grad():
+            next_action = self.policy_net(state).argmax(1)
+            return self.target_net(state).gather(1, next_action.unsqueeze(1)).squeeze()
 
     def act(self, states: NDArray) -> NDArray:
         self.steps += 1
@@ -143,58 +184,70 @@ class DQNAgent:
 
         self.updates += 1
 
-        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
+        for _ in range(self.n_envs):
+            self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
-        transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
-        batch = self.Transition(*zip(*transitions))
-
-        state_batch = torch.stack(batch.states)
-        next_state_batch = torch.stack(batch.next_states)
-        action_batch = torch.stack(batch.actions)
-        reward_batch = torch.tensor(batch.rewards, device=self.device)
-        done_batch = torch.tensor(batch.done, device=self.device)
-
-        action_idx_batch: torch.Tensor = (
-            action_batch[:, 0] - self.act_space.low[0]
-        ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
-
-        q_values_batch = self.policy_net.forward(state_batch)
-        q_values_batch = q_values_batch.gather(
-            1, action_idx_batch.long().unsqueeze(1)
-        ).squeeze()
-
-        with torch.no_grad():
-            max_next_q_value_batch = (
-                self.target_net.forward(next_state_batch).max(1)[0].detach()
+            transitions, indices, weights = self.memory.sample(
+                self.batch_size, self.beta
             )
+            batch = self.Transition(*zip(*transitions))
 
-        target_value_batch = (
-            reward_batch
-            + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
-        )
+            state_batch = torch.stack(batch.states)
+            next_state_batch = torch.stack(batch.next_states)
+            action_batch = torch.stack(batch.actions)
+            reward_batch = torch.tensor(batch.rewards, device=self.device)
+            done_batch = torch.tensor(batch.done, device=self.device)
 
-        td_errors = q_values_batch - target_value_batch
-        loss = (
-            torch.tensor(weights, device=self.device)
-            * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
-        ).mean()
+            # Double Q-learning action selection
+            with torch.no_grad():
+                next_actions = self.policy_net(next_state_batch).argmax(1)
+                next_q_values = self.target_net(next_state_batch)
+                next_q_values = next_q_values.gather(
+                    1, next_actions.unsqueeze(1)
+                ).squeeze()
 
-        # Store history
-        self.loss_history.append(loss.item())
-        self.q_value_history.append(q_values_batch.mean().item())
-        self.td_error_history.append(td_errors.mean().item())
+                target_value_batch = (
+                    reward_batch
+                    + torch.logical_not(done_batch) * next_q_values * self.gamma_n
+                )
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        for param in self.policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        self.optimizer.step()
+            # Current Q-values
+            q_values = self.policy_net(state_batch)
+            action_idx_batch = (
+                action_batch[:, 0] - self.act_space.low[0]
+            ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
+            q_values = q_values.gather(
+                1, action_idx_batch.long().unsqueeze(1)
+            ).squeeze()
 
-        priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
-        self.memory.update_priorities(indices, priorities)
+            # Compute loss and update priorities
+            td_errors = q_values - target_value_batch
+            loss = (
+                torch.tensor(weights, device=self.device)
+                * F.smooth_l1_loss(q_values, target_value_batch, reduction="none")
+            ).mean()
+
+            # Store history
+            self.loss_history.append(loss.item())
+            self.q_value_history.append(q_values.mean().item())
+            self.td_error_history.append(td_errors.mean().item())
+
+            # Update networks
+            self.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 10)
+            self.optimizer.step()
+
+            # Update priorities in buffer
+            priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
+            self.memory.update_priorities(indices, priorities)
 
         if self.updates % self.target_net_update_freq == 0:
             self.update_target_network()
+
+            # Reset noisy layers
+            self.policy_net.reset_noise()
+            self.target_net.reset_noise()
 
     def update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())

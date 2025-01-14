@@ -238,11 +238,8 @@ class DQNAgent:
                 # Project the distribution using the supports, v_min, v_max, delta_z
                 target_dist_batch = self._project_distribution(
                     next_dist,
-                    reward_batch,
-                    done_batch,
-                    self.policy_net.supports,
-                    self.gamma,
-                    self.n_step,
+                    rewardNs_batch,
+                    dones_batch,
                 )
 
             # Calculate TD errors and loss
@@ -282,27 +279,8 @@ class DQNAgent:
     def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def _project_distribution(self, next_dist, rewards, dones, supports, gamma, n_step):
-        batch_size = len(rewards)
-        projected_dist = torch.zeros((batch_size, len(supports)), device=self.device)
-
-        for i in range(batch_size):
-            T_z = min(supports.max().item(), max(supports.min().item(), rewards[i]))
-            b = (T_z - supports[0]) / (supports[1] - supports[0])
-            l, u = int(b), int(b) + 1
-
-            if dones[i]:
-                projected_dist[i][l] += next_dist[i] * (
-                    u + gamma * (supports[0] + n_step)
-                )
-                projected_dist[i][u] += next_dist[i] * (
-                    u + gamma * (supports[0] + n_step)
-                )
-            else:
-                projected_dist[i][l] += next_dist[i] * (u + gamma * supports[0])
-                projected_dist[i][u] += next_dist[i] * (u + gamma * supports[1])
-
-        return projected_dist
+    def _project_distribution(self, next_dist, rewards, dones):
+        pass
 
     def draw_model(self, save_path: str = "./training_history.png") -> None:
         # Create the directory if it does not exist

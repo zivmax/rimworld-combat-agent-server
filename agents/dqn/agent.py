@@ -281,8 +281,30 @@ class DQNAgent:
     def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def _project_distribution(self, next_dist, rewards, dones):
-        pass
+    def _project_distribution(self, next_dist: Tensor, rewards: Tensor, dones: Tensor):
+        rewards = rewards.unsqueeze(1).expand_as(next_dist)
+        dones = dones.unsqueeze(1).expand_as(next_dist)
+        supports = self.supports.unsqueeze(0).expand_as(next_dist)
+
+        Tz = rewards + (1 - dones) * self.gamma_n * supports
+        Tz = Tz.clamp(min=self.policy_net.v_min, max=self.policy_net.v_max)
+        b = (Tz - self.policy_net.v_min) / self.policy_net.delta_z
+        l = b.floor().long()
+        u = b.ceil().long()
+
+        projected_dist = torch.zeros_like(next_dist)
+        projected_dist.view(-1).index_add_(
+            0,
+            (l + self.policy_net.supports.size(0) * torch.arange(self.batch_size)),
+            (next_dist * (u.float() - b)).view(-1),
+        )
+        projected_dist.view(-1).index_add_(
+            0,
+            (u + self.policy_net.supports.size(0) * torch.arange(self.batch_size)),
+            (next_dist * (b - l.float())).view(-1),
+        )
+
+        return projected_dist
 
     def draw_model(self, save_path: str = "./training_history.png") -> None:
         # Create the directory if it does not exist

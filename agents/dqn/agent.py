@@ -167,7 +167,7 @@ class DQNAgent:
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values."""
         assert q_dist.is_cuda, "Expected q_dist to be on CUDA."
-        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2).squeeze()
+        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2)
 
     def _coord_to_index(self, x, y):
         width = self.act_space.high[0] - self.act_space.low[0] + 1

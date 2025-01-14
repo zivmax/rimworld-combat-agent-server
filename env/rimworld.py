@@ -112,7 +112,7 @@ class RimWorldEnv(gym.Env):
 
             self._game.launch()
 
-        StateCollector.receive_state(self._server)
+        StateCollector.receive_state(self._server, reseting=True)
 
         self._update_all()
 
@@ -184,7 +184,7 @@ class RimWorldEnv(gym.Env):
         )  # We need the following line to seed self.np_random
 
         StateCollector.reset()
-        while not StateCollector.receive_state(self._server):
+        while not StateCollector.receive_state(self._server, reseting=True):
             logger.warning(f"Timeout to reset the game, restarting the game.")
             self._game.restart()
             StateCollector.reset()
@@ -198,7 +198,7 @@ class RimWorldEnv(gym.Env):
             self._game.restart()
             StateCollector.reset()
             logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
-            while not StateCollector.receive_state(self._server):
+            while not StateCollector.receive_state(self._server, reseting=True):
                 logger.warning(f"Timeout to restart the game, restarting the game.")
                 self._game.restart()
                 StateCollector.reset()
@@ -248,7 +248,7 @@ class RimWorldEnv(gym.Env):
         )
         self._server.send_to_client(message)
         logger.debug(f"Wait for response at tick {StateCollector.state.tick}")
-        while not StateCollector.receive_state(self._server):
+        while not StateCollector.receive_state(self._server, reseting=False):
             logger.warning(f"Timeout to receive response, restarting the game.")
             self._game.restart()
             logger.info(f"Restarted the client game.")

@@ -6,7 +6,7 @@ from time import time
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .config import RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
+from .config import RESPONSE_TIMEOUT, RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
 from .server import GameServer
 
 logging_level = STATE_COLLECTOR_LOGGING_LEVEL
@@ -224,12 +224,14 @@ class StateCollector:
         return cls.state is None or tick > cls.state.tick
 
     @classmethod
-    def receive_state(cls, server: GameServer) -> bool:
+    def receive_state(cls, server: GameServer, reseting: bool = False) -> bool:
+        while server.client is None:
+            cls.reset()
+            continue
+
         start_time = time()
-        while time() - start_time <= RESET_TIMEOUT:
-            if server.client is None:
-                cls.reset()
-                continue
+        TIMEOUT = RESET_TIMEOUT if reseting else RESPONSE_TIMEOUT
+        while time() - start_time < TIMEOUT:
             if server.message_queue.qsize() > 0:
                 # Peek at message without removing it
                 message = server.message_queue.queue[0]
@@ -249,6 +251,7 @@ class StateCollector:
                 )
                 logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
                 break
+
         else:
             return False
 

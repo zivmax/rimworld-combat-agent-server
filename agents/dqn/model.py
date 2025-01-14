@@ -70,7 +70,6 @@ class DQN(nn.Module):
         self.v_min = v_min
         self.v_max = v_max
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms)
-        self.delta_z = (self.v_max - self.v_min) / (self.atoms - 1)
         self.act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
         # Convolutional layers remain the same

@@ -80,7 +80,9 @@ class DQNAgent:
     def _compute_n_step_returns(self, rewards, next_value, done):
         n_step_return = next_value
         for reward in reversed(rewards):
-            n_step_return = reward + self.gamma * n_step_return * (1 - done)
+            n_step_return = reward + self.gamma * n_step_return * torch.logical_not(
+                done
+            )
         return n_step_return
 
     def remember(

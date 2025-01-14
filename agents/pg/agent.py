@@ -35,31 +35,27 @@ class PGAgent:
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
     def select_action(self, states: NDArray) -> NDArray:
-        with torch.no_grad():
-            states = np.array(states)
-            states_tensor = torch.FloatTensor(states).to(self.device)
-            batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
-
-            for i in range(self.n_envs):
-                actions, log_probs = self.policy.act(states_tensor[i])
-                actions[0] = max(
-                    min(actions[0], self.act_space.high[0]),
-                    self.act_space.low[0],
-                )
-                actions[1] = max(
-                    min(actions[1], self.act_space.high[1]),
-                    self.act_space.low[1],
-                )
-
-                batch_actions[i] = actions
-
-                self.current_transitions.append(
-                    {
-                        "state": states_tensor[i],
-                        "action": torch.tensor(actions).to(self.device),
-                        "log_prob": log_probs,
-                    }
-                )
+        states = np.array(states)
+        states_tensor = torch.FloatTensor(states).to(self.device)
+        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        for i in range(self.n_envs):
+            actions, log_probs = self.policy.act(states_tensor[i])
+            actions[0] = max(
+                min(actions[0], self.act_space.high[0]),
+                self.act_space.low[0],
+            )
+            actions[1] = max(
+                min(actions[1], self.act_space.high[1]),
+                self.act_space.low[1],
+            )
+            batch_actions[i] = actions
+            self.current_transitions.append(
+                {
+                    "state": states_tensor[i],
+                    "action": torch.tensor(actions).to(self.device),
+                    "log_prob": log_probs,
+                }
+            )
         return batch_actions
 
     def store_transition(
@@ -83,7 +79,10 @@ class PGAgent:
 
         returns = []
         G = 0
-        for reward, done in zip(self.memory.rewards, self.memory.dones):
+        for transition in self.memory.transitions:
+            reward, done = transition.reward.to(self.device), transition.done.to(
+                self.device
+            )
             if done:
                 G = 0
             G = reward + self.gamma * G
@@ -92,7 +91,9 @@ class PGAgent:
         returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
         # Calculate policy loss
-        log_probs = torch.stack(self.memory.log_probs)
+        log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
+            self.device
+        )
         policy_loss = -torch.sum(log_probs * returns) / len(returns)
 
         # Calculate entropy (optional for exploration)
@@ -107,7 +108,6 @@ class PGAgent:
         # Backpropagation
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         # Logging

@@ -266,13 +266,13 @@ class DQNAgent:
 
             # Calculate TD errors and loss
             td_errors = (q_dist_batch - target_dist_batch).to(self.device)
-            loss: Tensor = (
-                torch.tensor(weights).to(self.device).unsqueeze(1)
-                * F.smooth_l1_loss(
-                    q_dist_batch,
-                    target_dist_batch,
-                    reduction="none",
-                ).to(self.device)
+            loss = -torch.sum(
+                weights.to(self.device).unsqueeze(1)  # Apply weights
+                * target_dist_batch
+                * torch.log(
+                    q_dist_batch + 1e-8
+                ),  # Add small epsilon for numerical stability
+                dim=1,
             ).mean()
 
             # Optimize

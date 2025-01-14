@@ -55,14 +55,20 @@ class NoisyLinear(nn.Module):
 
 class DQN(nn.Module):
     def __init__(
-        self, obs_space: spaces.Box, act_space: spaces.Box, noisy=True, atoms=51
+        self,
+        obs_space: spaces.Box,
+        act_space: spaces.Box,
+        noisy=True,
+        atoms=51,
+        v_min=-10,
+        v_max=10,
     ):
         super(DQN, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space
         self.atoms = atoms
-        self.v_min = -10
-        self.v_max = 10
+        self.v_min = v_min
+        self.v_max = v_max
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms)
         self.delta_z = (self.v_max - self.v_min) / (self.atoms - 1)
         self.act_space_size = int(np.prod(act_space.high - act_space.low + 1))

@@ -249,14 +249,15 @@ class RimWorldEnv(gym.Env):
         )
         self._server.send_to_client(message)
         logger.debug(f"Wait for response at tick {StateCollector.state.tick}")
-        while not StateCollector.receive_state(self._server, reseting=False):
+        if not StateCollector.receive_state(self._server, reseting=False):
             logger.warning(f"Timeout to receive response, restarting the game.")
             self._game.restart()
             logger.info(f"Restarted the client game.")
             self._reset_times = 0
-            sleep(30)
-            observation, info = self.reset()
-            return observation, 0, False, True, info
+            while not StateCollector.receive_state(self._server, reseting=True):
+                logger.warning(f"Game init response time timeout, but still waiting...")
+
+            return self._get_obs(), 0, False, True, self._get_info()
 
         self._actions_prev = pawn_actions
         self._update_all()

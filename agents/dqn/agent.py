@@ -321,7 +321,9 @@ class DQNAgent:
         delta_z = (v_max - v_min) / (self.atoms - 1)
 
         # Create a buffer for the projected distribution
-        projected_dist = torch.zeros((self.batch_size, self.atoms), device=self.device)
+        projected_dist = torch.zeros(
+            (self.batch_size, self.atoms), device=self.device, dtype=next_dist.dtype
+        )
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
         t_z = rewards.unsqueeze(1) + (
@@ -335,7 +337,7 @@ class DQNAgent:
         u = b.ceil().long()
 
         # Compute the fractional part (pj)
-        pj = b - l.float()
+        pj = (b - l.float()).to(dtype=next_dist.dtype)
 
         # Create masks for valid upper bounds
         valid_u_mask = u < self.atoms

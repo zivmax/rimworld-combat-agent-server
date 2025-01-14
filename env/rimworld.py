@@ -187,26 +187,18 @@ class RimWorldEnv(gym.Env):
         StateCollector.reset()
         while not StateCollector.receive_state(self._server, reseting=True):
             logger.warning(f"Timeout to reset the game, restarting the game.")
-            self._game.restart()
-            StateCollector.reset()
-            sleep(30)
+            self._restart_game()
+            logger.info(f"Restarted the client game.")
         else:
             logger.info(f"Client game reset, done {self._reset_times} times.")
             self._reset_times += 1
             self._steped_times = 0
 
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
-            self._game.restart()
-            StateCollector.reset()
             logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
-            while not StateCollector.receive_state(self._server, reseting=True):
-                logger.warning(f"Timeout to restart the game, restarting the game.")
-                self._game.restart()
-                StateCollector.reset()
-                sleep(30)
-            else:
-                logger.info(f"Restarted the client game.")
-                self._reset_times = 0
+            self._restart_game()
+            logger.info(f"Restarted the client game.")
+            self._reset_times = 0
 
         self._update_all()
 
@@ -251,12 +243,8 @@ class RimWorldEnv(gym.Env):
         logger.debug(f"Waiting for response at tick {StateCollector.state.tick}")
         if not StateCollector.receive_state(self._server, reseting=False):
             logger.warning(f"Timeout to receive response, restarting the game.")
-            self._game.restart()
-            logger.info(f"Restarted the client game.")
+            self._restart_game()
             self._reset_times = 0
-            while not StateCollector.receive_state(self._server, reseting=True):
-                logger.warning(f"Game init response time timeout, but still waiting...")
-
             return self._get_obs(), 0, False, True, self._get_info()
 
         self._actions_prev = pawn_actions
@@ -280,6 +268,15 @@ class RimWorldEnv(gym.Env):
         if self._render_mode == "headless":
             self._game.shutdown()
         super().close()
+
+    def _restart_game(self):
+        StateCollector.reset()
+        self._game.restart()
+        while not StateCollector.receive_state(self._server, reseting=True):
+            logger.warning(f"Game init response time timeout, but still waiting...")
+
+        self._update_all()
+        logger.info(f"Restarted the client game.")
 
     def _update_allies(self):
         self._allies_prev = self._allies

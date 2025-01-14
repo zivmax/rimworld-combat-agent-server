@@ -136,7 +136,7 @@ class DQNAgent:
             next_dist = self.policy_net.forward(
                 state.unsqueeze(0).to(self.device)
             ).cpu()
-            next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
+            next_action = self._get_expected_q_values(next_dist).argmax()
             target_dist = self.target_net.forward(
                 state.unsqueeze(0).to(self.device)
             ).cpu()
@@ -152,7 +152,9 @@ class DQNAgent:
 
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
         assert q_dist.is_cpu, "Expected q_dist to be on CPU."
-        return torch.sum(q_dist * self.policy_net.supports.view(1, 1, -1), dim=2)
+        return torch.sum(
+            q_dist * self.policy_net.supports.view(1, 1, -1), dim=2
+        ).squeeze()
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)

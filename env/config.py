@@ -6,6 +6,9 @@ RESTART_INTERVAL = 0  # 0 means never restart
 # Timeout for reset in seconds
 RESET_TIMEOUT = 30
 
+# Timeout for staring the game
+START_TIMEOUT = 300
+
 # Timeout for game response in seconds
 RESPONSE_TIMEOUT = 5
 

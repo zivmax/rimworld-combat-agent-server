@@ -114,9 +114,8 @@ class RimWorldEnv(gym.Env):
             self._game.launch()
 
         while not StateCollector.receive_state(self._server, reseting=True):
-            self.logger.warning(
-                f"Game init response time timeout, but still waiting..."
-            )
+            self.logger.warning(f"Game init response time timeout, restarting...")
+            self._game.restart()
 
         self._update_all()
 
@@ -276,9 +275,8 @@ class RimWorldEnv(gym.Env):
         StateCollector.reset()
         self._game.restart()
         while not StateCollector.receive_state(self._server, reseting=True):
-            self.logger.warning(
-                f"Game init response time timeout, but still waiting..."
-            )
+            self.logger.warning(f"Game init response time timeout, restarting...")
+            self._game.restart()
 
         self._update_all()
         self.logger.info(f"Restarted the client game.")

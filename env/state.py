@@ -6,7 +6,12 @@ from time import time
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .config import RESPONSE_TIMEOUT, RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
+from .config import (
+    RESPONSE_TIMEOUT,
+    RESET_TIMEOUT,
+    STATE_COLLECTOR_LOGGING_LEVEL,
+    START_TIMEOUT,
+)
 from .server import GameServer
 
 
@@ -229,9 +234,13 @@ class StateCollector:
 
     @classmethod
     def receive_state(cls, server: GameServer, reseting: bool = False) -> bool:
-        while server.client is None:
+        start_time = time()
+        while time() - start_time < START_TIMEOUT:
+            if server.client is not None:
+                break
             cls.reset()
-            continue
+        else:
+            return False
 
         start_time = time()
         TIMEOUT = RESET_TIMEOUT if reseting else RESPONSE_TIMEOUT

@@ -49,10 +49,6 @@ ENV_OPTIONS = EnvOptions(
 )
 
 
-def create_env():
-    return gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="headless")
-
-
 def main():
     n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]

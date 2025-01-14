@@ -16,8 +16,10 @@ from utils.timestamp import timestamp
 
 
 N_ENVS = 1
-N_EPISODES = 10000  # Define the total number of episodes to train for
-SAVING_INTERVAL = 500  # Save every 500 episodes
+N_STEPS = int(40e4)  # Total number of steps to train for
+SNAPSHOTS = 5
+
+SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)  # Save every N steps
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -57,7 +59,7 @@ def main():
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=N_EPISODES)
+    env = RecordEpisodeStatistics(env, buffer_length=N_STEPS)
     register_keyboard_interrupt(env)
     agent = Agent(
         n_envs=N_ENVS,
@@ -69,9 +71,9 @@ def main():
 
     next_state, _ = env.reset()
 
-    episode_count = 0  # Initialize episode counter
-    with tqdm(total=N_EPISODES, desc="Training Progress (Episodes)") as pbar:
-        while episode_count < N_EPISODES:
+    step_count = 0  # Initialize step counter
+    with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
+        while step_count < N_STEPS:
             current_state = next_state
             actions = agent.act([current_state])
 
@@ -86,35 +88,33 @@ def main():
 
             agent.train()
 
-            # Calculate completed episodes while preventing overflow
+            # Update step count and progress bar
+            step_count += 1
+            pbar.update(1)
+
             if done:
-                episode_count += 1
                 next_state, _ = env.reset()
-                # Update episode count and progress bar
-                pbar.update(1)
 
             # Save model and plots at the specified interval
-            if (episode_count % SAVING_INTERVAL) <= (N_ENVS / 10) and episode_count > 0:
-                agent.policy_net.save(
-                    f"agents/dqn/models/{timestamp}/{episode_count:04d}.pth"
-                )
+            if step_count % SAVING_INTERVAL == 0 and step_count > 0:
+                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step_count}.pth")
                 agent.draw_model(
-                    f"agents/dqn/plots/training/{timestamp}/{episode_count:04d}.png"
+                    f"agents/dqn/plots/training/{timestamp}/{step_count}.png"
                 )
                 agent.draw_agent(
-                    f"agents/dqn/plots/threshold/{timestamp}/{episode_count:04d}.png"
+                    f"agents/dqn/plots/threshold/{timestamp}/{step_count}.png"
                 )
                 draw(
                     env,
-                    save_path=f"agents/dqn/plots/env/{timestamp}/{episode_count:04d}.png",
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{step_count}.png",
                 )
-                saving(env, agent, timestamp, episode_count)
+                saving(env, agent, timestamp, step_count)
 
     env.close()
 
 
 def saving(
-    env: RecordEpisodeStatistics, agent: Agent, timestamp: str, episode: int
+    env: RecordEpisodeStatistics, agent: Agent, timestamp: str, steps: int
 ) -> None:
     # Saving all training history into csv
 
@@ -151,14 +151,14 @@ def saving(
     os.makedirs(f"agents/dqn/histories/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/dqn/histories/{timestamp}/env/{steps}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/training/{steps}.csv", index=False
     )
     thres_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/threshold/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/threshold/{steps}.csv", index=False
     )
 
 

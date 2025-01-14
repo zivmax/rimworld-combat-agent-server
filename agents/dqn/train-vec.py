@@ -119,7 +119,7 @@ def main():
 
 
 def saving(
-    env: RecordEpisodeStatistics, agent: Agent, timestamp: str, episode: int
+    env: RecordEpisodeStatistics, agent: Agent, timestamp: str, steps: int
 ) -> None:
     # Saving all training history into csv
 
@@ -156,14 +156,14 @@ def saving(
     os.makedirs(f"agents/dqn/histories/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/dqn/histories/{timestamp}/env/{steps}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/training/{steps}.csv", index=False
     )
     thres_df.to_csv(
-        f"agents/dqn/histories/{timestamp}/threshold/{episode:04d}.csv", index=False
+        f"agents/dqn/histories/{timestamp}/threshold/{steps}.csv", index=False
     )
 
 

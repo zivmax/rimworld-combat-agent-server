@@ -254,7 +254,8 @@ class RimWorldEnv(gym.Env):
             logger.info(f"Restarted the client game.")
             self._reset_times = 0
             sleep(30)
-            return self.reset()
+            observation, info = self.reset()
+            return observation, 0, False, True, info
 
         self._actions_prev = pawn_actions
         self._update_all()

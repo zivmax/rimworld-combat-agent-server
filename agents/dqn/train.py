@@ -162,5 +162,13 @@ def saving(
     )
 
 
+from viztracer import VizTracer
+
+tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
+tracer.start()
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        tracer.stop()
+        tracer.save("agents/dqn/logs/tracing.json")

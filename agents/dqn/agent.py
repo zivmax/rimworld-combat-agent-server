@@ -168,6 +168,16 @@ class DQNAgent:
             q_dist * self.policy_net.supports.view(1, 1, -1), dim=2
         ).squeeze()
 
+    def _coord_to_index(self, x, y):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
+
+    def _index_to_coord(self, action_index):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        x = action_index % width + self.act_space.low[0]
+        y = action_index // width + self.act_space.low[1]
+        return x, y
+
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)
 
@@ -205,9 +215,7 @@ class DQNAgent:
                 raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
-                width = self.act_space.high[0] - self.act_space.low[0] + 1
-                x = raw_actions % width + self.act_space.low[0]
-                y = raw_actions // width + self.act_space.low[1]
+                x, y = self._index_to_coord(raw_actions)
                 batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
@@ -234,10 +242,11 @@ class DQNAgent:
             rewardNs_batch = torch.stack(batch.rewardNs)
             dones_batch = torch.stack(batch.dones)
 
-            # Convert actions to indices
-            action_idx_batch: torch.Tensor = (
-                action0s_batch[:, 0] - self.act_space.low[0]
-            ) * self.act_space.high[0] + (action0s_batch[:, 1] - self.act_space.low[0])
+            # Convert 2D coordinates to action indices
+            action_idx_batch = torch.tensor(
+                [self._coord_to_index(x, y) for x, y in action0s_batch],
+                dtype=torch.long,
+            )
 
             # Get Q-values for initial state-action pairs
             q_dist_batch = self.policy_net.forward(states_batch.to(self.device)).cpu()

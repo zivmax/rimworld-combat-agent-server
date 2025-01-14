@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, astuple
-from typing import Dict, List
+from typing import Dict, List, Deque
 from collections import deque
 
 import matplotlib.pyplot as plt
@@ -66,7 +66,9 @@ class DQNAgent:
         self.beta_increment_per_sampling = 0.001
 
         self.n_step = 4
-        self.n_step_buffer = [deque(maxlen=self.n_step) for _ in range(self.n_envs)]
+        self.n_step_buffer: Deque[Tensor] = [
+            deque(maxlen=self.n_step) for _ in range(self.n_envs)
+        ]
         self.gamma_n = self.gamma**self.n_step
 
         self.v_range = 150
@@ -82,7 +84,9 @@ class DQNAgent:
             ).to(device)
             return net
 
-        self.supports = torch.linspace(-self.v_range, self.v_range, self.atoms)
+        self.supports = torch.linspace(
+            -self.v_range, self.v_range, self.atoms, device=device
+        )
         self.policy_net = create_dqn()
         self.target_net = create_dqn()
         self._update_target_network()
@@ -136,20 +140,19 @@ class DQNAgent:
             max_priority = (
                 max(self.memory.priorities) if self.memory.priorities else 1.0
             )
-            self.memory.push((state0, stateN, action0, return_n, done), max_priority)
+            self.memory.push(
+                (state0.cpu(), stateN.cpu(), action0.cpu(), return_n.cpu(), done.cpu()),
+                max_priority,
+            )
 
             self.n_step_buffer[i].popleft()
 
     def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
         """Get the value estimate for the next state-action pair."""
         with torch.no_grad():
-            next_Q_dists = self.policy_net.forward(
-                state.unsqueeze(0).to(self.device)
-            ).cpu()
+            next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
             next_action = self._get_expected_q_values(next_Q_dists).argmax()
-            target_dists = self.target_net.forward(
-                state.unsqueeze(0).to(self.device)
-            ).cpu()
+            target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
             return self._get_expected_q_values(target_dists)[next_action]
 
     def _compute_n_step_reward(self, rewards, next_value, done):
@@ -163,10 +166,8 @@ class DQNAgent:
 
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values."""
-        assert q_dist.is_cpu, "Expected q_dist to be on CPU."
-        return torch.sum(
-            q_dist * self.policy_net.supports.view(1, 1, -1), dim=2
-        ).squeeze()
+        assert q_dist.is_cuda, "Expected q_dist to be on CUDA."
+        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2).squeeze()
 
     def _coord_to_index(self, x, y):
         width = self.act_space.high[0] - self.act_space.low[0] + 1
@@ -203,11 +204,11 @@ class DQNAgent:
             )
 
         # Handle exploitation using distributional Q-values
-        elif len(self.memory) >= self.batch_size:
+        else:
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states)
                 # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
-                Q_dists = self.policy_net.forward(states_tensor.to(self.device)).cpu()
+                Q_dists = self.policy_net.forward(states_tensor.to(self.device))
 
                 expected_Qs = self._get_expected_q_values(Q_dists)
 
@@ -215,7 +216,7 @@ class DQNAgent:
                 raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
-                x, y = self._index_to_coord(raw_actions)
+                x, y = self._index_to_coord(raw_actions.cpu().numpy())
                 batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
@@ -249,28 +250,34 @@ class DQNAgent:
             )
 
             # Get Q-values for initial state-action pairs
-            q_dist_batch = self.policy_net.forward(state0s_batch.to(self.device)).cpu()
-            q_dist_batch = q_dist_batch[
-                torch.arange(q_dist_batch.size(0)), action_idx_batch.long(), :
+            Q_dists_batch = self.policy_net.forward(state0s_batch.to(self.device))
+            Q_dists_batch = Q_dists_batch[
+                torch.arange(Q_dists_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_dist = self.target_net.forward(stateNs_batch.to(self.device)).cpu()
-                next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
-                next_dist = next_dist[torch.arange(next_dist.size(0)), next_action, :]
-                t_dist_batch = self._project_distribution(
-                    next_dist,
-                    rewardNs_batch,
-                    dones_batch,
+                next_dists_batch = self.target_net.forward(
+                    stateNs_batch.to(self.device)
+                )
+                next_action_batch = self._get_expected_q_values(
+                    next_dists_batch.to(self.device)
+                ).argmax(dim=1)
+                next_dists_batch = next_dists_batch[
+                    torch.arange(next_dists_batch.size(0)), next_action_batch, :
+                ]
+                T_dist_batch = self._project_distribution(
+                    next_dists_batch.to(self.device),
+                    rewardNs_batch.to(self.device),
+                    dones_batch.to(self.device),
                 )
 
             # Calculate TD errors and loss
-            td_errors = (q_dist_batch - t_dist_batch).to(self.device)
+            td_errors = Q_dists_batch - T_dist_batch
             loss = -torch.sum(
-                weights.to(self.device).unsqueeze(1)  # Apply weights
-                * t_dist_batch
+                torch.Tensor(weights).to(self.device).unsqueeze(1)  # Apply weights
+                * T_dist_batch
                 * torch.log(
-                    q_dist_batch + 1e-8
+                    Q_dists_batch + 1e-8
                 ),  # Add small epsilon for numerical stability
                 dim=1,
             ).mean()
@@ -283,8 +290,8 @@ class DQNAgent:
 
             # Update priorities using KL divergence
             kl_div = F.kl_div(
-                F.log_softmax(q_dist_batch, dim=1),
-                F.softmax(t_dist_batch, dim=1),
+                F.log_softmax(Q_dists_batch, dim=1),
+                F.softmax(T_dist_batch, dim=1),
                 reduction="none",
             ).sum(dim=1)
             priorities = kl_div.abs().detach().cpu().numpy() + 1e-5
@@ -292,7 +299,7 @@ class DQNAgent:
 
             # Store history
             self.loss_history.append(loss.item())
-            self.q_value_history.append(q_dist_batch.mean().item())
+            self.q_value_history.append(Q_dists_batch.mean().item())
             self.td_error_history.append(td_errors.mean().item())
             self.kl_div_history.append(kl_div.mean().item())
 
@@ -306,19 +313,20 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def _project_distribution(self, next_dist: Tensor, rewards: Tensor, dones: Tensor):
+        assert next_dist.is_cuda, "Expected next_dist to be on CUDA device."
+        assert rewards.is_cuda, "Expected rewards to be on CUDA device."
+        assert dones.is_cuda, "Expected dones to be on CUDA device."
+
         v_min, v_max = -self.v_range, self.v_range
         delta_z = (v_max - v_min) / (self.atoms - 1)
 
-        batch_size = next_dist.size(0)
-        device = next_dist.device
-
         # Create a buffer for the projected distribution
-        projected_dist = torch.zeros((batch_size, self.atoms), device=device)
+        projected_dist = torch.zeros((self.batch_size, self.atoms), device=self.device)
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
         t_z = rewards.unsqueeze(1) + (
             torch.logical_not(dones).unsqueeze(1)
-        ) * self.gamma_n * self.supports.view(1, -1).to(device)
+        ) * self.gamma_n * self.supports.view(1, -1)
         t_z = torch.clamp(t_z, v_min, v_max)
 
         # Distribute probabilities for each atom
@@ -326,15 +334,22 @@ class DQNAgent:
         l = b.floor().long()
         u = b.ceil().long()
 
-        for i in range(batch_size):
-            for j in range(self.atoms):
-                pj, lj, uj = b[i, j], l[i, j], u[i, j]
-                pj -= lj.float()
+        # Compute the fractional part (pj)
+        pj = b - l.float()
 
-                # Add mass to lower and upper bin
-                projected_dist[i, lj] += next_dist[i, j] * (1 - pj)
-                if uj < self.atoms:
-                    projected_dist[i, uj] += next_dist[i, j] * pj
+        # Create masks for valid upper bounds
+        valid_u_mask = u < self.atoms
+
+        # Use scatter_add_ to accumulate probabilities into the projected distribution
+        # For the lower bound (l)
+        projected_dist.scatter_add_(1, l, next_dist * (1 - pj))
+
+        # For the upper bound (u), only where valid
+        projected_dist.scatter_add_(
+            1,
+            torch.where(valid_u_mask, u, torch.zeros_like(u)),
+            next_dist * pj * valid_u_mask.float(),
+        )
 
         return projected_dist
 

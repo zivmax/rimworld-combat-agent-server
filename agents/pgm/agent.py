@@ -52,7 +52,7 @@ class PGAgent:
             self.current_transitions.append(
                 {
                     "state": states_tensor[i],
-                    "action": torch.tensor(actions).to(self.device),
+                    "action": torch.tensor(actions).to("cpu"),
                     "log_prob": log_probs,
                 }
             )
@@ -69,9 +69,9 @@ class PGAgent:
                 state=transition["state"],
                 action=transition["action"],
                 log_prob=transition["log_prob"],
-                reward=torch.tensor(reward).to(self.device),
-                next_state=torch.tensor(next_state).to(self.device),
-                done=torch.tensor(done).to(self.device),
+                reward=torch.tensor(reward).to("cpu"),
+                next_state=torch.tensor(next_state).to("cpu"),
+                done=torch.tensor(done).to("cpu"),
             )
         self.current_transitions = []
 

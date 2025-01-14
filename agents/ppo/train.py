@@ -135,11 +135,11 @@ def saving(
     )
 
 
-if __name__ == "__main__":
-    from viztracer import VizTracer
+from viztracer import VizTracer
 
-    tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
-    tracer.start()
+tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
+tracer.start()
+if __name__ == "__main__":
     try:
         main()
     finally:

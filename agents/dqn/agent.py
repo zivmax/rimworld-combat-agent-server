@@ -60,7 +60,7 @@ class DQNAgent:
 
         self.policy_net = DQN(self.obs_space, self.act_space).to(device)
         self.target_net = DQN(self.obs_space, self.act_space).to(device)
-        self.update_target_network()
+        self._update_target_network()
         self.target_net.eval()
         self.target_net_update_freq = 3000
 
@@ -70,6 +70,7 @@ class DQNAgent:
         self.loss_history: List[float] = []
         self.q_value_history: List[float] = []
         self.td_error_history: List[float] = []
+        self.kl_div_history: List[float] = []
         self.eps_threshold_history: List[float] = []
 
         self.steps = 0
@@ -93,11 +94,11 @@ class DQNAgent:
         dones: NDArray,
     ) -> None:
         for i in range(self.n_envs):
-            state = torch.from_numpy(states[i]).to(self.device)
-            next_state = torch.from_numpy(next_states[i]).to(self.device)
-            action = torch.tensor(actions[i]).to(self.device)
-            reward = torch.tensor(rewards[i]).to(self.device)
-            done = torch.tensor(dones[i]).to(self.device)
+            state = torch.from_numpy(states[i]).cpu()
+            next_state = torch.from_numpy(next_states[i]).cpu()
+            action = torch.tensor(actions[i]).cpu()
+            reward = torch.tensor(rewards[i]).cpu()
+            done = torch.tensor(dones[i]).cpu()
 
             # N-step returns
             self.n_step_buffer.append((state, next_state, action, reward, done))
@@ -110,8 +111,7 @@ class DQNAgent:
             rewards_n = [transition[3] for transition in self.n_step_buffer]
 
             # Get value estimate for final state
-            with torch.no_grad():
-                next_state_value = self.get_value_estimate(state_n)
+            next_state_value = self._get_value_estimate(state_n.to(self.device))
 
             n_step_return = self._compute_n_step_returns(
                 rewards_n, next_state_value, done
@@ -127,11 +127,16 @@ class DQNAgent:
 
             self.n_step_buffer.pop(0)
 
-    def get_value_estimate(self, state):
+    def _get_value_estimate(self, state: Tensor) -> Tensor:
         # Double Q-learning value estimate
         with torch.no_grad():
-            next_action = self.policy_net(state).argmax(1)
-            return self.target_net(state).gather(1, next_action.unsqueeze(1)).squeeze()
+            next_action = self.policy_net.forward(state.to(self.device)).argmax(1)
+            return (
+                self.target_net.forward(state.to(self.device))
+                .gather(1, next_action.unsqueeze(1))
+                .squeeze()
+                .cpu()
+            )
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)
@@ -160,15 +165,13 @@ class DQNAgent:
         # Handle exploitation using distributional Q-values
         elif len(self.memory) >= self.batch_size:
             with torch.no_grad():
-                states_tensor = torch.from_numpy(states).to(self.device)
+                states_tensor = torch.from_numpy(states)
                 # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
-                q_dist = self.policy_net(states_tensor)
+                q_dist = self.policy_net.forward(states_tensor.to(self.device)).cpu()
 
-                # Calculate expected Q-values
-                supports = torch.linspace(
-                    self.policy_net.v_min, self.policy_net.v_max, self.policy_net.atoms
-                ).to(self.device)
-                expected_q = torch.sum(q_dist * supports.view(1, 1, -1), dim=2)
+                expected_q = torch.sum(
+                    q_dist * self.policy_net.supports.view(1, 1, -1), dim=2
+                )
 
                 # Get actions with highest expected Q-values
                 outputs = expected_q.max(1)[1].cpu().numpy()
@@ -209,30 +212,38 @@ class DQNAgent:
             ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
 
             # Get Q-values for initial state-action pairs
-            q_values_batch = self.policy_net.forward(state_batch)
-            q_values_batch = q_values_batch.gather(
+            q_dist_batch = self.policy_net.forward(state_batch.to(self.device)).cpu()
+            expected_q = torch.sum(
+                q_dist_batch * self.policy_net.supports.view(1, 1, -1), dim=2
+            )
+            q_dist_batch = expected_q.gather(
                 1, action_idx_batch.long().unsqueeze(1)
             ).squeeze()
 
             with torch.no_grad():
-                next_q_values = self.target_net.forward(next_state_batch)
-                max_next_q_values = next_q_values.max(1)[0]
-
-                target_value_batch = reward_batch + torch.logical_not(
-                    done_batch
-                ) * max_next_q_values * (self.gamma**self.n_step)
+                next_dist = self.target_net.forward(next_state_batch.to(self.device))
+                next_action = (
+                    self.policy_net.forward(next_state_batch.to(self.device))
+                    .mean(dim=2)
+                    .argmax(dim=1)
+                )
+                next_dist = next_dist[torch.arange(next_dist.size(0)), next_action, :]
+                # Project the distribution using the supports, v_min, v_max, delta_z
+                target_dist_batch = self._project_distribution(
+                    next_dist,
+                    reward_batch,
+                    done_batch,
+                    self.policy_net.supports,
+                    self.gamma,
+                    self.n_step,
+                )
 
             # Calculate TD errors and loss
-            td_errors = q_values_batch - target_value_batch
+            td_errors = (q_dist_batch - target_dist_batch).to(self.device)
             loss = (
                 torch.tensor(weights, device=self.device)
-                * F.smooth_l1_loss(q_values_batch, target_value_batch, reduction="none")
+                * F.smooth_l1_loss(q_dist_batch, target_dist_batch, reduction="none")
             ).mean()
-
-            # Store history
-            self.loss_history.append(loss.item())
-            self.q_value_history.append(q_values_batch.mean().item())
-            self.td_error_history.append(td_errors.mean().item())
 
             # Optimize
             self.optimizer.zero_grad()
@@ -241,18 +252,51 @@ class DQNAgent:
                 param.grad.data.clamp_(-1, 1)
             self.optimizer.step()
 
-            # Update priorities
-            priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
+            # Update priorities using KL divergence
+            kl_div = F.kl_div(
+                F.log_softmax(q_dist_batch, dim=1),
+                F.softmax(target_dist_batch, dim=1),
+                reduction="none",
+            ).sum(dim=1)
+            priorities = kl_div.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
+
+            # Store history
+            self.loss_history.append(loss.item())
+            self.q_value_history.append(q_dist_batch.mean().item())
+            self.td_error_history.append(td_errors.mean().item())
+            self.kl_div_history.append(kl_div.mean().item())
 
             # Periodically update target network and reset noise
             if self.updates % self.target_net_update_freq == 0:
-                self.update_target_network()
+                self._update_target_network()
                 self.policy_net.reset_noise()
                 self.target_net.reset_noise()
 
-    def update_target_network(self) -> None:
+    def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def _project_distribution(self, next_dist, rewards, dones, supports, gamma, n_step):
+        batch_size = len(rewards)
+        projected_dist = torch.zeros((batch_size, len(supports)), device=self.device)
+
+        for i in range(batch_size):
+            T_z = min(supports.max().item(), max(supports.min().item(), rewards[i]))
+            b = (T_z - supports[0]) / (supports[1] - supports[0])
+            l, u = int(b), int(b) + 1
+
+            if dones[i]:
+                projected_dist[i][l] += next_dist[i] * (
+                    u + gamma * (supports[0] + n_step)
+                )
+                projected_dist[i][u] += next_dist[i] * (
+                    u + gamma * (supports[0] + n_step)
+                )
+            else:
+                projected_dist[i][l] += next_dist[i] * (u + gamma * supports[0])
+                projected_dist[i][u] += next_dist[i] * (u + gamma * supports[1])
+
+        return projected_dist
 
     def draw_model(self, save_path: str = "./training_history.png") -> None:
         # Create the directory if it does not exist
@@ -265,11 +309,12 @@ class DQNAgent:
                 "Loss": self.loss_history,
                 "Q-Value": self.q_value_history,
                 "TD Error": self.td_error_history,
+                "KL Divergence": self.kl_div_history,
             }
         )
 
         # Create subplots for each metric
-        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 16))
 
         # Plot loss
         sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax1)
@@ -282,6 +327,10 @@ class DQNAgent:
         # Plot TD errors
         sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax3)
         ax3.set_title("TD Error over Updates")
+
+        # Plot KL divergence
+        sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax4)
+        ax4.set_title("KL Divergence over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

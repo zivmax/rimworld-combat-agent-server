@@ -89,7 +89,7 @@ def main():
             # Calculate completed episodes while preventing overflow
             if done:
                 episode_count += 1
-                env.reset()
+                next_state, _ = env.reset()
                 # Update episode count and progress bar
                 pbar.update(1)
 

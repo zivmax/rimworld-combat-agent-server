@@ -151,7 +151,7 @@ class DQNAgent:
         """Get the value estimate for the next state-action pair."""
         with torch.no_grad():
             next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
-            next_action = self._get_expected_q_values(next_Q_dists).argmax()
+            next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
             target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
             return self._get_expected_q_values(target_dists)[next_action]
 

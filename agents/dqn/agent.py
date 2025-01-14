@@ -190,36 +190,39 @@ class DQNAgent:
 
             self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
+            # Sample from prioritized replay buffer
             transitions, indices, weights = self.memory.sample(
                 self.batch_size, self.beta
             )
             batch = self.Transition(*zip(*transitions))
 
+            # Stack batch elements
             state_batch = torch.stack(batch.states)
             next_state_batch = torch.stack(batch.next_states)
             action_batch = torch.stack(batch.actions)
-            reward_batch = torch.tensor(batch.rewards, device=self.device)
-            done_batch = torch.tensor(batch.done, device=self.device)
+            reward_batch = torch.stack(batch.rewards)
+            done_batch = torch.stack(batch.done)
 
+            # Convert actions to indices
             action_idx_batch: torch.Tensor = (
                 action_batch[:, 0] - self.act_space.low[0]
             ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
 
+            # Get Q-values for initial state-action pairs
             q_values_batch = self.policy_net.forward(state_batch)
             q_values_batch = q_values_batch.gather(
                 1, action_idx_batch.long().unsqueeze(1)
             ).squeeze()
 
             with torch.no_grad():
-                max_next_q_value_batch = (
-                    self.target_net.forward(next_state_batch).max(1)[0].detach()
-                )
+                next_q_values = self.target_net.forward(next_state_batch)
+                max_next_q_values = next_q_values.max(1)[0]
 
-            target_value_batch = (
-                reward_batch
-                + torch.logical_not(done_batch) * max_next_q_value_batch * self.gamma
-            )
+                target_value_batch = reward_batch + torch.logical_not(
+                    done_batch
+                ) * max_next_q_values * (self.gamma**self.n_step)
 
+            # Calculate TD errors and loss
             td_errors = q_values_batch - target_value_batch
             loss = (
                 torch.tensor(weights, device=self.device)
@@ -231,19 +234,20 @@ class DQNAgent:
             self.q_value_history.append(q_values_batch.mean().item())
             self.td_error_history.append(td_errors.mean().item())
 
+            # Optimize
             self.optimizer.zero_grad()
             loss.backward()
             for param in self.policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
             self.optimizer.step()
 
+            # Update priorities
             priorities = td_errors.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
 
+            # Periodically update target network and reset noise
             if self.updates % self.target_net_update_freq == 0:
                 self.update_target_network()
-
-                # Reset noisy layers
                 self.policy_net.reset_noise()
                 self.target_net.reset_noise()
 

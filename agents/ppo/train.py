@@ -144,4 +144,12 @@ def saving(
 
 
 if __name__ == "__main__":
-    main()
+    from viztracer import VizTracer
+
+    tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
+    tracer.start()
+    try:
+        main()
+    finally:
+        tracer.stop()
+        tracer.save("agents/ppo/logs/tracing.json")

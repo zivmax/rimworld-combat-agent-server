@@ -21,7 +21,6 @@ N_STEPS = int(40e4)
 SNAPSHOTS = 5
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
-UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,

@@ -21,11 +21,11 @@ from .model import DQN
 class DQNAgent:
     @dataclass
     class Transition:
-        states: Tensor
-        next_states: Tensor
-        actions: Tensor
-        rewards: Tensor
-        done: Tensor
+        state0s: Tensor
+        stateNs: Tensor
+        action0s: Tensor
+        rewardNs: Tensor
+        dones: Tensor
 
         def __iter__(self):
             return iter(astuple(self))
@@ -59,12 +59,20 @@ class DQNAgent:
         self.n_step_buffer = [deque(maxlen=self.n_step) for _ in range(self.n_envs)]
         self.gamma_n = self.gamma**self.n_step
 
+        self.v_range = 150
+        self.atoms = 102
+
         def create_dqn():
             net = DQN(
-                self.obs_space, self.act_space, v_max=150, v_min=-150, atoms=102
+                self.obs_space,
+                self.act_space,
+                v_max=self.v_range,
+                v_min=-self.v_range,
+                atoms=self.atoms,
             ).to(device)
             return net
 
+        self.supports = torch.linspace(-self.v_range, self.v_range, self.atoms)
         self.policy_net = create_dqn()
         self.target_net = create_dqn()
         self._update_target_network()
@@ -105,24 +113,20 @@ class DQNAgent:
                 return
 
             # Calculate n-step return
-            state_0, _, action_0, _, _ = self.n_step_buffer[i][0]
-            state_n = next_state
+            state0, _, action0, _, _ = self.n_step_buffer[i][0]
+            stateN = next_state
             rewards_n = [transition[3] for transition in self.n_step_buffer[i]]
 
             # Get value estimate for final state
             next_state_value = self._get_next_act_value_estimate(stateN.to(self.device))
 
-            n_step_return = self._compute_n_step_returns(
-                rewards_n, next_state_value, done
-            )
+            return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
 
             # Store transition with n-step return
             max_priority = (
                 max(self.memory.priorities) if self.memory.priorities else 1.0
             )
-            self.memory.push(
-                (state_0, state_n, action_0, n_step_return, done), max_priority
-            )
+            self.memory.push((state0, stateN, action0, return_n, done), max_priority)
 
             self.n_step_buffer[i].popleft()
 
@@ -176,17 +180,15 @@ class DQNAgent:
                 # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
                 q_dist = self.policy_net.forward(states_tensor.to(self.device)).cpu()
 
-                expected_q = torch.sum(
-                    q_dist * self.policy_net.supports.view(1, 1, -1), dim=2
-                )
+                expected_q = self._get_expected_q_values(q_dist)
 
                 # Get actions with highest expected Q-values
-                outputs = expected_q.max(1)[1].cpu().numpy()
+                raw_actions = expected_q.argmax(dim=1)
 
                 # Convert to 2D coordinates
                 width = self.act_space.high[0] - self.act_space.low[0] + 1
-                x = outputs % width + self.act_space.low[0]
-                y = outputs // width + self.act_space.low[1]
+                x = raw_actions % width + self.act_space.low[0]
+                y = raw_actions // width + self.act_space.low[1]
                 batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
@@ -207,19 +209,19 @@ class DQNAgent:
             batch = self.Transition(*zip(*transitions))
 
             # Stack batch elements
-            state_batch = torch.stack(batch.states)
-            next_state_batch = torch.stack(batch.next_states)
-            action_batch = torch.stack(batch.actions)
-            reward_batch = torch.stack(batch.rewards)
-            done_batch = torch.stack(batch.done)
+            states_batch = torch.stack(batch.state0s)
+            stateNs_batch = torch.stack(batch.stateNs)
+            action0s_batch = torch.stack(batch.action0s)
+            rewardNs_batch = torch.stack(batch.rewardNs)
+            dones_batch = torch.stack(batch.dones)
 
             # Convert actions to indices
             action_idx_batch: torch.Tensor = (
-                action_batch[:, 0] - self.act_space.low[0]
-            ) * self.act_space.high[0] + (action_batch[:, 1] - self.act_space.low[0])
+                action0s_batch[:, 0] - self.act_space.low[0]
+            ) * self.act_space.high[0] + (action0s_batch[:, 1] - self.act_space.low[0])
 
             # Get Q-values for initial state-action pairs
-            q_dist_batch = self.policy_net.forward(state_batch.to(self.device)).cpu()
+            q_dist_batch = self.policy_net.forward(states_batch.to(self.device)).cpu()
             expected_q = torch.sum(
                 q_dist_batch * self.policy_net.supports.view(1, 1, -1), dim=2
             )
@@ -228,9 +230,9 @@ class DQNAgent:
             ).squeeze()
 
             with torch.no_grad():
-                next_dist = self.target_net.forward(next_state_batch.to(self.device))
+                next_dist = self.target_net.forward(stateNs_batch.to(self.device))
                 next_action = (
-                    self.policy_net.forward(next_state_batch.to(self.device))
+                    self.policy_net.forward(stateNs_batch.to(self.device))
                     .mean(dim=2)
                     .argmax(dim=1)
                 )

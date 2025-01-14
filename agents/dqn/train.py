@@ -51,7 +51,9 @@ ENV_OPTIONS = EnvOptions(
 
 def main():
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=ports[0])
+    env = gym.make(
+        rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
+    )
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
@@ -61,7 +63,7 @@ def main():
         n_envs=N_ENVS,
         obs_space=env.observation_space,
         act_space=env.action_space[0],
-        device="cuda:1",
+        device="cuda:0",
     )
     agent.policy_net.train()
 

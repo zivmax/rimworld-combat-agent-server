@@ -61,7 +61,9 @@ def create_env():
 def main():
     n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=ports[0])
+    env = gym.make(
+        rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
+    )
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
@@ -80,7 +82,7 @@ def main():
         actions = agent.select_action(current_states)
 =======
     next_state, _ = env.reset()
-    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
         current_state = next_state
         actions = agent.select_action([current_state])
 >>>>>>> 6567439f8ba5d32e95043c12d3c23976c4a2948b

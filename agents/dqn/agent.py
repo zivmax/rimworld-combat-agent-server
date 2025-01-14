@@ -41,7 +41,7 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
+        self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
         self.gamma = 0.7
 
         self.batch_size = 1024

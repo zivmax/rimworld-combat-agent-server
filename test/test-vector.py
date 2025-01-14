@@ -15,7 +15,7 @@ def handle_keyboard_interrupt(signum, frame):
 
 signal.signal(signal.SIGINT, handle_keyboard_interrupt)
 
-N_EPISODES = 100  # Define the total number of episodes to train for
+N_EPISODES = 500  # Define the total number of episodes to train for
 N_ENV = 20  # Define the number of environments to run in parallel
 ENV_OPTIONS = EnvOptions(
     action_range=1,

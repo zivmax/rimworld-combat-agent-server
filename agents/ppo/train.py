@@ -50,7 +50,6 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
-    n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     env = gym.make(
         rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
@@ -58,7 +57,7 @@ def main():
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
-    env = RecordEpisodeStatistics(env, buffer_length=n_steps)
+    env = RecordEpisodeStatistics(env, buffer_length=N_STEPS)
     register_keyboard_interrupt(env)
     agent = Agent(
         n_envs=N_ENVS,
@@ -67,7 +66,7 @@ def main():
     )
 
     next_state, _ = env.reset()
-    for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
+    for step in tqdm(range(1, N_STEPS + 1), desc="Training Progress (Steps)"):
         current_state = next_state
         actions = agent.select_action([current_state])
 

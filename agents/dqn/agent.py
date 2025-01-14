@@ -66,7 +66,7 @@ class DQNAgent:
         self.beta_increment_per_sampling = 0.001
 
         self.n_step = 4
-        self.n_step_buffer: Deque[Tensor] = [
+        self.n_step_buffer: List[Deque[Tensor]] = [
             deque(maxlen=self.n_step) for _ in range(self.n_envs)
         ]
         self.gamma_n = self.gamma**self.n_step

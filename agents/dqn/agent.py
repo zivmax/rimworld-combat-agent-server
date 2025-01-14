@@ -92,6 +92,8 @@ class DQNAgent:
             self.memory.push((state, next_state, action, reward, done), max_priority)
 
     def act(self, states: NDArray) -> NDArray:
+        states = np.array(states)
+
         assert self.obs_space.contains(
             states[0]
         ), f"Invalid state: {states[0]} not in {self.obs_space}."

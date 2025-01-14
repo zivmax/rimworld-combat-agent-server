@@ -10,10 +10,10 @@ from .config import RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
 from .server import GameServer
 
 logging_level = STATE_COLLECTOR_LOGGING_LEVEL
-f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
+f_logger = get_file_logger(__name__, f"env/logs/states/{timestamp}.log", logging_level)
 cli_logger = get_cli_logger(__name__, logging_level)
 
-logger = cli_logger
+logger = f_logger
 
 
 @dataclass

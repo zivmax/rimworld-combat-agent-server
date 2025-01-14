@@ -1,7 +1,7 @@
 import gymnasium as gym
 from tqdm import tqdm
 from gymnasium.wrappers import RecordEpisodeStatistics, FrameStackObservation
-from agents.pg import PGAgent as Agent
+from agents.pgm import PGAgent as Agent
 from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp

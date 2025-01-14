@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from agents.pg import PGAgent as Agent  # Updated import path
+from agents.pgm import PGAgent as Agent  # Updated import path
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from env.wrappers import (
     FrameStackObservation,

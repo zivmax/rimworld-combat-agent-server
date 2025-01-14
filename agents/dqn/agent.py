@@ -133,14 +133,14 @@ class DQNAgent:
     def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
         # Distributional DQN value estimate
         with torch.no_grad():
-            next_dist = self.policy_net.forward(
+            next_Q_dists = self.policy_net.forward(
                 state.unsqueeze(0).to(self.device)
             ).cpu()
-            next_action = self._get_expected_q_values(next_dist).argmax()
-            target_dist = self.target_net.forward(
+            next_action = self._get_expected_q_values(next_Q_dists).argmax()
+            target_dists = self.target_net.forward(
                 state.unsqueeze(0).to(self.device)
             ).cpu()
-            return self._get_expected_q_values(target_dist)[next_action]
+            return self._get_expected_q_values(target_dists)[next_action]
 
     def _compute_n_step_reward(self, rewards, next_value, done):
         n_step_reward = next_value
@@ -185,12 +185,12 @@ class DQNAgent:
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states)
                 # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
-                q_dist = self.policy_net.forward(states_tensor.to(self.device)).cpu()
+                Q_dists = self.policy_net.forward(states_tensor.to(self.device)).cpu()
 
-                expected_q = self._get_expected_q_values(q_dist)
+                expected_Qs = self._get_expected_q_values(Q_dists)
 
                 # Get actions with highest expected Q-values
-                raw_actions = expected_q.argmax(dim=1)
+                raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
                 width = self.act_space.high[0] - self.act_space.low[0] + 1

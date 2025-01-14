@@ -138,4 +138,4 @@ if __name__ == "__main__":
         main()
     finally:
         tracer.stop()
-        tracer.save("agents/ppo/logs/tracing.json")
+        tracer.save(f"agents/ppo/logs/tracing/{timestamp}.json")

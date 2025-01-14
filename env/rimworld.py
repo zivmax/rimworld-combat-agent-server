@@ -18,14 +18,6 @@ from .action import GameAction, PawnAction
 from .game import Game, GameOptions
 from .config import RESTART_INTERVAL, RIMWORLD_LOGGING_LEVEL
 
-logging_level = RIMWORLD_LOGGING_LEVEL
-f_logger = get_file_logger(
-    __name__, f"env/logs/rimworld/{timestamp}.log", logging_level
-)
-cli_logger = get_cli_logger(__name__, logging_level)
-
-logger = f_logger
-
 
 def register_keyboard_interrupt(env: gym.Env):
     def handle_keyboard_interrupt(env: gym.Env, signum, frame):
@@ -72,6 +64,14 @@ class RimWorldEnv(gym.Env):
     ):
         super().__init__()
 
+        logging_level = RIMWORLD_LOGGING_LEVEL
+        f_logger = get_file_logger(
+            __name__, f"env/logs/rimworld/{timestamp}/{port}.log", logging_level
+        )
+        cli_logger = get_cli_logger(__name__, logging_level)
+
+        self.logger = f_logger
+
         sleep(bootsleep)
 
         if render_mode not in ["headless", "human"]:
@@ -93,17 +93,17 @@ class RimWorldEnv(gym.Env):
         self._steped_times: int = 0
         self._render_mode = render_mode
         self._game: Game = None
-
         self._options = options if options else EnvOptions()
+        self._port = GameServer.find_available_port(port)
 
-        port = GameServer.find_available_port(port)
+        StateCollector.init(self._port)
         self._server_thread, self._server = GameServer.create_server_thread(
             self._options.is_remote,
-            port=port,
+            port=self._port,
         )
 
         if self._render_mode == "headless":
-            self._options.game.server_port = port
+            self._options.game.server_port = self._port
             self._options.game.server_addr = addr
             self._game = Game(
                 game_path="/mnt/game/RimWorldLinux",
@@ -113,7 +113,9 @@ class RimWorldEnv(gym.Env):
             self._game.launch()
 
         while not StateCollector.receive_state(self._server, reseting=True):
-            logger.warning(f"Game init response time timeout, but still waiting...")
+            self.logger.warning(
+                f"Game init response time timeout, but still waiting..."
+            )
 
         self._update_all()
 
@@ -178,7 +180,7 @@ class RimWorldEnv(gym.Env):
             },
         }
         self._server.send_to_client(message)
-        logger.info(f"Waiting for reset at tick {StateCollector.state.tick}")
+        self.logger.info(f"Waiting for reset at tick {StateCollector.state.tick}")
 
         super().reset(
             seed=seed, options=options
@@ -186,18 +188,18 @@ class RimWorldEnv(gym.Env):
 
         StateCollector.reset()
         while not StateCollector.receive_state(self._server, reseting=True):
-            logger.warning(f"Timeout to reset the game, restarting the game.")
+            self.logger.warning(f"Timeout to reset the game, restarting the game.")
             self._restart_game()
-            logger.info(f"Restarted the client game.")
+            self.logger.info(f"Restarted the client game.")
         else:
-            logger.info(f"Client game reset, done {self._reset_times} times.")
+            self.logger.info(f"Client game reset, done {self._reset_times} times.")
             self._reset_times += 1
             self._steped_times = 0
 
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
-            logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
+            self.logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
             self._restart_game()
-            logger.info(f"Restarted the client game.")
+            self.logger.info(f"Restarted the client game.")
             self._reset_times = 0
 
         self._update_all()
@@ -236,13 +238,13 @@ class RimWorldEnv(gym.Env):
             },
         }
 
-        logger.debug(
+        self.logger.debug(
             f"Sent action to clients at tick {StateCollector.state.tick}: {to_json(game_action)}"
         )
         self._server.send_to_client(message)
-        logger.debug(f"Waiting for response at tick {StateCollector.state.tick}")
+        self.logger.debug(f"Waiting for response at tick {StateCollector.state.tick}")
         if not StateCollector.receive_state(self._server, reseting=False):
-            logger.warning(f"Timeout to receive response, restarting the game.")
+            self.logger.warning(f"Timeout to receive response, restarting the game.")
             self._restart_game()
             self._reset_times = 0
             return self._get_obs(), 0, False, True, self._get_info()
@@ -273,10 +275,12 @@ class RimWorldEnv(gym.Env):
         StateCollector.reset()
         self._game.restart()
         while not StateCollector.receive_state(self._server, reseting=True):
-            logger.warning(f"Game init response time timeout, but still waiting...")
+            self.logger.warning(
+                f"Game init response time timeout, but still waiting..."
+            )
 
         self._update_all()
-        logger.info(f"Restarted the client game.")
+        self.logger.info(f"Restarted the client game.")
 
     def _update_allies(self):
         self._allies_prev = self._allies

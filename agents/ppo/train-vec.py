@@ -47,12 +47,7 @@ ENV_OPTIONS = EnvOptions(
 )
 
 
-def create_env():
-    return gym.make(rimworld_env, options=ENV_OPTIONS, render_mode="headless")
-
-
 def main():
-    n_steps = int(N_STEPS / N_ENVS)
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
     envs = AsyncVectorEnv(
         [
@@ -65,7 +60,7 @@ def main():
 
     envs = FrameStackObservation(envs, stack_size=8)
     envs = SwapObservationAxes(envs, swap=(0, 1))
-    envs = RecordEpisodeStatistics(envs, buffer_length=n_steps)
+    envs = RecordEpisodeStatistics(envs, buffer_length=N_STEPS)
     register_keyboard_interrupt(envs)
     agent = Agent(
         n_envs=N_ENVS,
@@ -74,29 +69,32 @@ def main():
     )
 
     next_states, _ = envs.reset()
-    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
-        current_states = next_states
-        actions = agent.select_action(current_states)
+    with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
+        for step in range(1, int(N_STEPS / N_ENVS) + 1):
+            current_states = next_states
+            actions = agent.select_action(current_states)
 
-        actions = {
-            0: [actions[i] for i in range(N_ENVS)],
-        }
-        next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
-        dones = np.logical_or(terminateds, truncateds)
+            actions = {
+                0: [actions[i] for i in range(N_ENVS)],
+            }
+            next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
+            dones = np.logical_or(terminateds, truncateds)
 
-        for i in range(N_ENVS):
-            agent.store_transition(rewards[i], next_states[i], dones[i])
+            for i in range(N_ENVS):
+                agent.store_transition(rewards[i], next_states[i], dones[i])
 
-        if step % UPDATE_INTERVAL == 0:
-            agent.update()
+            if step % UPDATE_INTERVAL == 0:
+                agent.update()
 
-        if step % SAVING_INTERVAL == 0 and step > 0:
-            agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
-            draw(
-                envs,
-                save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
-            )
-            saving(envs, agent, timestamp, step)
+            if step % SAVING_INTERVAL == 0 and step > 0:
+                agent.policy.save(f"agents/ppo/models/{timestamp}/{step:04d}.pth")
+                draw(
+                    envs,
+                    save_path=f"agents/ppo/plots/env/{timestamp}/{step:04d}.png",
+                )
+                saving(envs, agent, timestamp, step)
+
+            pbar.update(N_ENVS)
 
     envs.close()
 

@@ -62,6 +62,13 @@
                 "console": "integratedTerminal"
             },
             {
+                "name": "PPO-Train-Vec",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.ppo.train-vec",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "PPO-Deploy",
                 "type": "debugpy",
                 "request": "launch",

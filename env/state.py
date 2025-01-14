@@ -226,9 +226,7 @@ class StateCollector:
     @classmethod
     def receive_state(cls, server: GameServer) -> bool:
         start_time = time()
-        while True:
-            if time() - start_time > RESET_TIMEOUT:
-                return False
+        while time() - start_time <= RESET_TIMEOUT:
             if server.client is None:
                 cls.reset()
                 continue
@@ -255,5 +253,7 @@ class StateCollector:
                 )
                 logger.debug(f"Game status (tick {cls.state.tick}): {cls.state.status}")
                 break
+        else:
+            return False
 
         return True

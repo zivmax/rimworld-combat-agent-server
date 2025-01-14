@@ -21,6 +21,7 @@ from .config import RESTART_INTERVAL, RIMWORLD_LOGGING_LEVEL
 
 def register_keyboard_interrupt(env: gym.Env):
     def handle_keyboard_interrupt(env: gym.Env, signum, frame):
+        print("KeyboardInterrupt: Stopping the environment...")
         env.close()
         sys.exit(0)
 

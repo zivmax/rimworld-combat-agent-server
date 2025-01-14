@@ -12,8 +12,8 @@ from env.wrappers.vector import FrameStackObservation, SwapObservationAxes
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-N_ENVS = 10
-N_STEPS = int(2e5)
+N_ENVS = 1
+N_STEPS = int(40)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
 UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
 
@@ -74,7 +74,7 @@ def main():
     )
 
     next_states, _ = envs.reset()
-    for step in tqdm(range(1, n_steps + 2), desc="Training Progress"):
+    for step in tqdm(range(1, n_steps + 1), desc="Training Progress"):
         current_states = next_states
         actions = agent.select_action(current_states)
 

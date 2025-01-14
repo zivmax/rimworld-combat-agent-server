@@ -12,3 +12,4 @@ env/**/logs/
 *.png
 /result.json
 /agents.*.json
+*.json

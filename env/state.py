@@ -6,10 +6,10 @@ from time import time
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
-from .config import RESET_TIMEOUT
+from .config import RESET_TIMEOUT, STATE_COLLECTOR_LOGGING_LEVEL
 from .server import GameServer
 
-logging_level = logging.INFO
+logging_level = STATE_COLLECTOR_LOGGING_LEVEL
 f_logger = get_file_logger(__name__, f"env/logs/server/{timestamp}.log", logging_level)
 cli_logger = get_cli_logger(__name__, logging_level)
 

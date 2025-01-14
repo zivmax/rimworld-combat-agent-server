@@ -236,7 +236,7 @@ class DQNAgent:
             batch = self.Transition(*zip(*transitions))
 
             # Stack batch elements
-            states_batch = torch.stack(batch.state0s)
+            state0s_batch = torch.stack(batch.state0s)
             stateNs_batch = torch.stack(batch.stateNs)
             action0s_batch = torch.stack(batch.action0s)
             rewardNs_batch = torch.stack(batch.rewardNs)
@@ -249,23 +249,15 @@ class DQNAgent:
             )
 
             # Get Q-values for initial state-action pairs
-            q_dist_batch = self.policy_net.forward(states_batch.to(self.device)).cpu()
-            expected_q = torch.sum(
-                q_dist_batch * self.policy_net.supports.view(1, 1, -1), dim=2
-            )
-            q_dist_batch = expected_q.gather(
-                1, action_idx_batch.long().unsqueeze(1)
-            ).squeeze()
+            q_dist_batch = self.policy_net.forward(state0s_batch.to(self.device)).cpu()
+            q_dist_batch = q_dist_batch[
+                torch.arange(q_dist_batch.size(0)), action_idx_batch.long(), :
+            ]
 
             with torch.no_grad():
-                next_dist = self.target_net.forward(stateNs_batch.to(self.device))
-                next_action = (
-                    self.policy_net.forward(stateNs_batch.to(self.device))
-                    .mean(dim=2)
-                    .argmax(dim=1)
-                )
+                next_dist = self.target_net.forward(stateNs_batch.to(self.device)).cpu()
+                next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
                 next_dist = next_dist[torch.arange(next_dist.size(0)), next_action, :]
-                # Project the distribution using the supports, v_min, v_max, delta_z
                 target_dist_batch = self._project_distribution(
                     next_dist,
                     rewardNs_batch,
@@ -274,9 +266,13 @@ class DQNAgent:
 
             # Calculate TD errors and loss
             td_errors = (q_dist_batch - target_dist_batch).to(self.device)
-            loss = (
-                torch.tensor(weights, device=self.device)
-                * F.smooth_l1_loss(q_dist_batch, target_dist_batch, reduction="none")
+            loss: Tensor = (
+                torch.tensor(weights).to(self.device).unsqueeze(1)
+                * F.smooth_l1_loss(
+                    q_dist_batch,
+                    target_dist_batch,
+                    reduction="none",
+                ).to(self.device)
             ).mean()
 
             # Optimize

@@ -255,8 +255,7 @@ class DQNAgent:
             # Optimize
             self.optimizer.zero_grad()
             loss.backward()
-            for param in self.policy_net.parameters():
-                param.grad.data.clamp_(-1, 1)
+            torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
             self.optimizer.step()
 
             # Update priorities using KL divergence

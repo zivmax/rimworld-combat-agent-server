@@ -5,7 +5,6 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import os
-from viztracer import VizTracer
 
 from agents.ppo import PPOAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
@@ -136,9 +135,13 @@ def saving(
     )
 
 
+from viztracer import VizTracer
+
+tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
+tracer.start()
 if __name__ == "__main__":
-    tracer = VizTracer(ignore_frozen=True, ignore_c_function=True)
-    tracer.start()
-    main()
-    tracer.stop()
-    tracer.save("agents/ppo/logs/trace.json")
+    try:
+        main()
+    finally:
+        tracer.stop()
+        tracer.save("agents/ppo/logs/tracing.json")

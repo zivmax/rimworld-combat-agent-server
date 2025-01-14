@@ -301,27 +301,35 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def _project_distribution(self, next_dist: Tensor, rewards: Tensor, dones: Tensor):
-        rewards = rewards.unsqueeze(1).expand_as(next_dist)
-        dones = dones.unsqueeze(1).expand_as(next_dist)
-        supports = self.supports.unsqueeze(0).expand_as(next_dist)
+        v_min, v_max = -self.v_range, self.v_range
+        delta_z = (v_max - v_min) / (self.atoms - 1)
 
-        Tz = rewards + (1 - dones) * self.gamma_n * supports
-        Tz = Tz.clamp(min=self.policy_net.v_min, max=self.policy_net.v_max)
-        b = (Tz - self.policy_net.v_min) / self.policy_net.delta_z
+        batch_size = next_dist.size(0)
+        device = next_dist.device
+
+        # Create a buffer for the projected distribution
+        projected_dist = torch.zeros((batch_size, self.atoms), device=device)
+
+        # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
+        t_z = rewards.unsqueeze(1) + (
+            torch.logical_not(dones).unsqueeze(1)
+        ) * self.gamma_n * self.supports.view(1, -1).to(device)
+        t_z = torch.clamp(t_z, v_min, v_max)
+
+        # Distribute probabilities for each atom
+        b = (t_z - v_min) / delta_z
         l = b.floor().long()
         u = b.ceil().long()
 
-        projected_dist = torch.zeros_like(next_dist)
-        projected_dist.view(-1).index_add_(
-            0,
-            (l + self.policy_net.supports.size(0) * torch.arange(self.batch_size)),
-            (next_dist * (u.float() - b)).view(-1),
-        )
-        projected_dist.view(-1).index_add_(
-            0,
-            (u + self.policy_net.supports.size(0) * torch.arange(self.batch_size)),
-            (next_dist * (b - l.float())).view(-1),
-        )
+        for i in range(batch_size):
+            for j in range(self.atoms):
+                pj, lj, uj = b[i, j], l[i, j], u[i, j]
+                pj -= lj.float()
+
+                # Add mass to lower and upper bin
+                projected_dist[i, lj] += next_dist[i, j] * (1 - pj)
+                if uj < self.atoms:
+                    projected_dist[i, uj] += next_dist[i, j] * pj
 
         return projected_dist
 

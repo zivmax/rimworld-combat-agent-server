@@ -156,16 +156,27 @@ class DQNAgent:
             batch_actions = np.array(
                 [self.act_space.sample() for _ in range(self.n_envs)]
             )
-        # Handle exploitation
+
+        # Handle exploitation using distributional Q-values
         elif len(self.memory) >= self.batch_size:
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states).to(self.device)
-                outputs = self.policy_net.forward(states_tensor).max(1)[1].cpu().numpy()
-                width = self.act_space.high[0] - self.act_space.low[0] + 1
+                # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
+                q_dist = self.policy_net(states_tensor)
 
+                # Calculate expected Q-values
+                supports = torch.linspace(
+                    self.policy_net.v_min, self.policy_net.v_max, self.policy_net.atoms
+                ).to(self.device)
+                expected_q = torch.sum(q_dist * supports.view(1, 1, -1), dim=2)
+
+                # Get actions with highest expected Q-values
+                outputs = expected_q.max(1)[1].cpu().numpy()
+
+                # Convert to 2D coordinates
+                width = self.act_space.high[0] - self.act_space.low[0] + 1
                 x = outputs % width + self.act_space.low[0]
                 y = outputs // width + self.act_space.low[1]
-
                 batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions

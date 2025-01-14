@@ -155,7 +155,9 @@ class DQNAgent:
             target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
             return self._get_expected_q_values(target_dists)[next_action]
 
-    def _compute_n_step_reward(self, rewards, next_value, done):
+    def _compute_n_step_reward(
+        self, rewards: List[Tensor], next_value: Tensor, done: Tensor
+    ) -> Tensor:
         """Compute the n-step return for a given trajectory."""
         n_step_reward = next_value
         for reward in reversed(rewards):

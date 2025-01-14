@@ -133,9 +133,13 @@ class DQNAgent:
     def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
         # Distributional DQN value estimate
         with torch.no_grad():
-            next_dist = self.policy_net.forward(state.unsqueeze(0).to(self.device))
+            next_dist = self.policy_net.forward(
+                state.unsqueeze(0).to(self.device)
+            ).cpu()
             next_action = self._get_expected_q_values(next_dist).argmax(dim=1)
-            target_dist = self.target_net.forward(state.unsqueeze(0).to(self.device))
+            target_dist = self.target_net.forward(
+                state.unsqueeze(0).to(self.device)
+            ).cpu()
             return self._get_expected_q_values(target_dist)[next_action]
 
     def _compute_n_step_reward(self, rewards, next_value, done):
@@ -147,7 +151,8 @@ class DQNAgent:
         return n_step_reward
 
     def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
-        return torch.sum(q_dist * self.policy_net.supports.view(1, 1, -1), dim=2).cpu()
+        assert q_dist.is_cpu, "Expected q_dist to be on CPU."
+        return torch.sum(q_dist * self.policy_net.supports.view(1, 1, -1), dim=2)
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)

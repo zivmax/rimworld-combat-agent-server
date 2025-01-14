@@ -35,7 +35,6 @@ class DQNAgent:
         obs_space: Box,
         act_space: Box,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        n_step=3,
     ) -> None:
         self.device = device
         self.n_envs = n_envs
@@ -55,9 +54,9 @@ class DQNAgent:
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
 
-        self.steps = 0
-        self.updates = 0
-        self.explore = True
+        self.n_step = 3
+        self.n_step_buffer = []
+        self.gamma_n = self.gamma**self.n_step
 
         self.policy_net = DQN(self.obs_space, self.act_space).to(device)
         self.target_net = DQN(self.obs_space, self.act_space).to(device)
@@ -73,9 +72,9 @@ class DQNAgent:
         self.td_error_history: List[float] = []
         self.eps_threshold_history: List[float] = []
 
-        self.n_step = n_step
-        self.n_step_buffer = []
-        self.gamma_n = self.gamma**self.n_step
+        self.steps = 0
+        self.updates = 0
+        self.explore = True
 
     def _compute_n_step_returns(self, rewards, next_value, done):
         n_step_return = next_value
@@ -201,8 +200,11 @@ class DQNAgent:
             ).squeeze()
 
             with torch.no_grad():
+                next_actions = self.policy_net.forward(next_state_batch).argmax(1)
                 max_next_q_value_batch = (
-                    self.target_net.forward(next_state_batch).max(1)[0].detach()
+                    self.target_net.forward(next_state_batch)
+                    .gather(1, next_actions.unsqueeze(1))
+                    .squeeze()
                 )
 
             target_value_batch = (

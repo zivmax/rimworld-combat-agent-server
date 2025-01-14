@@ -41,6 +41,13 @@
                 "console": "integratedTerminal"
             },
             {
+                "name": "DQN-Train-Vec",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.dqn.train-vec",
+                "console": "integratedTerminal"
+            },
+            {
                 "name": "DQN-Deploy",
                 "type": "debugpy",
                 "request": "launch",

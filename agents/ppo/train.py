@@ -1,5 +1,4 @@
 import gymnasium as gym
-from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
 import pandas as pd
 import numpy as np

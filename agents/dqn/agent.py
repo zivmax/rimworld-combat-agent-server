@@ -272,24 +272,22 @@ class DQNAgent:
             batch = self.Transition(*zip(*transitions))
 
             # Stack batch elements
-            state0s_batch = torch.stack(batch.state0s)
-            stateNs_batch = torch.stack(batch.stateNs)
-            action0s_batch = torch.stack(batch.action0s)
-            rewardNs_batch = torch.stack(batch.rewardNs)
-            dones_batch = torch.stack(batch.dones)
+            state0_batch = torch.stack(batch.state0s)
+            stateN_batch = torch.stack(batch.stateNs)
+            action0_batch = torch.stack(batch.action0s)
+            rewardN_batch = torch.stack(batch.rewardNs)
+            done_batch = torch.stack(batch.dones)
 
             # Convert 2D coordinates to action indices
-            action_idx_batch = self._coord_to_index_batch(action0s_batch)
+            action_idx_batch = self._coord_to_index_batch(action0_batch)
             # Get Q-values for initial state-action pairs
-            Q_dists_batch = self.policy_net.forward(state0s_batch.to(self.device))
+            Q_dists_batch = self.policy_net.forward(state0_batch.to(self.device))
             Q_dists_batch = Q_dists_batch[
                 torch.arange(Q_dists_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_dists_batch = self.target_net.forward(
-                    stateNs_batch.to(self.device)
-                )
+                next_dists_batch = self.target_net.forward(stateN_batch.to(self.device))
                 next_action_batch = self._get_expected_q_values(
                     next_dists_batch.to(self.device)
                 ).argmax(dim=1)
@@ -298,8 +296,8 @@ class DQNAgent:
                 ]
                 T_dist_batch = self._project_distribution(
                     next_dists_batch.to(self.device),
-                    rewardNs_batch.to(self.device),
-                    dones_batch.to(self.device),
+                    rewardN_batch.to(self.device),
+                    done_batch.to(self.device),
                 )
 
             # Calculate TD errors and loss

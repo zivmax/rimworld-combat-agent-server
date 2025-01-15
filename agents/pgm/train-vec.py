@@ -134,15 +134,15 @@ def saving(
         }
     )
 
-    os.makedirs(f"agents/ppo/histories/{timestamp}/env/", exist_ok=True)
-    os.makedirs(f"agents/ppo/histories/{timestamp}/training/", exist_ok=True)
+    os.makedirs(f"agents/pgm/histories/{timestamp}/env/", exist_ok=True)
+    os.makedirs(f"agents/pgm/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/env/{episode}.csv",
+        f"agents/pgm/histories/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/training/{episode}.csv", index=False
+        f"agents/pgm/histories/{timestamp}/training/{episode}.csv", index=False
     )
 
 
@@ -156,4 +156,4 @@ if __name__ == "__main__":
     finally:
         envs.close()
         tracer.stop()
-        tracer.save(f"agents/ppo/tracing/{timestamp}.json")
+        tracer.save(f"agents/pgm/tracing/{timestamp}.json")

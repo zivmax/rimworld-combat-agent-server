@@ -27,6 +27,7 @@ class PGAgent:
         self.device = device
         self.gamma = 0.975
         self.entropy_coef = 0.05
+        self.k_epochs = 5
         self.policy_loss_history = []
         self.entropy_histroy = []
         self.loss_history = []
@@ -84,45 +85,45 @@ class PGAgent:
         )
 
     def train(self) -> None:
+        for _ in range(self.k_epochs):
+            returns = []
+            G = 0
+            for transition in self.memory.transitions:
+                reward, done = transition.reward.to(self.device), transition.done.to(
+                    self.device
+                )
+                if done:
+                    G = 0
+                G = reward + self.gamma * G
+                returns.insert(0, G)
+            returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
-        returns = []
-        G = 0
-        for transition in self.memory.transitions:
-            reward, done = transition.reward.to(self.device), transition.done.to(
+            # Calculate policy loss
+            log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
                 self.device
             )
-            if done:
-                G = 0
-            G = reward + self.gamma * G
-            returns.insert(0, G)
-        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
-        returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+            policy_loss = -torch.sum(log_probs * returns) / len(returns)
 
-        # Calculate policy loss
-        log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
-            self.device
-        )
-        policy_loss = -torch.sum(log_probs * returns) / len(returns)
+            # Calculate entropy (optional for exploration)
+            entropy = torch.stack(
+                [log_prob.exp() * log_prob for log_prob in log_probs]
+            ).mean()
+            entropy_loss = -self.entropy_coef * entropy
 
-        # Calculate entropy (optional for exploration)
-        entropy = torch.stack(
-            [log_prob.exp() * log_prob for log_prob in log_probs]
-        ).mean()
-        entropy_loss = -self.entropy_coef * entropy
+            # Total loss
+            loss = policy_loss + entropy_loss
 
-        # Total loss
-        loss = policy_loss + entropy_loss
+            # Backpropagation
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-        # Backpropagation
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        # Logging
-        self.policy_loss_history.append(policy_loss.item())
-        self.entropy_histroy.append(entropy.item())
-        self.loss_history.append(loss.item())
-        self.n_returns_history.append(returns.mean().item())
+            # Logging
+            self.policy_loss_history.append(policy_loss.item())
+            self.entropy_histroy.append(entropy.item())
+            self.loss_history.append(loss.item())
+            self.n_returns_history.append(returns.mean().item())
 
         # Clear memory
         self.memory.clear()

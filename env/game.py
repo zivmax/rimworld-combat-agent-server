@@ -9,6 +9,7 @@ import logging
 
 from utils.timestamp import timestamp
 from utils.logger import get_cli_logger, get_file_logger
+from .config import FULL_RESET_INTERVAL
 
 logging_level = logging.INFO
 f_logger = get_file_logger(__name__, f"env/logs/manager/{timestamp}.log", logging_level)
@@ -100,6 +101,7 @@ class Game:
             "-systemallocator",
             "-quicktest",
             "-headless=True",
+            f"-f-reset-interval={FULL_RESET_INTERVAL}"
             f"-server-addr={self.options.server_addr}",
             f"-server-port={self.options.server_port}",
             f"-agent-control={self.options.agent_control}",

@@ -31,7 +31,6 @@ class PPOAgent:
         self.entropy_coef = 0.05
         self.critic_coef = 1.0
         self.batch_size = 1024
-        self.reuse_time = 8
         self.state_values_store = []
         self.policy_loss_history = []
         self.value_loss_history = []
@@ -118,67 +117,70 @@ class PPOAgent:
         )
 
     def train(self) -> None:
-        states = torch.stack([t.state for t in self.memory.transitions])
-        actions = torch.stack([t.action for t in self.memory.transitions])
-        old_log_probs = torch.stack([t.log_prob for t in self.memory.transitions])
-        rewards = torch.stack([t.reward for t in self.memory.transitions])
-        dones = torch.stack([t.done for t in self.memory.transitions])
+        for _ in range(self.k_epochs):
+            states = torch.stack([t.state for t in self.memory.transitions])
+            actions = torch.stack([t.action for t in self.memory.transitions])
+            old_log_probs = torch.stack([t.log_prob for t in self.memory.transitions])
+            rewards = torch.stack([t.reward for t in self.memory.transitions])
+            dones = torch.stack([t.done for t in self.memory.transitions])
 
-        returns, advantages = self.compute_advantages(rewards, dones)
+            returns, advantages = self.compute_advantages(rewards, dones)
 
-        batch_size = min(self.batch_size, len(self.memory.transitions))
+            batch_size = min(self.batch_size, len(self.memory.transitions))
 
-        dataset = torch.utils.data.TensorDataset(
-            states, actions, old_log_probs, returns, advantages
-        )
-        loader = torch.utils.data.DataLoader(
-            dataset, batch_size=batch_size, shuffle=True
-        )
-
-        for batch in loader:
-            (
-                batch_states,
-                batch_actions,
-                batch_old_log_probs,
-                batch_returns,
-                batch_advantages,
-            ) = batch
-
-            batch_states = batch_states.to(self.device)
-            batch_actions = batch_actions.to(self.device)
-            batch_old_log_probs = batch_old_log_probs.to(self.device)
-            batch_returns = batch_returns.to(self.device)
-            batch_advantages = batch_advantages.to(self.device)
-
-            log_probs, entropy, state_values = self.policy.evaluate(batch_states)
-
-            ratios = torch.exp(log_probs - batch_old_log_probs.detach())
-
-            surr1 = ratios * batch_advantages
-            surr2 = (
-                torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
-                * batch_advantages
+            dataset = torch.utils.data.TensorDataset(
+                states, actions, old_log_probs, returns, advantages
+            )
+            loader = torch.utils.data.DataLoader(
+                dataset, batch_size=batch_size, shuffle=True
             )
 
-            entropy_bonus = self.entropy_coef * entropy
+            for batch in loader:
+                (
+                    batch_states,
+                    batch_actions,
+                    batch_old_log_probs,
+                    batch_returns,
+                    batch_advantages,
+                ) = batch
 
-            actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+                batch_states = batch_states.to(self.device)
+                batch_actions = batch_actions.to(self.device)
+                batch_old_log_probs = batch_old_log_probs.to(self.device)
+                batch_returns = batch_returns.to(self.device)
+                batch_advantages = batch_advantages.to(self.device)
 
-            critic_loss = self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
+                log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
-            loss = actor_loss + critic_loss
+                ratios = torch.exp(log_probs - batch_old_log_probs.detach())
 
-            self.optimizer.zero_grad()
-            loss.mean().backward()
-            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=1.0)
+                surr1 = ratios * batch_advantages
+                surr2 = (
+                    torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
+                    * batch_advantages
+                )
 
-            self.optimizer.step()
+                entropy_bonus = self.entropy_coef * entropy
 
-            self.policy_loss_history.append(actor_loss.mean().item())
-            self.value_loss_history.append(critic_loss.mean().item())
-            self.loss_history.append(loss.mean().item())
-            self.entropy_history.append(entropy.mean().item())
-            self.advantages_history.append(batch_advantages.mean().item())
+                actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+
+                critic_loss = (
+                    self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
+                )
+
+                loss = actor_loss + critic_loss
+
+                self.optimizer.zero_grad()
+                loss.mean().backward()
+                torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=1.0)
+
+                self.optimizer.step()
+
+                self.policy_loss_history.append(actor_loss.mean().item())
+                self.value_loss_history.append(critic_loss.mean().item())
+                self.loss_history.append(loss.mean().item())
+                self.entropy_history.append(entropy.mean().item())
+                self.advantages_history.append(batch_advantages.mean().item())
 
         self.state_values_store.clear()
         self.memory.clear()

@@ -13,7 +13,7 @@ START_TIMEOUT = 300
 RESPONSE_TIMEOUT = 5
 
 # Full Reset Interval in episodes
-FULL_RESET_INTERVAL = 10
+FULL_RESET_INTERVAL = 5
 
 RIMWORLD_LOGGING_LEVEL = logging.INFO  # Logging level for RimWorld game process
 SERVER_LOGGING_LEVEL = logging.INFO  # Logging level for the server process

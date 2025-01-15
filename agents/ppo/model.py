@@ -96,7 +96,7 @@ class ActorCritic(nn.Module):
             state_values,
         )
 
-    def eval(self, states: torch.Tensor):
+    def evaluate(self, states: torch.Tensor):
         action_mean, action_std, state_values = self.forward(states, eval=True)
         action_mean = action_mean.view(-1, 2, self.num_actions // 2)
         dist_x, dist_y = distributions.Normal(

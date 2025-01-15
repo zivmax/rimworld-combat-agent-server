@@ -124,7 +124,7 @@ class PPOAgent:
                 batch_advantages,
             ) = batch
 
-            log_probs, entropy, state_values = self.policy.eval(batch_states)
+            log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
             ratios = torch.exp(log_probs - batch_old_log_probs.detach())
 

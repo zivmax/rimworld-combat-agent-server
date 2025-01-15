@@ -122,7 +122,7 @@ class PGAgent:
         # Clear memory
         self.memory.clear()
 
-    def plot_training_stats(self, save_path: str = None) -> None:
+    def draw(self, save_path: str = None) -> None:
         """
         Plots the training statistics (policy loss, entropy, and total loss) over the training steps.
 

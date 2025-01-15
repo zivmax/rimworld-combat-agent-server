@@ -100,7 +100,7 @@ def main():
                 saving(envs, agent, timestamp, step)
 
             pbar.update(N_ENVS)
-
+            step += N_ENVS
     envs.close()
 
 

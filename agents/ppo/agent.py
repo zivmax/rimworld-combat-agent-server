@@ -5,6 +5,10 @@ from gymnasium.spaces import Box
 import numpy as np
 from numpy.typing import NDArray
 from torch import distributions
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from .memory import PPOMemory
 from .model import ActorCritic
@@ -208,3 +212,52 @@ class PPOAgent:
         returns = torch.tensor(np.array(returns), dtype=torch.float32).to(self.device)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         return returns, advantages
+
+    def draw(self, save_path: str = "./training_history.png") -> None:
+        """
+        Plots the training statistics for PPO (Policy Loss, Value Loss, Total Loss, Entropy, Advantages).
+
+        Args:
+            save_path (str, optional): Path to save the plot. Defaults to "./training_history.png".
+        """
+        # Create the directory if it does not exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # Create a DataFrame with the training statistics
+        stats_df = pd.DataFrame(
+            {
+                "Update": range(len(self.loss_history)),
+                "Policy Loss": self.policy_loss_history,
+                "Value Loss": self.value_loss_history,
+                "Total Loss": self.loss_history,
+                "Entropy": self.entropy_history,
+                "Advantages": self.advantages_history,
+            }
+        )
+
+        # Create subplots for each metric
+        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(10, 20))
+
+        # Plot Policy Loss
+        sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
+        ax1.set_title("Policy Loss over Updates")
+
+        # Plot Value Loss
+        sns.lineplot(data=stats_df, x="Update", y="Value Loss", ax=ax2)
+        ax2.set_title("Value Loss over Updates")
+
+        # Plot Total Loss
+        sns.lineplot(data=stats_df, x="Update", y="Total Loss", ax=ax3)
+        ax3.set_title("Total Loss over Updates")
+
+        # Plot Entropy
+        sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax4)
+        ax4.set_title("Entropy over Updates")
+
+        # Plot Advantages
+        sns.lineplot(data=stats_df, x="Update", y="Advantages", ax=ax5)
+        ax5.set_title("Advantages over Updates")
+
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()

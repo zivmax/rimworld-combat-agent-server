@@ -22,6 +22,8 @@ SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
 
+TRAIN_INTERVAL = 100
+
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=300,
@@ -91,7 +93,8 @@ def main():
 
             agent.remember(current_states, next_states, actions[0], rewards, dones)
 
-            agent.train()
+            if steps % TRAIN_INTERVAL == 0 and steps > 0:
+                agent.train()
 
             # Update step count and progress bar
             steps += N_ENVS

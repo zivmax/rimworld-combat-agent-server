@@ -93,7 +93,7 @@ def main():
                     dones[i],
                 )
 
-            if steps % TRAIN_INTERVAL == 0:
+            if steps % TRAIN_INTERVAL == 0 and steps > 0:
                 agent.train()
 
             if steps % SAVING_INTERVAL == 0 and steps > 0:

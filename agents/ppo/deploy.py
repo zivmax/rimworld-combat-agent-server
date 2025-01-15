@@ -44,12 +44,12 @@ def main():
         episode_reward = 0
 
         while not done:
-            action = agent.select_action(state)
+            action = agent.act(state)
 
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
-            agent.store_transition(
+            agent.remember(
                 reward,
                 next_state,
                 done,

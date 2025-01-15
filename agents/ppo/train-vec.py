@@ -19,7 +19,7 @@ N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
-UPDATE_INTERVAL = 100
+TRAIN_INTERVAL = 100
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -76,25 +76,34 @@ def main():
     with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
         while steps < N_STEPS:
             current_states = next_states
-            actions = agent.select_action(current_states)
-
+            raw_actions, log_probs = agent.act(current_states)
             actions = {
-                0: [actions[i] for i in range(N_ENVS)],
+                0: [raw_actions[i] for i in range(N_ENVS)],
             }
             next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
             dones = np.logical_or(terminateds, truncateds)
 
             for i in range(N_ENVS):
-                agent.store_transition(rewards[i], next_states[i], dones[i])
+                agent.remember(
+                    current_states[i],
+                    raw_actions[i],
+                    log_probs[i],
+                    rewards[i],
+                    next_states[i],
+                    dones[i],
+                )
 
-            if steps % UPDATE_INTERVAL == 0:
-                agent.update()
+            if steps % TRAIN_INTERVAL == 0:
+                agent.train()
 
             if steps % SAVING_INTERVAL == 0 and steps > 0:
                 agent.policy.save(f"agents/ppo/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,
                     save_path=f"agents/ppo/plots/env/{timestamp}/{steps}.png",
+                )
+                agent.draw(
+                    save_path=f"agents/ppo/plots/training/{timestamp}/{steps}.png"
                 )
                 saving(envs, agent, timestamp, steps)
 

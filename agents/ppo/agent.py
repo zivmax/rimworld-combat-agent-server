@@ -39,9 +39,7 @@ class PPOAgent:
         self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
         self.memory = PPOMemory()
 
-    def select_action(
-        self, states: NDArray
-    ) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
+    def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             states = np.array(states)
             states_tensor = torch.FloatTensor(states).to(self.device)

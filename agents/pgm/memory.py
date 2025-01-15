@@ -41,4 +41,4 @@ class PGMemory:
         self.transitions.append(transition)
 
     def clear(self) -> None:
-        self.transitions = []
+        self.transitions.clear()

@@ -15,11 +15,11 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 5
-N_STEPS = int(5e4)
+N_STEPS = int(150e4)
 SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
-TRAIN_INTERVAL = 800
+TRAIN_BATCH_SIZE = 2000
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -74,11 +74,11 @@ def main():
     )
 
     next_states, _ = envs.reset()
+    steps = 0
     with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
-        for step in range(1, int(N_STEPS / N_ENVS) + 1):
+        while steps < N_STEPS:
             current_states = next_states
             raw_actions, log_probs = agent.act(current_states)
-
             actions = {
                 0: [raw_actions[i] for i in range(N_ENVS)],
             }
@@ -95,18 +95,19 @@ def main():
                     dones[i],
                 )
 
-            if step % TRAIN_INTERVAL == 0:
+            if steps % TRAIN_BATCH_SIZE == 0:
                 agent.train()
 
-            if step % SAVING_INTERVAL == 0 and step > 0:
-                agent.policy.save(f"agents/ppo/models/{timestamp}/{step*N_ENVS}.pth")
+            if steps % SAVING_INTERVAL == 0 and steps > 0:
+                agent.policy.save(f"agents/ppo/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,
-                    save_path=f"agents/ppo/plots/env/{timestamp}/{step*N_ENVS}.png",
+                    save_path=f"agents/ppo/plots/env/{timestamp}/{steps}.png",
                 )
-                saving(envs, agent, timestamp, step)
+                saving(envs, agent, timestamp, steps)
 
             pbar.update(N_ENVS)
+            steps += N_ENVS
 
     envs.close()
 
@@ -129,7 +130,6 @@ def saving(
             "Update": range(len(agent.loss_history)),
             "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
-            "Value Loss": agent.value_loss_history,
         }
     )
 

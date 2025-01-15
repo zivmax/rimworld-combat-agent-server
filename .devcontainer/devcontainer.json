@@ -15,7 +15,8 @@
                 "ms-python.black-formatter",
                 "ms-dotnettools.csdevkit",
                 "w88975.code-translate",
-                "github.copilot"
+                "github.copilot",
+                "mechatroner.rainbow-csv"
             ],
             "settings": {
                 "[python]": {

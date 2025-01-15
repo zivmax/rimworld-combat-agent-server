@@ -56,6 +56,7 @@ class DQNAgent:
         self.gamma = 0.975
 
         self.batch_size = 1024
+        self.k_epochs = 5
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
@@ -259,10 +260,10 @@ class DQNAgent:
         return batch_actions
 
     def train(self) -> None:
-        if self.explore or len(self.memory.buffer) < self.batch_size:
+        if len(self.memory.buffer) < self.batch_size:
             return
 
-        for _ in range(self.n_envs):
+        for _ in range(self.k_epochs):
             self.updates += 1
 
             self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)

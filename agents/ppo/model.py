@@ -12,7 +12,7 @@ class ActorCritic(nn.Module):
         self.obs_space = obs_space
         self.act_space = act_space
         self.act_size = int(np.prod(self.act_space.high - self.act_space.low + 1))
-        self.num_actions = (
+        self.dim_actions = (
             self.act_space.shape[0] * len(self.act_space.spaces)
             if isinstance(self.act_space, Dict)
             else self.act_space.shape[0]
@@ -45,9 +45,9 @@ class ActorCritic(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, self.num_actions),
+            nn.Linear(256, self.dim_actions),
         )
-        self.log_std = nn.Parameter(torch.zeros(self.num_actions))
+        self.log_std = nn.Parameter(torch.zeros(self.dim_actions))
 
         self.critic = nn.Sequential(
             nn.Linear(conv_out_size, 512),
@@ -77,11 +77,12 @@ class ActorCritic(nn.Module):
         action_log_std = self.log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
         state_values = self.critic(x) if not eval else self.eval_critic(x)
+        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
         return action_mean, action_std, state_values
 
     def act(self, state: torch.Tensor):
         action_mean, action_std, state_values = self.forward(state)
-        action_mean = action_mean.view(-1, 2, self.num_actions // 2)
+        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
 
         dist_x, dist_y = distributions.Normal(
             action_mean[0, 0], action_std[0, 0]
@@ -98,7 +99,7 @@ class ActorCritic(nn.Module):
 
     def evaluate(self, states: torch.Tensor):
         action_mean, action_std, state_values = self.forward(states, eval=True)
-        action_mean = action_mean.view(-1, 2, self.num_actions // 2)
+        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
         dist_x, dist_y = distributions.Normal(
             action_mean[0, 0], action_std[0, 0]
         ), distributions.Normal(action_mean[0, 1], action_std[0, 1])

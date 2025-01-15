@@ -56,7 +56,6 @@ class PPOAgent:
                 action_mean, action_std, state_values = self.policy.forward(
                     states_tensor[i]
                 )
-                action_mean = action_mean.view(-1, 2, self.num_actions // 2)
 
                 # Create normal distributions for x and y coordinates
                 dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
@@ -98,7 +97,6 @@ class PPOAgent:
             return (
                 batch_actions,
                 torch.stack(batch_log_probs),
-                torch.stack(batch_state_values),
             )
 
     def remember(

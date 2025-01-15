@@ -41,7 +41,7 @@ class PGAgent:
         actions_list, log_probs_list = [], []
 
         for i in range(self.n_envs):
-            action_mean, action_std = self.policy(states_tensor[i])
+            action_mean, action_std = self.policy.forward(states_tensor[i])
             dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
             dist_y = distributions.Normal(action_mean[0, 1], action_std[0, 1])
 

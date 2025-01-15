@@ -148,4 +148,4 @@ if __name__ == "__main__":
     finally:
         envs.close()
         tracer.stop()
-        tracer.save(f"agents/ppo/logs/tracing/{timestamp}.json")
+        tracer.save(f"agents/ppo/tracing/{timestamp}.json")

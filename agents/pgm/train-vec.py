@@ -132,6 +132,7 @@ def saving(
             "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
             "Entropy": agent.entropy_histroy,
+            "Normalized Returns": agent.n_returns_history,
         }
     )
 

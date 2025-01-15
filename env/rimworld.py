@@ -192,9 +192,9 @@ class RimWorldEnv(gym.Env):
             self._restart_game()
             self.logger.info(f"Restarted the client game.")
         else:
-            self.logger.info(f"Client game reset, done {self._reset_times} times.")
             self._reset_times += 1
             self._steped_times = 0
+            self.logger.info(f"Client game reset, done {self._reset_times} times.")
 
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
             self.logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")

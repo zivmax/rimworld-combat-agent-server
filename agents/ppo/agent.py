@@ -52,13 +52,21 @@ class PPOAgent:
 
             for i in range(self.n_envs):
                 actions, log_probs, state_values = self.policy.act(states_tensor[i])
-                actions[0] = max(
-                    min(actions[0], self.act_space.high[0]),
-                    self.act_space.low[0],
+                actions[0] = int(
+                    round(
+                        max(
+                            min(actions[0], self.act_space.high[0]),
+                            self.act_space.low[0],
+                        )
+                    )
                 )
-                actions[1] = max(
-                    min(actions[1], self.act_space.high[1]),
-                    self.act_space.low[1],
+                actions[1] = int(
+                    round(
+                        max(
+                            min(actions[1], self.act_space.high[1]),
+                            self.act_space.low[1],
+                        )
+                    )
                 )
 
                 self.state_values_store.extend(state_values.cpu().detach().numpy())

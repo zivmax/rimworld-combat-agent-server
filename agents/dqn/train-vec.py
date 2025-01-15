@@ -72,7 +72,7 @@ def main():
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
         act_space=envs.single_action_space[0],
-        device="cuda:1",
+        device="cuda",
     )
     agent.policy_net.train()
 

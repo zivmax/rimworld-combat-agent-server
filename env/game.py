@@ -181,6 +181,7 @@ class Game:
         logger.info("Restarting RimWorld...")
         self.shutdown()  # Shutdown the current process
         self.restarted_times += 1
+        sleep(30)
 
         # Close the old log file if it's open
         if hasattr(self, "log_file") and self.log_file:

@@ -176,4 +176,4 @@ if __name__ == "__main__":
     finally:
         envs.close()
         tracer.stop()
-        tracer.save(f"agents/dqn/logs/tracing/{timestamp}.json")
+        tracer.save(f"agents/dqn/tracing/{timestamp}.json")

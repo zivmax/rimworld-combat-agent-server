@@ -37,27 +37,19 @@ def main():
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space)
     agent.policy.load(MODEL_PATH)
     agent.policy.eval()
-    episode_rewards = []
     for episode in tqdm(range(1, N_EPISODES + 1), desc="Evaluating Progress"):
         state, _ = env.reset()
         done = False
         episode_reward = 0
 
         while not done:
-            action = agent.select_action(state)
+            action = agent.act(state)
 
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
 
-            agent.store_transition(
-                reward,
-                next_state,
-                done,
-            )
             episode_reward += reward
             state = next_state
-
-        episode_rewards.append(episode_reward)
 
         if episode % PLOT_INTERVAL == 0:
             draw(env, save_path=f"agents/ppo/plots/{timestamp}/env_{episode}.png")

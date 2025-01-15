@@ -69,7 +69,7 @@ def main():
     next_state, _ = env.reset()
     for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
         current_state = next_state
-        actions = agent.select_action([current_state])
+        actions, log_probs = agent.act([current_state])
 
         action = {
             0: actions[0],
@@ -77,13 +77,15 @@ def main():
         next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
-        agent.store_transition(reward, next_state, done)
+        agent.remember(
+            current_state, actions[0], log_probs[0], reward, next_state, done
+        )
 
         if done:
             next_state, _ = env.reset()
 
         if step % UPDATE_INTERVAL == 0:
-            agent.update()
+            agent.train()
 
         if step % SAVING_INTERVAL == 0 and step > 0:
             agent.policy.save(f"agents/pg/models/{timestamp}/{step:04d}.pth")

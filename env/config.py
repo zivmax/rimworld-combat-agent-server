@@ -1,7 +1,7 @@
 import logging
 
 # Restart the game every `RESTART_INTERVAL` episodes
-RESTART_INTERVAL = 0  # 0 means never restart
+RESTART_INTERVAL = 1500  # 0 means never restart
 
 # Timeout for reset in seconds
 RESET_TIMEOUT = 30

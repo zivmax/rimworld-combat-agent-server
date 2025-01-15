@@ -4,8 +4,9 @@ from typing import Dict
 from gymnasium.spaces import Box
 import numpy as np
 from numpy.typing import NDArray
-from .memory import PGMemory, Transition  # Renamed if necessary
+from .memory import PGMemory  # Renamed if necessary
 from .model import PolicyNetwork
+import torch.distributions as distributions
 
 
 class PGAgent:
@@ -17,7 +18,6 @@ class PGAgent:
         lr: float = 1e-4,
         gamma: float = 0.99,
         entropy_coef: float = 0.01,
-        batch_size: int = 128,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
@@ -25,8 +25,6 @@ class PGAgent:
         self.device = device
         self.gamma = gamma
         self.entropy_coef = entropy_coef
-        self.batch_size = batch_size
-        self.current_transitions = []
         self.policy_loss_history = []
         self.loss_history = []
 
@@ -34,48 +32,54 @@ class PGAgent:
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
-    def select_action(self, states: NDArray) -> NDArray:
-        states = np.array(states)
+    def act(self, states: NDArray):
         states_tensor = torch.FloatTensor(states).to(self.device)
-        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        actions_list, log_probs_list = [], []
+
         for i in range(self.n_envs):
-            actions, log_probs = self.policy.act(states_tensor[i])
+            action_mean, action_std = self.policy(states_tensor[i])
+            dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
+            dist_y = distributions.Normal(action_mean[0, 1], action_std[0, 1])
+
+            action_x = dist_x.sample()
+            action_y = dist_y.sample()
+            log_probs = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+
+            actions = [
+                int(round(action_x.item())),
+                int(round(action_y.item())),
+            ]  # Changed to discrete
             actions[0] = max(
-                min(actions[0], self.act_space.high[0]),
-                self.act_space.low[0],
+                min(actions[0], self.act_space.high[0]), self.act_space.low[0]
             )
             actions[1] = max(
-                min(actions[1], self.act_space.high[1]),
-                self.act_space.low[1],
+                min(actions[1], self.act_space.high[1]), self.act_space.low[1]
             )
-            batch_actions[i] = actions
-            self.current_transitions.append(
-                {
-                    "state": states_tensor[i],
-                    "action": torch.tensor(actions).to("cpu"),
-                    "log_prob": log_probs,
-                }
-            )
-        return batch_actions
 
-    def store_transition(
+            actions_list.append(actions)
+            log_probs_list.append(log_probs)
+
+        return np.array(actions_list, dtype=np.int8), torch.stack(log_probs_list)
+
+    def remember(
         self,
+        state: NDArray,
+        action: NDArray,
+        log_prob: torch.Tensor,
         reward: float,
         next_state: NDArray,
         done: bool,
     ) -> None:
-        for transition in self.current_transitions:
-            self.memory.store_transition(
-                state=transition["state"],
-                action=transition["action"],
-                log_prob=transition["log_prob"],
-                reward=torch.tensor(reward).to("cpu"),
-                next_state=torch.tensor(next_state).to("cpu"),
-                done=torch.tensor(done).to("cpu"),
-            )
-        self.current_transitions = []
+        self.memory.store(
+            state=torch.tensor(state).to(self.device),
+            action=torch.tensor(action).to(self.device),
+            log_prob=log_prob,  # Keep as a Tensor with grad
+            reward=torch.tensor(reward).to(self.device),
+            next_state=torch.tensor(next_state).to(self.device),
+            done=torch.tensor(done).to(self.device),
+        )
 
-    def update(self) -> None:
+    def train(self) -> None:
 
         returns = []
         G = 0

@@ -4,6 +4,8 @@ from typing import Dict
 from gymnasium.spaces import Box
 import numpy as np
 from numpy.typing import NDArray
+from torch import distributions
+
 from .memory import PPOMemory
 from .model import ActorCritic
 
@@ -48,7 +50,25 @@ class PPOAgent:
             batch_state_values = []
 
             for i in range(self.n_envs):
-                actions, log_probs, state_values = self.policy.act(states_tensor[i])
+                # Get action distributions and state values from policy network
+                action_mean, action_std, state_values = self.policy.forward(
+                    states_tensor[i]
+                )
+                action_mean = action_mean.view(-1, 2, self.num_actions // 2)
+
+                # Create normal distributions for x and y coordinates
+                dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
+                dist_y = distributions.Normal(action_mean[0, 1], action_std[0, 1])
+
+                # Sample actions
+                action_x = dist_x.sample()
+                action_y = dist_y.sample()
+
+                # Calculate log probabilities
+                action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+
+                # Convert to list and clip to action space bounds
+                actions = [action_x.cpu().item(), action_y.cpu().item()]
                 actions[0] = int(
                     round(
                         max(
@@ -67,7 +87,7 @@ class PPOAgent:
                 )
 
                 batch_actions[i] = actions
-                batch_log_probs.append(log_probs)
+                batch_log_probs.append(action_log_prob)
                 batch_state_values.append(state_values)
 
             self.state_values_store.extend(
@@ -79,7 +99,7 @@ class PPOAgent:
                 torch.stack(batch_state_values),
             )
 
-    def store_transition(
+    def remember(
         self,
         state: NDArray,
         action: NDArray,
@@ -97,7 +117,7 @@ class PPOAgent:
             done=torch.tensor(done).to("cpu"),
         )
 
-    def update(self) -> None:
+    def train(self) -> None:
         states = torch.stack([t.state for t in self.memory.transitions])
         actions = torch.stack([t.action for t in self.memory.transitions])
         old_log_probs = torch.stack([t.log_prob for t in self.memory.transitions])
@@ -157,10 +177,8 @@ class PPOAgent:
             self.policy_loss_history.append(actor_loss.mean().item())
             self.value_loss_history.append(critic_loss.mean().item())
             self.loss_history.append(loss.mean().item())
-            self.entropy_history.append(entropy.mean().item())  # Add this line
-            self.advantages_history.append(
-                batch_advantages.mean().item()
-            )  # Add this line
+            self.entropy_history.append(entropy.mean().item())
+            self.advantages_history.append(batch_advantages.mean().item())
 
         self.state_values_store.clear()
         self.memory.clear()

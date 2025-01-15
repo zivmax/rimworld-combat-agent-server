@@ -104,6 +104,9 @@ def main():
                     envs,
                     save_path=f"agents/pgm/plots/env/{timestamp}/{steps}.png",
                 )
+                agent.draw(
+                    save_path=f"agents/pgm/plots/training/{timestamp}/{steps}.png"
+                )
                 saving(envs, agent, timestamp, steps)
 
             pbar.update(N_ENVS)

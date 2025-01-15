@@ -30,7 +30,7 @@ class PPOAgent:
         self.eps_clip = 0.1
         self.entropy_coef = 0.05
         self.critic_coef = 1.0
-        self.batch_size = 128
+        self.batch_size = 1024
         self.reuse_time = 8
         self.state_values_store = []
         self.policy_loss_history = []

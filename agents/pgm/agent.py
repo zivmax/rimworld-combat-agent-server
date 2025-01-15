@@ -16,15 +16,14 @@ class PGAgent:
         obs_space: Box,
         act_space: Box,
         lr: float = 1e-4,
-        gamma: float = 0.99,
-        entropy_coef: float = 0.01,
+        gamma: float = 0.975,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
         self.act_space = act_space
         self.device = device
-        self.gamma = gamma
-        self.entropy_coef = entropy_coef
+        self.gamma = 0.975
+        self.entropy_coef = 0.01
         self.policy_loss_history = []
         self.loss_history = []
 

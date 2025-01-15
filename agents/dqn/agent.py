@@ -303,7 +303,6 @@ class DQNAgent:
                 )
 
             # Calculate TD errors and loss
-            td_errors = Q_dists_batch - T_dist_batch
             loss = -torch.sum(
                 torch.Tensor(weights).to(self.device).unsqueeze(1)  # Apply weights
                 * T_dist_batch
@@ -328,10 +327,16 @@ class DQNAgent:
             priorities = kl_div.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
 
+            # Calculate Expected Q-values and TD errors
+            Q_values_batch = self._get_expected_q_values(Q_dists_batch)
+            T_values_batch = self._get_expected_q_values(T_dist_batch)
+
+            TD_errors = Q_values_batch - T_values_batch
+
             # Store history
             self.loss_history.append(loss.item())
-            self.q_value_history.append(Q_dists_batch.mean().item())
-            self.td_error_history.append(td_errors.mean().item())
+            self.q_value_history.append(Q_values_batch.mean().item())
+            self.td_error_history.append(TD_errors.mean().item())
             self.kl_div_history.append(kl_div.mean().item())
 
             # Periodically update target network and reset noise

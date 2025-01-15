@@ -44,7 +44,7 @@ ENV_OPTIONS = EnvOptions(
         gen_ruins=True,
         random_seed=4048,
         can_flee=False,
-        actively_attack=True,
+        actively_attack=False,
         interval=0.5,
         speed=4,
     ),

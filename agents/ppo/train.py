@@ -15,9 +15,9 @@ from utils.draw import draw
 from utils.timestamp import timestamp
 
 N_ENVS = 1
-N_STEPS = int(20e4)
+N_STEPS = int(20e7)
 SAVING_INTERVAL = int((N_STEPS / N_ENVS) * 0.2)
-UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
+UPDATE_INTERVAL = 500
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,

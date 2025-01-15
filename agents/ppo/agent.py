@@ -15,7 +15,7 @@ class PPOAgent:
         obs_space: Box,
         act_space: Box,
         lr: float = 1e-4,
-        gamma: float = 0.99,
+        gamma: float = 0.97,
         k_epochs: int = 6,
         eps_clip: float = 0.1,
         entropy_coef: float = 0.01,

@@ -11,8 +11,7 @@ N_EPISODES = 100
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
-    max_steps=800,
-    remain_still_threshold=100,
+    max_steps=300,
     rewarding=EnvOptions.Rewarding(
         original=0,
         win=50,

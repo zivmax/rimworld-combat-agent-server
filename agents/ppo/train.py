@@ -21,8 +21,7 @@ UPDATE_INTERVAL = 500
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
-    max_steps=800,
-    remain_still_threshold=100,
+    max_steps=300,
     rewarding=EnvOptions.Rewarding(
         original=0,
         win=50,
@@ -32,7 +31,6 @@ ENV_OPTIONS = EnvOptions(
         ally_danger=-200,
         enemy_danger=200,
         invalid_action=-0.25,
-        remain_still=0.00,
     ),
     game=GameOptions(
         agent_control=True,

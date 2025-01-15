@@ -16,9 +16,9 @@ from utils.timestamp import timestamp
 
 envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 20
-N_STEPS = int(40e4)
-SNAPSHOTS = 5
+N_ENVS = 10
+N_STEPS = int(200e4)
+SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
 
@@ -78,9 +78,9 @@ def main():
 
     next_states, _ = envs.reset()
 
-    step_count = 0  # Initialize step counter
+    steps = 0  # Initialize step counter
     with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
-        while step_count < N_STEPS:
+        while steps < N_STEPS:
             current_states = next_states
             actions = agent.act(current_states)
 
@@ -96,23 +96,19 @@ def main():
             agent.train()
 
             # Update step count and progress bar
-            step_count += N_ENVS
+            steps += N_ENVS
             pbar.update(N_ENVS)
 
             # Save model and plots at the specified interval
-            if step_count % SAVING_INTERVAL == 0 and step_count > 0:
-                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step_count}.pth")
-                agent.draw_model(
-                    f"agents/dqn/plots/training/{timestamp}/{step_count}.png"
-                )
-                agent.draw_agent(
-                    f"agents/dqn/plots/threshold/{timestamp}/{step_count}.png"
-                )
+            if steps % SAVING_INTERVAL == 0 and steps > 0:
+                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{steps}.pth")
+                agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{steps}.png")
+                agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{steps}.png")
                 draw(
                     envs,
-                    save_path=f"agents/dqn/plots/env/{timestamp}/{step_count}.png",
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{steps}.png",
                 )
-                saving(envs, agent, timestamp, step_count)
+                saving(envs, agent, timestamp, steps)
 
     envs.close()
 

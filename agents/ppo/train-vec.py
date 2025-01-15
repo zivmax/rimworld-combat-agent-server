@@ -15,7 +15,7 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 10
-N_STEPS = int(150e4)
+N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)

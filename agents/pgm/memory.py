@@ -21,7 +21,7 @@ class PGMemory:
     def __init__(self) -> None:
         self.transitions: Deque[Transition] = deque(maxlen=100000)
 
-    def store_transition(
+    def store(
         self,
         state: torch.Tensor,
         action: torch.Tensor,

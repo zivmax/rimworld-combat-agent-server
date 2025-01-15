@@ -15,11 +15,11 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 5
-N_STEPS = int(150e4)
-SNAPSHOTS = 5
+N_STEPS = int(5e4)
+SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
-UPDATE_INTERVAL = int((N_STEPS / N_ENVS) * 0.05)
+TRAIN_INTERVAL = 800
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -77,19 +77,26 @@ def main():
     with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
         for step in range(1, int(N_STEPS / N_ENVS) + 1):
             current_states = next_states
-            actions = agent.select_action(current_states)
+            raw_actions, log_probs = agent.act(current_states)
 
             actions = {
-                0: [actions[i] for i in range(N_ENVS)],
+                0: [raw_actions[i] for i in range(N_ENVS)],
             }
             next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
             dones = np.logical_or(terminateds, truncateds)
 
             for i in range(N_ENVS):
-                agent.store_transition(rewards[i], next_states[i], dones[i])
+                agent.remember(
+                    current_states[i],
+                    raw_actions[i],
+                    log_probs[i],
+                    rewards[i],
+                    next_states[i],
+                    dones[i],
+                )
 
-            if step % UPDATE_INTERVAL == 0:
-                agent.update()
+            if step % TRAIN_INTERVAL == 0:
+                agent.train()
 
             if step % SAVING_INTERVAL == 0 and step > 0:
                 agent.policy.save(f"agents/ppo/models/{timestamp}/{step*N_ENVS}.pth")

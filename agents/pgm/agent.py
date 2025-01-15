@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from .memory import PGMemory, Transition  # Renamed if necessary
 from .model import PolicyNetwork
+import torch.distributions as distributions
 
 
 class PGAgent:
@@ -17,7 +18,6 @@ class PGAgent:
         lr: float = 1e-4,
         gamma: float = 0.99,
         entropy_coef: float = 0.01,
-        batch_size: int = 128,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
@@ -25,8 +25,6 @@ class PGAgent:
         self.device = device
         self.gamma = gamma
         self.entropy_coef = entropy_coef
-        self.batch_size = batch_size
-        self.current_transitions = []
         self.policy_loss_history = []
         self.loss_history = []
 
@@ -34,12 +32,24 @@ class PGAgent:
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
-    def select_action(self, states: NDArray) -> NDArray:
+    def act(self, states: NDArray) -> tuple[NDArray, NDArray]:
         states = np.array(states)
         states_tensor = torch.FloatTensor(states).to(self.device)
-        batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        actions_batch = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+        log_probs_batch = np.zeros(self.n_envs, dtype=np.float32)
+
         for i in range(self.n_envs):
-            actions, log_probs = self.policy.act(states_tensor[i])
+            action_mean, action_std = self.policy.forward(states_tensor[i])
+
+            dist_x, dist_y = distributions.Normal(
+                action_mean[0, 0], action_std[0, 0]
+            ), distributions.Normal(action_mean[0, 1], action_std[0, 1])
+
+            action_x, action_y = dist_x.sample(), dist_y.sample()
+
+            log_probs = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+            actions = [action_x.cpu().item(), action_y.cpu().item()]
+
             actions[0] = max(
                 min(actions[0], self.act_space.high[0]),
                 self.act_space.low[0],
@@ -48,34 +58,31 @@ class PGAgent:
                 min(actions[1], self.act_space.high[1]),
                 self.act_space.low[1],
             )
-            batch_actions[i] = actions
-            self.current_transitions.append(
-                {
-                    "state": states_tensor[i],
-                    "action": torch.tensor(actions).to("cpu"),
-                    "log_prob": log_probs,
-                }
-            )
-        return batch_actions
 
-    def store_transition(
+            actions_batch[i] = actions
+            log_probs_batch[i] = log_probs.cpu().item()
+
+        return actions_batch, log_probs_batch
+
+    def remember(
         self,
+        state: NDArray,
+        action: NDArray,
+        log_prob: NDArray,
         reward: float,
         next_state: NDArray,
         done: bool,
     ) -> None:
-        for transition in self.current_transitions:
-            self.memory.store_transition(
-                state=transition["state"],
-                action=transition["action"],
-                log_prob=transition["log_prob"],
-                reward=torch.tensor(reward).to("cpu"),
-                next_state=torch.tensor(next_state).to("cpu"),
-                done=torch.tensor(done).to("cpu"),
-            )
-        self.current_transitions = []
+        self.memory.store(
+            state=torch.tensor(state, device="cpu"),
+            action=torch.tensor(action, device="cpu"),
+            log_prob=torch.tensor(log_prob, device="cpu"),
+            reward=torch.tensor(reward, device="cpu"),
+            next_state=torch.tensor(next_state, device="cpu"),
+            done=torch.tensor(done, device="cpu"),
+        )
 
-    def update(self) -> None:
+    def train(self) -> None:
 
         returns = []
         G = 0

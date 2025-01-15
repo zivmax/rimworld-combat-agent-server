@@ -1,14 +1,17 @@
-import torch
-import torch.optim as optim
-from typing import Dict
-from gymnasium.spaces import Box
+import os
+
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
+import torch
+import torch.distributions as distributions
+import torch.optim as optim
+from gymnasium.spaces import Box
 from numpy.typing import NDArray
+
 from .memory import PGMemory  # Renamed if necessary
 from .model import PolicyNetwork
-import torch.distributions as distributions
-import matplotlib.pyplot as plt
-from pathlib import Path
 
 
 class PGAgent:
@@ -27,6 +30,7 @@ class PGAgent:
         self.policy_loss_history = []
         self.entropy_histroy = []
         self.loss_history = []
+        self.n_returns_history = []
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
@@ -118,49 +122,51 @@ class PGAgent:
         self.policy_loss_history.append(policy_loss.item())
         self.entropy_histroy.append(entropy.item())
         self.loss_history.append(loss.item())
+        self.n_returns_history.append(returns.mean().item())
 
         # Clear memory
         self.memory.clear()
 
-    def draw(self, save_path: str = None) -> None:
+    def draw(self, save_path: str = "./training_history.png") -> None:
         """
-        Plots the training statistics (policy loss, entropy, and total loss) over the training steps.
+        Plots the training statistics (Policy Loss, Entropy, Total Loss, and Return History) over the training steps.
 
         Args:
-            save_path (str, optional): Path to save the plot. If None, the plot is displayed instead.
+            save_path (str, optional): Path to save the plot. Defaults to "./training_history.png".
         """
-        # Create a figure with two subplots
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        # Create the directory if it does not exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-        # Plot policy loss
-        ax1.plot(self.policy_loss_history, label="Policy Loss", color="blue")
-        ax1.set_xlabel("Training Steps")
-        ax1.set_ylabel("Policy Loss")
-        ax1.set_title("Policy Loss Over Training Steps")
-        ax1.legend()
-        ax1.grid(True)
+        # Create a DataFrame with the training statistics
+        stats_df = pd.DataFrame(
+            {
+                "Update": range(len(self.loss_history)),
+                "Policy Loss": self.policy_loss_history,
+                "Entropy": self.entropy_histroy,
+                "Total Loss": self.loss_history,
+                "Return History": self.n_returns_history,
+            }
+        )
 
-        # Plot entropy
-        ax1.plot(self.entropy_histroy, label="Entropy", color="green")
-        ax1.legend()
+        # Create subplots for each metric
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 16))
 
-        # Plot total loss
-        ax2.plot(self.loss_history, label="Total Loss", color="red")
-        ax2.set_xlabel("Training Steps")
-        ax2.set_ylabel("Total Loss")
-        ax2.set_title("Total Loss Over Training Steps")
-        ax2.legend()
-        ax2.grid(True)
+        # Plot Policy Loss
+        sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
+        ax1.set_title("Policy Loss over Updates")
 
-        # Adjust layout for better spacing
+        # Plot Entropy
+        sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax2)
+        ax2.set_title("Entropy over Updates")
+
+        # Plot Total Loss
+        sns.lineplot(data=stats_df, x="Update", y="Total Loss", ax=ax3)
+        ax3.set_title("Total Loss over Updates")
+
+        # Plot Return History
+        sns.lineplot(data=stats_df, x="Update", y="Return History", ax=ax4)
+        ax4.set_title("Return History over Updates")
+
         plt.tight_layout()
-
-        # Save or display the plot
-        if save_path:
-            # Ensure the directory exists
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path)
-            plt.close()  # Close the plot to free memory
-            print(f"Plot saved to {save_path}")
-        else:
-            plt.show()
+        plt.savefig(save_path)
+        plt.close()

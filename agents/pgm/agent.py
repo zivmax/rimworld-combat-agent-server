@@ -34,11 +34,11 @@ class PGAgent:
         self.entropy_histroy = []
         self.loss_history = []
         self.n_returns_history = []
-        self.entropy_coef_history = []  # Track the entropy coefficient
+        self.entropy_coef_history = []
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=0.0005)
-        self.memory = PGMemory()  # Adjusted memory class if necessary
+        self.memory = PGMemory()
 
     def act(self, states: NDArray):
         states_tensor = torch.FloatTensor(states).to(self.device)

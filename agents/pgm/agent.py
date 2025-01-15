@@ -23,13 +23,13 @@ class PGAgent:
         self.act_space = act_space
         self.device = device
         self.gamma = 0.975
-        self.entropy_coef = 0.01
+        self.entropy_coef = 0.05
         self.policy_loss_history = []
         self.entropy_histroy = []
         self.loss_history = []
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
     def act(self, states: NDArray):

@@ -10,7 +10,7 @@ import torch.optim as optim
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 
-from .memory import PGMemory  # Renamed if necessary
+from .memory import PGMemory
 from .model import PolicyNetwork
 
 
@@ -26,15 +26,18 @@ class PGAgent:
         self.act_space = act_space
         self.device = device
         self.gamma = 0.975
-        self.entropy_coef = 0.05
+        self.entropy_coef = 0.3
+        self.min_entropy_coef = 0.005
+        self.entropy_decay_rate = 0.99
         self.k_epochs = 5
         self.policy_loss_history = []
         self.entropy_histroy = []
         self.loss_history = []
         self.n_returns_history = []
+        self.entropy_coef_history = []  # Track the entropy coefficient
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.0005)
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
     def act(self, states: NDArray):
@@ -124,13 +127,19 @@ class PGAgent:
             self.entropy_histroy.append(entropy.item())
             self.loss_history.append(loss.item())
             self.n_returns_history.append(returns.mean().item())
+            self.entropy_coef_history.append(self.entropy_coef)
+
+        # Update entropy coefficient
+        self.entropy_coef = max(
+            self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
+        )
 
         # Clear memory
         self.memory.clear()
 
     def draw(self, save_path: str = "./training_history.png") -> None:
         """
-        Plots the training statistics (Policy Loss, Entropy, Total Loss, and Return History) over the training steps.
+        Plots the training statistics including entropy coefficient decay over the training steps.
 
         Args:
             save_path (str, optional): Path to save the plot. Defaults to "./training_history.png".
@@ -146,11 +155,14 @@ class PGAgent:
                 "Entropy": self.entropy_histroy,
                 "Total Loss": self.loss_history,
                 "Return History": self.n_returns_history,
+                "Entropy Coefficient": self.entropy_coef_history,  # Added entropy coefficient
             }
         )
 
         # Create subplots for each metric
-        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 16))
+        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(
+            5, 1, figsize=(10, 20)
+        )  # Added fifth subplot
 
         # Plot Policy Loss
         sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
@@ -167,6 +179,10 @@ class PGAgent:
         # Plot Return History
         sns.lineplot(data=stats_df, x="Update", y="Return History", ax=ax4)
         ax4.set_title("Return History over Updates")
+
+        # Plot Entropy Coefficient Decay
+        sns.lineplot(data=stats_df, x="Update", y="Entropy Coefficient", ax=ax5)
+        ax5.set_title("Entropy Coefficient Decay over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

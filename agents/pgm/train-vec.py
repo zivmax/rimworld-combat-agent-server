@@ -130,6 +130,7 @@ def saving(
             "Update": range(len(agent.loss_history)),
             "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
+            "Entropy": agent.entropy_histroy,
         }
     )
 

@@ -4,7 +4,7 @@ from typing import Dict
 from gymnasium.spaces import Box
 import numpy as np
 from numpy.typing import NDArray
-from .memory import PPOMemory, Transition
+from .memory import PPOMemory
 from .model import ActorCritic
 
 
@@ -14,41 +14,38 @@ class PPOAgent:
         n_envs,
         obs_space: Box,
         act_space: Box,
-        lr: float = 1e-4,
-        gamma: float = 0.975,
-        k_epochs: int = 6,
-        eps_clip: float = 0.1,
-        entropy_coef: float = 0.01,
-        critic_coef: float = 1.0,
-        batch_size: int = 128,
-        reuse_time: int = 8,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
         self.act_space = act_space
         self.device = device
-        self.gamma = gamma
-        self.k_epochs = k_epochs
-        self.eps_clip = eps_clip
-        self.entropy_coef = entropy_coef
-        self.critic_coef = critic_coef
-        self.batch_size = batch_size
-        self.reuse_time = reuse_time
+        self.gamma = 0.975
+        self.k_epochs = 5
+        self.eps_clip = 0.1
+        self.entropy_coef = 0.05
+        self.critic_coef = 1.0
+        self.batch_size = 128
+        self.reuse_time = 8
         self.state_values_store = []
-        self.current_transitions = []
         self.policy_loss_history = []
         self.value_loss_history = []
         self.loss_history = []
+        self.entropy_history = []
+        self.advantages_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
         self.memory = PPOMemory()
 
-    def select_action(self, states: NDArray) -> NDArray:
+    def select_action(
+        self, states: NDArray
+    ) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             states = np.array(states)
             states_tensor = torch.FloatTensor(states).to(self.device)
             batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
+            batch_log_probs = []
+            batch_state_values = []
 
             for i in range(self.n_envs):
                 actions, log_probs, state_values = self.policy.act(states_tensor[i])
@@ -69,48 +66,43 @@ class PPOAgent:
                     )
                 )
 
-                self.state_values_store.extend(state_values.cpu().detach().numpy())
-
                 batch_actions[i] = actions
+                batch_log_probs.append(log_probs)
+                batch_state_values.append(state_values)
 
-                self.current_transitions.append(
-                    {
-                        "state": states_tensor[i],
-                        "action": torch.tensor(actions).to("cpu"),
-                        "log_prob": log_probs,
-                    }
-                )
-        return batch_actions
+            self.state_values_store.extend(
+                [v.cpu().detach().numpy() for v in batch_state_values]
+            )
+            return (
+                batch_actions,
+                torch.stack(batch_log_probs),
+                torch.stack(batch_state_values),
+            )
 
     def store_transition(
         self,
+        state: NDArray,
+        action: NDArray,
+        log_prob: torch.Tensor,
         reward: float,
         next_state: NDArray,
         done: bool,
     ) -> None:
-        for transition in self.current_transitions:
-            self.memory.store_transition(
-                state=transition["state"],
-                action=transition["action"],
-                log_prob=transition["log_prob"],
-                reward=torch.tensor(reward).to("cpu"),
-                next_state=torch.tensor(next_state).to("cpu"),
-                done=torch.tensor(done).to("cpu"),
-            )
-        self.current_transitions = []
+        self.memory.store_transition(
+            state=torch.tensor(state).to("cpu"),
+            action=torch.tensor(action).to("cpu"),
+            log_prob=log_prob.to("cpu"),
+            reward=torch.tensor(reward).to("cpu"),
+            next_state=torch.tensor(next_state).to("cpu"),
+            done=torch.tensor(done).to("cpu"),
+        )
 
     def update(self) -> None:
-        states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
-        actions = torch.stack([t.action for t in self.memory.transitions]).to(
-            self.device
-        )
-        old_log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
-            self.device
-        )
-        rewards = torch.stack([t.reward for t in self.memory.transitions]).to(
-            self.device
-        )
-        dones = torch.stack([t.done for t in self.memory.transitions]).to(self.device)
+        states = torch.stack([t.state for t in self.memory.transitions])
+        actions = torch.stack([t.action for t in self.memory.transitions])
+        old_log_probs = torch.stack([t.log_prob for t in self.memory.transitions])
+        rewards = torch.stack([t.reward for t in self.memory.transitions])
+        dones = torch.stack([t.done for t in self.memory.transitions])
 
         returns, advantages = self.compute_advantages(rewards, dones)
 
@@ -131,6 +123,12 @@ class PPOAgent:
                 batch_returns,
                 batch_advantages,
             ) = batch
+
+            batch_states = batch_states.to(self.device)
+            batch_actions = batch_actions.to(self.device)
+            batch_old_log_probs = batch_old_log_probs.to(self.device)
+            batch_returns = batch_returns.to(self.device)
+            batch_advantages = batch_advantages.to(self.device)
 
             log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
@@ -159,6 +157,10 @@ class PPOAgent:
             self.policy_loss_history.append(actor_loss.mean().item())
             self.value_loss_history.append(critic_loss.mean().item())
             self.loss_history.append(loss.mean().item())
+            self.entropy_history.append(entropy.mean().item())  # Add this line
+            self.advantages_history.append(
+                batch_advantages.mean().item()
+            )  # Add this line
 
         self.state_values_store.clear()
         self.memory.clear()

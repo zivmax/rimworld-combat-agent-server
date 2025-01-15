@@ -53,14 +53,14 @@ class DQNAgent:
         self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
-        self.gamma = 0.85
+        self.gamma = 0.975
 
         self.batch_size = 1024
         self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
         self.epsilon_final = 0.001
-        self.epsilon_decay = 0.99999975
+        self.epsilon_decay = 0.999995
 
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
@@ -155,9 +155,7 @@ class DQNAgent:
             next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
             next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
             target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
-            return (
-                self._get_expected_q_values(target_dists).squeeze()[next_action]
-            )
+            return self._get_expected_q_values(target_dists).squeeze()[next_action]
 
     def _compute_n_step_reward(
         self, rewards: List[Tensor], next_value: Tensor, done: Tensor

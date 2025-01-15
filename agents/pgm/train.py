@@ -88,10 +88,10 @@ def main():
             agent.train()
 
         if step % SAVING_INTERVAL == 0 and step > 0:
-            agent.policy.save(f"agents/pg/models/{timestamp}/{step:04d}.pth")
+            agent.policy.save(f"agents/pg/models/{timestamp}/{step}.pth")
             draw(
                 env,
-                save_path=f"agents/pg/plots/env/{timestamp}/{step:04d}.png",
+                save_path=f"agents/pg/plots/env/{timestamp}/{step}.png",
             )
             saving(env, agent, timestamp, step)
 
@@ -123,11 +123,11 @@ def saving(
     os.makedirs(f"agents/pg/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/pg/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/pg/histories/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/pg/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/pg/histories/{timestamp}/training/{episode}.csv", index=False
     )
 
 

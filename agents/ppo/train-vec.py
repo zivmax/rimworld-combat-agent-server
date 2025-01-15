@@ -14,9 +14,9 @@ from utils.timestamp import timestamp
 
 envs: AsyncVectorEnv = None
 
-N_ENVS = 20
-N_STEPS = int(40e4)
-SNAPSHOTS = 5
+N_ENVS = 10
+N_STEPS = int(150e4)
+SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
 UPDATE_INTERVAL = 2000
@@ -74,8 +74,9 @@ def main():
     )
 
     next_states, _ = envs.reset()
+    steps = 0
     with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
-        for step in range(1, int(N_STEPS / N_ENVS) + 1):
+        while steps < N_STEPS:
             current_states = next_states
             actions = agent.select_action(current_states)
 
@@ -88,19 +89,19 @@ def main():
             for i in range(N_ENVS):
                 agent.store_transition(rewards[i], next_states[i], dones[i])
 
-            if step % UPDATE_INTERVAL == 0:
+            if steps % UPDATE_INTERVAL == 0:
                 agent.update()
 
-            if step % SAVING_INTERVAL == 0 and step > 0:
-                agent.policy.save(f"agents/ppo/models/{timestamp}/{step*N_ENVS}.pth")
+            if steps % SAVING_INTERVAL == 0 and steps > 0:
+                agent.policy.save(f"agents/ppo/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,
-                    save_path=f"agents/ppo/plots/env/{timestamp}/{step*N_ENVS}.png",
+                    save_path=f"agents/ppo/plots/env/{timestamp}/{steps}.png",
                 )
-                saving(envs, agent, timestamp, step)
+                saving(envs, agent, timestamp, steps)
 
             pbar.update(N_ENVS)
-            step += N_ENVS
+            steps += N_ENVS
     envs.close()
 
 
@@ -130,11 +131,11 @@ def saving(
     os.makedirs(f"agents/ppo/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/ppo/histories/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/ppo/histories/{timestamp}/training/{episode}.csv", index=False
     )
 
 

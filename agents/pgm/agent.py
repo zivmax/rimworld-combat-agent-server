@@ -7,6 +7,8 @@ from numpy.typing import NDArray
 from .memory import PGMemory  # Renamed if necessary
 from .model import PolicyNetwork
 import torch.distributions as distributions
+import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 class PGAgent:
@@ -15,21 +17,19 @@ class PGAgent:
         n_envs,
         obs_space: Box,
         act_space: Box,
-        lr: float = 1e-4,
-        gamma: float = 0.99,
-        entropy_coef: float = 0.01,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.n_envs = n_envs
         self.act_space = act_space
         self.device = device
-        self.gamma = gamma
-        self.entropy_coef = entropy_coef
+        self.gamma = 0.975
+        self.entropy_coef = 0.01
         self.policy_loss_history = []
+        self.entropy_histroy = []
         self.loss_history = []
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
         self.memory = PGMemory()  # Adjusted memory class if necessary
 
     def act(self, states: NDArray):
@@ -116,7 +116,51 @@ class PGAgent:
 
         # Logging
         self.policy_loss_history.append(policy_loss.item())
+        self.entropy_histroy.append(entropy.item())
         self.loss_history.append(loss.item())
 
         # Clear memory
         self.memory.clear()
+
+    def plot_training_stats(self, save_path: str = None) -> None:
+        """
+        Plots the training statistics (policy loss, entropy, and total loss) over the training steps.
+
+        Args:
+            save_path (str, optional): Path to save the plot. If None, the plot is displayed instead.
+        """
+        # Create a figure with two subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+
+        # Plot policy loss
+        ax1.plot(self.policy_loss_history, label="Policy Loss", color="blue")
+        ax1.set_xlabel("Training Steps")
+        ax1.set_ylabel("Policy Loss")
+        ax1.set_title("Policy Loss Over Training Steps")
+        ax1.legend()
+        ax1.grid(True)
+
+        # Plot entropy
+        ax1.plot(self.entropy_histroy, label="Entropy", color="green")
+        ax1.legend()
+
+        # Plot total loss
+        ax2.plot(self.loss_history, label="Total Loss", color="red")
+        ax2.set_xlabel("Training Steps")
+        ax2.set_ylabel("Total Loss")
+        ax2.set_title("Total Loss Over Training Steps")
+        ax2.legend()
+        ax2.grid(True)
+
+        # Adjust layout for better spacing
+        plt.tight_layout()
+
+        # Save or display the plot
+        if save_path:
+            # Ensure the directory exists
+            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path)
+            plt.close()  # Close the plot to free memory
+            print(f"Plot saved to {save_path}")
+        else:
+            plt.show()

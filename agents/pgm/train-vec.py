@@ -15,7 +15,7 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 5
-N_STEPS = int(150e4)
+N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
 SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
@@ -99,10 +99,10 @@ def main():
                 agent.train()
 
             if steps % SAVING_INTERVAL == 0 and steps > 0:
-                agent.policy.save(f"agents/ppo/models/{timestamp}/{steps}.pth")
+                agent.policy.save(f"agents/pgm/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,
-                    save_path=f"agents/ppo/plots/env/{timestamp}/{steps}.png",
+                    save_path=f"agents/pgm/plots/env/{timestamp}/{steps}.png",
                 )
                 saving(envs, agent, timestamp, steps)
 
@@ -130,6 +130,7 @@ def saving(
             "Update": range(len(agent.loss_history)),
             "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
+            "Entropy": agent.entropy_histroy,
         }
     )
 
@@ -137,11 +138,11 @@ def saving(
     os.makedirs(f"agents/ppo/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/ppo/histories/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/ppo/histories/{timestamp}/training/{episode}.csv", index=False
     )
 
 

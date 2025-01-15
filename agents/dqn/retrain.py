@@ -66,12 +66,10 @@ def main():
                 break
 
         if episode % SAVING_INTERVAL == 0 and episode > 0:
-            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode:04d}.pth")
-            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{episode:04d}.png")
-            agent.draw_agent(
-                f"agents/dqn/plots/threshold/{timestamp}/{episode:04d}.png"
-            )
-            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode:04d}.png")
+            agent.policy_net.save(f"agents/dqn/models/{timestamp}/{episode}.pth")
+            agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{episode}.png")
+            agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{episode}.png")
+            draw(env, save_path=f"agents/dqn/plots//env/{timestamp}/{episode}.png")
             saving(env, agent, timestamp, episode)
 
     env.close()
@@ -115,14 +113,14 @@ def saving(
     os.makedirs(f"agents/dqn/history/{timestamp}/threshold/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/dqn/history/{timestamp}/env/{episode:04d}.csv",
+        f"agents/dqn/history/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/dqn/history/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/dqn/history/{timestamp}/training/{episode}.csv", index=False
     )
     thres_df.to_csv(
-        f"agents/dqn/history/{timestamp}/threshold/{episode:04d}.csv", index=False
+        f"agents/dqn/history/{timestamp}/threshold/{episode}.csv", index=False
     )
 
 

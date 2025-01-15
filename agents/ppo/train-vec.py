@@ -130,11 +130,11 @@ def saving(
     os.makedirs(f"agents/ppo/histories/{timestamp}/training/", exist_ok=True)
 
     eps_hist_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/env/{episode:04d}.csv",
+        f"agents/ppo/histories/{timestamp}/env/{episode}.csv",
         index=False,
     )
     stats_df.to_csv(
-        f"agents/ppo/histories/{timestamp}/training/{episode:04d}.csv", index=False
+        f"agents/ppo/histories/{timestamp}/training/{episode}.csv", index=False
     )
 
 

@@ -101,7 +101,7 @@ class Game:
             "-systemallocator",
             "-quicktest",
             "-headless=True",
-            f"-f-reset-interval={FULL_RESET_INTERVAL}"
+            f"-f-reset-interval={FULL_RESET_INTERVAL}",
             f"-server-addr={self.options.server_addr}",
             f"-server-port={self.options.server_port}",
             f"-agent-control={self.options.agent_control}",

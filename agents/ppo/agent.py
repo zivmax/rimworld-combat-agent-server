@@ -157,7 +157,7 @@ class PPOAgent:
 
                 log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
-                ratios = torch.exp(log_probs - batch_old_log_probs.detach())
+                ratios = torch.abs(log_probs - batch_old_log_probs.detach())
 
                 surr = ratios * batch_advantages
                 surr_clamp = (
@@ -170,7 +170,7 @@ class PPOAgent:
                 actor_loss = -torch.min(surr, surr_clamp) - entropy_bonus
 
                 critic_loss = (
-                    self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
+                    self.critic_coef * 0.5 * torch.abs(batch_returns - state_values)
                 )
 
                 loss = actor_loss + critic_loss
@@ -222,6 +222,7 @@ class PPOAgent:
 
         returns = torch.tensor(np.array(returns), dtype=torch.float32).to(self.device)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        returns = (returns - returns.mean()) / (returns.std() + 1e-8)
         return returns, advantages
 
     def draw(self, save_path: str = "./training_history.png") -> None:

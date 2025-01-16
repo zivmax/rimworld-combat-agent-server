@@ -323,6 +323,7 @@ class DQNAgent:
         sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax4)
         ax4.set_title("TD Error over Updates")
 
+        plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
@@ -346,6 +347,7 @@ class DQNAgent:
         sns.lineplot(data=stats_df, x="Step", y="Epsilon", ax=ax)
         ax.set_title("Epsilon Decay over Steps")
 
+        plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()

@@ -262,6 +262,7 @@ class PPOAgent:
         sns.lineplot(data=stats_df, x="Update", y="Entropy Bonus", ax=ax8)
         ax8.set_title("Entropy Bonus over Updates")
 
+        plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()

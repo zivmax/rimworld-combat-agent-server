@@ -1,63 +1,78 @@
 import gymnasium as gym
-from gymnasium.wrappers import FrameStackObservation, RecordEpisodeStatistics
 from tqdm import tqdm
+import pandas as pd
+import numpy as np
 
 from agents.dqn import DQNAgent as Agent
-from env import rimworld_env
+from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
+from env.wrappers import (
+    FrameStackObservation,
+    SwapObservationAxes,
+    RecordEpisodeStatistics,
+)
 
-ENV_OPTIONS = {
-    "interval": 0.5,
-    "speed": 1,
-    "action_range": 1,
-    "max_steps": None,
-    "is_remote": False,
-    "remain_still_threshold": 300,
-    "rewarding": {
-        "original": 0,
-        "win": 0,
-        "lose": -0,
-        "ally_defeated": -100,
-        "enemy_defeated": 100,
-        "ally_danger": -200,
-        "enemy_danger": 200,
-        "invalid_action": -0.25,
-        "remain_still": -0.25,
-    },
-}
 
-N_EPISODES = 5
-MODEL_PATH = "agents/dqn/models/2024-12-30_21:36:39/2200.pth"
+N_EPISODES = int(5)  # Total number of steps to train for
+
+ENV_OPTIONS = EnvOptions(
+    action_range=1,
+    max_steps=300,
+    rewarding=EnvOptions.Rewarding(
+        original=0,
+        win=50,
+        lose=-50,
+        ally_defeated=0,
+        enemy_defeated=0,
+        ally_danger=-200,
+        enemy_danger=200,
+        invalid_action=-0.25,
+    ),
+    game=GameOptions(
+        agent_control=True,
+        team_size=1,
+        map_size=15,
+        gen_trees=True,
+        gen_ruins=True,
+        random_seed=4048,
+        can_flee=False,
+        actively_attack=False,
+        interval=0.5,
+        speed=4,
+    ),
+)
 
 
 def main():
-    n_episodes = N_EPISODES
-    env = gym.make(rimworld_env, options=ENV_OPTIONS)
-    env = FrameStackObservation(env, stack_size=4)
-    env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
-    agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
-    agent.policy_net.load(MODEL_PATH)
-    agent.epsilon_start = 0.001
-    agent.epsilon_final = 0.001
-    agent.epsilon_decay = 0
-    agent.batch_size = 0
-    agent.policy_net.eval()
+    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=10086, render_mode="human")
 
-    for episode in tqdm(range(1, n_episodes + 1), desc="Evaluating Progress"):
-        next_state, _ = env.reset()
-        next_state.swapaxes(0, 1)
-        while True:
+    env = FrameStackObservation(env, stack_size=8)
+    env = SwapObservationAxes(env, swap=(0, 1))
+    register_keyboard_interrupt(env)
+    agent = Agent(
+        n_envs=1,
+        obs_space=env.observation_space,
+        act_space=env.action_space[0],
+        device="cuda:0",
+    )
+    agent.policy_net.train()
+
+    next_state, _ = env.reset()
+
+    done = False
+    with tqdm(total=N_EPISODES, desc="Testing (Episodes)") as pbar:
+        while not done:
             current_state = next_state
-            action = agent.act(current_state)
-            action = {1: action}
+            actions = agent.act([current_state])
 
-            next_obs, reward, terminated, truncated, _ = env.step(action)
+            action = {
+                0: actions[0],
+            }
+
+            next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
-
-            next_state = next_obs
-
             if done:
-                break
-
+                next_state, _ = env.reset()
+        pbar.update(1)
     env.close()
 
 

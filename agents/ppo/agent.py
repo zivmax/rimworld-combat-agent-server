@@ -42,7 +42,7 @@ class PPOAgent:
         self.entropy_coef_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-4)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-5)
         self.memory = PPOMemory()
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:

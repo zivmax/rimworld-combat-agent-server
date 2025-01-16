@@ -58,10 +58,10 @@ class PGAgent:
 
         logits_batch = self.policy.forward(states_tensor_batch)
         dists_batch = distributions.Categorical(logits=logits_batch)
-        raw_action_batch = dists_batch.sample().unsqueeze(1)
+        raw_action_batch = dists_batch.sample()
         log_prob_batch = dists_batch.log_prob(raw_action_batch)
         batch_actions = (
-            index_to_coord_batch(self.act_space, raw_action_batch)
+            index_to_coord_batch(self.act_space, raw_action_batch.unsqueeze(1))
             .cpu()
             .numpy()
             .astype(self.act_space.dtype)
@@ -111,10 +111,10 @@ class PGAgent:
         entropy = torch.stack(
             [log_prob.exp() * log_prob for log_prob in log_probs]
         ).mean()
-        entropy_loss = -self.entropy_coef * entropy
+        entropy_bonus = -self.entropy_coef * entropy
 
         # Total loss
-        loss = policy_loss + entropy_loss
+        loss = policy_loss + entropy_bonus
 
         # Backpropagation
         self.optimizer.zero_grad()
@@ -127,6 +127,7 @@ class PGAgent:
         self.loss_history.append(loss.item())
         self.n_returns_history.append(returns.mean().item())
         self.entropy_coef_history.append(self.entropy_coef)
+        self.entropy_bonus_history.append(entropy_bonus.item())
 
         self.memory.clear()
 

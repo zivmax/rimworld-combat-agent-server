@@ -1,4 +1,5 @@
 import gymnasium as gym
+import torch.multiprocessing as mp
 from gymnasium.wrappers.vector import RecordEpisodeStatistics
 from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
@@ -74,6 +75,7 @@ def main():
 
     next_states, _ = envs.reset()
     steps = 0
+    steps_since_last_update = 0  # Added accumulator for steps
     with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
         while steps < N_STEPS:
             current_states = next_states
@@ -94,8 +96,10 @@ def main():
                     dones[i],
                 )
 
-            if steps % TRAIN_BATCH_SIZE == 0 and steps > 0:
+            steps_since_last_update += N_ENVS  # Accumulate steps
+            if steps_since_last_update >= TRAIN_BATCH_SIZE:
                 agent.train()
+                steps_since_last_update -= TRAIN_BATCH_SIZE  # Reset accumulator
 
             if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
                 agent.policy.save(f"agents/pgm/models/{timestamp}/{steps}.pth")
@@ -157,6 +161,7 @@ tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
 tracer.start()
 if __name__ == "__main__":
     try:
+        mp.set_start_method("spawn", force=True)
         main()
     finally:
         envs.close()

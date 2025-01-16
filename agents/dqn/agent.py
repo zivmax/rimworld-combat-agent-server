@@ -93,7 +93,7 @@ class DQNAgent:
         self.target_net = create_dqn()
         self._update_target_network()
         self.target_net.eval()
-        self.target_net_update_freq = 3000
+        self.target_net_update_freq = 100
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 

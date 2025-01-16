@@ -164,7 +164,7 @@ class RimWorldEnv(gym.Env):
         Observation space has 6 layers:
         1. Ally positions layer (0 to len(allies), uint8)
         2. Enemy positions layer (0 to len(enemies), uint8)
-        3. Cover positions layer (0-1, uint8)
+        3. Cover positions layer (0-2, uint8)
         4. Aiming layer (0-1, uint8)
         5. Status layer (0-1, uint8)
         6. Danger layer (0-100, uint8)
@@ -175,7 +175,7 @@ class RimWorldEnv(gym.Env):
                 [
                     [[len(self._allies)] * self._map.width] * self._map.height,
                     [[len(self._enemies)] * self._map.width] * self._map.height,
-                    [[1] * self._map.width] * self._map.height,
+                    [[2] * self._map.width] * self._map.height,
                     [[1] * self._map.width] * self._map.height,
                     [[1] * self._map.width] * self._map.height,
                     [[100] * self._map.width] * self._map.height,
@@ -361,6 +361,36 @@ class RimWorldEnv(gym.Env):
                     covers.append(cell)
         return covers
 
+    def _get_walls(self) -> List[CellState]:
+        """Get all wall locations in the map.
+
+        Returns a list of locations (Loc objects) where there are walls in the map.
+
+        Returns:
+            `List[Loc]`: A list of location objects representing positions of walls
+        """
+        walls = []
+        for cell_row in self._map.cells:
+            for cell in cell_row:
+                if cell.is_wall:
+                    walls.append(cell)
+        return walls
+
+    def _get_trees(self) -> List[CellState]:
+        """Get all tree locations in the map.
+
+        Returns a list of locations (Loc objects) where there are trees in the map.
+
+        Returns:
+            `List[Loc]`: A list of location objects representing positions of trees
+        """
+        trees = []
+        for cell_row in self._map.cells:
+            for cell in cell_row:
+                if cell.is_tree:
+                    trees.append(cell)
+        return trees
+
     def _update_valid_position(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
@@ -403,7 +433,8 @@ class RimWorldEnv(gym.Env):
             - 1 to len(enemies): Enemy units
         3. Cover positions layer:
             - 0: No cover
-            - 1: Cover present
+            - 1: Trees
+            - 2: Walls
         4. Aiming layer:
             - 0: Not aiming
             - 1: Aiming
@@ -444,18 +475,21 @@ class RimWorldEnv(gym.Env):
         # Fill cover positions
         for cover in self._get_covers():
             x, y = cover.loc.x, cover.loc.y
-            cover_positions[x][y] = 1
-            # Return layers as separate arrays in a tuple
-            grid = np.array(
-                [
-                    ally_positions,
-                    enemy_positions,
-                    cover_positions,
-                    aiming_layer,
-                    status_layer,
-                    danger_layer,
-                ]
-            )
+            if cover.is_tree:
+                cover_positions[x][y] = 1
+            elif cover.is_wall:
+                cover_positions[x][y] = 2
+
+        grid = np.array(
+            [
+                ally_positions,
+                enemy_positions,
+                cover_positions,
+                aiming_layer,
+                status_layer,
+                danger_layer,
+            ]
+        )
         return grid
 
     def _get_info(self):

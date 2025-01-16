@@ -73,7 +73,6 @@ class ActorCritic(nn.Module):
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten
         action_mean = self.actor(x)
-        action_mean = action_mean * self.act_size
         action_log_std = self.log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
         state_values = self.critic(x) if not eval else self.eval_critic(x)

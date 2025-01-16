@@ -127,7 +127,6 @@ class DQN(nn.Module):
 
         # Combine value and advantage using dueling formula
         q_dist = value + advantage - advantage.mean(dim=1, keepdim=True)
-        q_dist = F.softmax(q_dist, dim=-1)
 
         return q_dist
 

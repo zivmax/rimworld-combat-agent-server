@@ -137,7 +137,6 @@ class DQNAgent:
             next_state_value = self._get_max_Q_estimate(stateN.to(self.device))
 
             return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
-            done = done.unsqueeze(0)
 
             # Store transition with n-step return
             max_priority = (
@@ -359,7 +358,7 @@ class DQNAgent:
             n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
                 done
             )
-        return n_step_reward
+        return n_step_reward.squeeze()
 
     def _get_expected_q_values(self, q_atoms_batch: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values.
@@ -450,8 +449,8 @@ class DQNAgent:
         )
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
-        t_z = reward_batch + (
-            torch.logical_not(done_batch)
+        t_z = reward_batch.unsqueeze(1) + (
+            torch.logical_not(done_batch).unsqueeze(1)
         ) * self.gamma_n * self.supports.unsqueeze(0)
         t_z = torch.clamp(t_z, v_min, v_max)
 

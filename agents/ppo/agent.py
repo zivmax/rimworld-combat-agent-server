@@ -38,8 +38,10 @@ class PPOAgent:
         self.value_loss_history = []
         self.loss_history = []
         self.entropy_history = []
-        self.advantages_history = []
         self.entropy_coef_history = []
+        self.entropy_bonus_history = []
+        self.advantages_history = []
+        self.surr_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-4)
@@ -157,15 +159,15 @@ class PPOAgent:
 
                 ratios = torch.exp(log_probs - batch_old_log_probs.detach())
 
-                surr1 = ratios * batch_advantages
-                surr2 = (
+                surr = ratios * batch_advantages
+                surr_clamp = (
                     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
                     * batch_advantages
                 )
 
                 entropy_bonus = self.entropy_coef * entropy
 
-                actor_loss = -torch.min(surr1, surr2) - entropy_bonus
+                actor_loss = -torch.min(surr, surr_clamp) - entropy_bonus
 
                 critic_loss = (
                     self.critic_coef * 0.5 * (batch_returns - state_values).pow(2)
@@ -184,7 +186,9 @@ class PPOAgent:
                 self.loss_history.append(loss.mean().item())
                 self.entropy_history.append(entropy.mean().item())
                 self.entropy_coef_history.append(self.entropy_coef)
+                self.entropy_bonus_history.append(entropy_bonus.mean().item())
                 self.advantages_history.append(batch_advantages.mean().item())
+                self.surr_history.append(surr.mean().item())
 
         self.entropy_coef = max(
             self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
@@ -222,7 +226,7 @@ class PPOAgent:
 
     def draw(self, save_path: str = "./training_history.png") -> None:
         """
-        Plots the training statistics for PPO (Policy Loss, Value Loss, Total Loss, Entropy, Advantages).
+        Plots the training statistics for PPO.
 
         Args:
             save_path (str, optional): Path to save the plot. Defaults to "./training_history.png".
@@ -238,13 +242,17 @@ class PPOAgent:
                 "Value Loss": self.value_loss_history,
                 "Total Loss": self.loss_history,
                 "Entropy": self.entropy_history,
-                "Advantages": self.advantages_history,
                 "Entropy Coef": self.entropy_coef_history,
+                "Entropy Bonus": self.entropy_bonus_history,
+                "Advantages": self.advantages_history,
+                "Surrogate": self.surr_history,
             }
         )
 
         # Create subplots for each metric
-        fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1, figsize=(10, 20))
+        fig, (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8) = plt.subplots(
+            8, 1, figsize=(10, 26)
+        )
 
         # Plot Policy Loss
         sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
@@ -262,13 +270,21 @@ class PPOAgent:
         sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax4)
         ax4.set_title("Entropy over Updates")
 
-        # Plot Advantages
-        sns.lineplot(data=stats_df, x="Update", y="Advantages", ax=ax5)
-        ax5.set_title("Advantages over Updates")
-
         # Plot Entropy Coef
-        sns.lineplot(data=stats_df, x="Update", y="Entropy Coef", ax=ax6)
-        ax6.set_title("Entropy Coef over Updates")
+        sns.lineplot(data=stats_df, x="Update", y="Entropy Coef", ax=ax5)
+        ax5.set_title("Entropy Coef over Updates")
+
+        # Plot Advantages
+        sns.lineplot(data=stats_df, x="Update", y="Advantages", ax=ax6)
+        ax6.set_title("Advantages over Updates")
+
+        # Plot Surrogate
+        sns.lineplot(data=stats_df, x="Update", y="Surrogate", ax=ax7)
+        ax7.set_title("Surrogate over Updates")
+
+        # Plot Entropy Bonus
+        sns.lineplot(data=stats_df, x="Update", y="Entropy Bonus", ax=ax8)
+        ax8.set_title("Entropy Bonus over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

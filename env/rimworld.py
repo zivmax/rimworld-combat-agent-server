@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 from typing import Dict, List, Tuple, Optional
 from gymnasium import spaces
 from time import sleep
+import logging
 from dataclasses import dataclass, field
 
 from utils.logger import get_cli_logger, get_file_logger
@@ -118,6 +119,8 @@ class RimWorldEnv(gym.Env):
             print(
                 f"{' '.join(command)}",
             )
+
+            f_logger.setLevel(logging.DEBUG)
 
         StateCollector.init(self._port)
         self._server_thread, self._server = GameServer.create_server_thread(

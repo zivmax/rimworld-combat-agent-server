@@ -54,6 +54,7 @@ class PPOAgent:
         self.memory = PPOMemory()
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
+        self.steps += self.n_envs
         with torch.no_grad():
             # Convert states to tensor and move to device
             states_tensor = torch.FloatTensor(np.array(states)).to(self.device)

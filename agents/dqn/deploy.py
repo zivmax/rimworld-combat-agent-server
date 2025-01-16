@@ -8,11 +8,12 @@ from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interru
 from env.wrappers import (
     FrameStackObservation,
     SwapObservationAxes,
-    RecordEpisodeStatistics,
 )
 
 
 N_EPISODES = int(5)  # Total number of steps to train for
+MODEL = "agents/dqn/models/500000.pth"
+
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -52,9 +53,12 @@ def main():
         n_envs=1,
         obs_space=env.observation_space,
         act_space=env.action_space[0],
-        device="cuda:0",
+        device="cuda",
     )
-    agent.policy_net.train()
+    agent.policy_net.load(MODEL)
+    agent.policy_net.eval()
+    agent.epsilon_start = 0
+    agent.epsilon_final = 0
 
     next_state, _ = env.reset()
 

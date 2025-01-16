@@ -96,6 +96,29 @@ class RimWorldEnv(gym.Env):
 
         self.logger = f_logger
 
+        if render_mode == "human":
+            command = [
+                "-quicktest",
+                f"-f-reset-interval={30}",
+                f"-server-addr={self._options.game.server_addr}",
+                f"-server-port={self._port}",
+                f"-agent-control={self._options.game.agent_control}",
+                f"-team-size={self._options.game.team_size}",
+                f"-map-size={self._options.game.map_size}",
+                f"-gen-trees={self._options.game.gen_trees}",
+                f"-gen-ruins={self._options.game.gen_ruins}",
+                f"-seed={self._options.game.random_seed}",
+                f"-can-flee={self._options.game.can_flee}",
+                f"-actively-attack={self._options.game.actively_attack}",
+                f"-interval={self._options.game.interval}",
+                f"-speed={self._options.game.speed}",
+            ]
+
+            print("Please launch the game with these arguments:")
+            print(
+                f"{' '.join(command)}",
+            )
+
         StateCollector.init(self._port)
         self._server_thread, self._server = GameServer.create_server_thread(
             self._options.is_remote,

@@ -51,59 +51,30 @@ class PPOAgent:
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
         with torch.no_grad():
-            states = np.array(states)
-            states_tensor = torch.FloatTensor(states).to(self.device)
-            batch_actions = np.zeros((self.n_envs, 2), dtype=self.act_space.dtype)
-            batch_log_probs = []
-            batch_state_values = []
+            # Convert states to tensor and move to device
+            states_tensor = torch.FloatTensor(np.array(states)).to(self.device)
 
-            for i in range(self.n_envs):
-                # Get action distributions and state values from policy network
-                action_mean, action_std, state_values = self.policy.forward(
-                    states_tensor[i]
-                )
+            # Get action logits and state values for all states at once
+            action_logits, state_values = self.policy.forward(states_tensor)
 
-                # Create normal distributions for x and y coordinates
-                dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
-                dist_y = distributions.Normal(action_mean[0, 1], action_std[0, 1])
+            # Create categorical distribution for all actions
+            dist = distributions.Categorical(logits=action_logits)
 
-                # Sample actions
-                action_x = dist_x.sample()
-                action_y = dist_y.sample()
+            # Sample actions for all environments at once
+            action_indices = dist.sample()
 
-                # Calculate log probabilities
-                action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
+            # Calculate log probabilities for all actions
+            action_log_probs = dist.log_prob(action_indices)
 
-                # Convert to list and clip to action space bounds
-                actions = [action_x.cpu().item(), action_y.cpu().item()]
-                actions[0] = int(
-                    round(
-                        max(
-                            min(actions[0], self.act_space.high[0]),
-                            self.act_space.low[0],
-                        )
-                    )
-                )
-                actions[1] = int(
-                    round(
-                        max(
-                            min(actions[1], self.act_space.high[1]),
-                            self.act_space.low[1],
-                        )
-                    )
-                )
+            # Convert actions to numpy array
+            batch_actions = self._index_to_coord_batch(action_indices).cpu().numpy()
 
-                batch_actions[i] = actions
-                batch_log_probs.append(action_log_prob)
-                batch_state_values.append(state_values)
+            # Store state values
+            self.state_values_store.extend(state_values.cpu().detach().numpy())
 
-            self.state_values_store.extend(
-                [v.cpu().detach().numpy() for v in batch_state_values]
-            )
-            self.steps += self.n_envs
             return (
                 batch_actions,
-                torch.stack(batch_log_probs),
+                action_log_probs,
             )
 
     def remember(
@@ -160,7 +131,7 @@ class PPOAgent:
 
                 log_probs, entropy, state_values = self.policy.evaluate(batch_states)
 
-                ratios = torch.abs(log_probs - batch_old_log_probs.detach())
+                ratios = torch.exp(log_probs - batch_old_log_probs.detach())
 
                 surr = ratios * batch_advantages
                 surr_clamp = (
@@ -294,3 +265,21 @@ class PPOAgent:
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
+
+    def _index_to_coord_batch(self, action_indices: torch.Tensor) -> torch.Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Ensure action_indices is a tensor and move it to the GPU
+        if not isinstance(action_indices, torch.Tensor):
+            action_indices = torch.tensor(action_indices, dtype=torch.long)
+        action_indices = action_indices.cuda()
+
+        # Compute x and y coordinates using tensor operations
+        x_coords = (action_indices % width) + self.act_space.low[0]
+        y_coords = (action_indices // width) + self.act_space.low[1]
+
+        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
+        coords = torch.stack((x_coords, y_coords), dim=1)
+
+        return coords

@@ -130,10 +130,12 @@ def saving(
     stats_df = pd.DataFrame(
         {
             "Update": range(len(agent.loss_history)),
-            "Loss": agent.loss_history,
             "Policy Loss": agent.policy_loss_history,
+            "Total Loss": agent.loss_history,
+            "NOrm Return": agent.n_returns_history,
             "Entropy": agent.entropy_histroy,
-            "Normalized Returns": agent.n_returns_history,
+            "Entropy Coefficient": agent.entropy_coef_history,  # Added entropy coefficient
+            "Entropy Bonus": agent.entropy_bonus_history,  # Added entropy bonus
         }
     )
 

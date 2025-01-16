@@ -29,16 +29,17 @@ class PGAgent:
         self.gamma = 0.975
         self.entropy_coef_start = 1.0
         self.min_entropy_coef = 0.005
-        self.entropy_decay = 0.9999
+        self.entropy_decay = 0.99999
         self.entropy_coef = self.entropy_coef_start
 
         self.steps = 0
 
         self.policy_loss_history = []
-        self.entropy_histroy = []
         self.loss_history = []
         self.n_returns_history = []
+        self.entropy_histroy = []
         self.entropy_coef_history = []
+        self.entropy_bonus_history = []
 
         self.policy = PolicyNetwork(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=0.0005)
@@ -157,37 +158,42 @@ class PGAgent:
             {
                 "Update": range(len(self.loss_history)),
                 "Policy Loss": self.policy_loss_history,
-                "Entropy": self.entropy_histroy,
                 "Total Loss": self.loss_history,
-                "Return History": self.n_returns_history,
+                "Norm Return": self.n_returns_history,
+                "Entropy": self.entropy_histroy,
                 "Entropy Coefficient": self.entropy_coef_history,  # Added entropy coefficient
+                "Entropy Bonus": self.entropy_bonus_history,  # Added entropy bonus
             }
         )
 
         # Create subplots for each metric
-        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(
-            5, 1, figsize=(10, 20)
+        fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(
+            6, 1, figsize=(10, 22)
         )  # Added fifth subplot
 
         # Plot Policy Loss
         sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
         ax1.set_title("Policy Loss over Updates")
 
-        # Plot Entropy
-        sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax2)
-        ax2.set_title("Entropy over Updates")
-
         # Plot Total Loss
-        sns.lineplot(data=stats_df, x="Update", y="Total Loss", ax=ax3)
+        sns.lineplot(data=stats_df, x="Update", y="Total Loss", ax=ax2)
         ax3.set_title("Total Loss over Updates")
 
         # Plot Return History
-        sns.lineplot(data=stats_df, x="Update", y="Return History", ax=ax4)
+        sns.lineplot(data=stats_df, x="Update", y="Norm Return", ax=ax3)
         ax4.set_title("Return History over Updates")
+
+        # Plot Entropy
+        sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax4)
+        ax2.set_title("Entropy over Updates")
 
         # Plot Entropy Coefficient Decay
         sns.lineplot(data=stats_df, x="Update", y="Entropy Coefficient", ax=ax5)
         ax5.set_title("Entropy Coefficient Decay over Updates")
+
+        # Plot Entropy Bonus
+        sns.lineplot(data=stats_df, x="Update", y="Entropy Bonus", ax=ax6)
+        ax6.set_title("Entropy Bonus over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

@@ -38,7 +38,7 @@ ENV_OPTIONS = EnvOptions(
         can_flee=False,
         actively_attack=False,
         interval=0.5,
-        speed=4,
+        speed=1,
     ),
 )
 
@@ -53,7 +53,7 @@ def main():
         n_envs=1,
         obs_space=env.observation_space,
         act_space=env.action_space[0],
-        device="cuda",
+        device="cuda:1",
     )
     agent.policy_net.load(MODEL)
     agent.policy_net.eval()
@@ -64,19 +64,20 @@ def main():
 
     done = False
     with tqdm(total=N_EPISODES, desc="Testing (Episodes)") as pbar:
-        while not done:
-            current_state = next_state
-            actions = agent.act([current_state])
+        for _ in range(N_EPISODES):
+            while not done:
+                current_state = next_state
+                actions = agent.act([current_state])
 
-            action = {
-                0: actions[0],
-            }
+                action = {
+                    0: actions[0],
+                }
 
-            next_state, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            if done:
-                next_state, _ = env.reset()
-        pbar.update(1)
+                next_state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                if done:
+                    next_state, _ = env.reset()
+            pbar.update(1)
     env.close()
 
 

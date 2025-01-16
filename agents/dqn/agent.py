@@ -79,6 +79,7 @@ class DQNAgent:
             net = DQN(
                 self.obs_space,
                 self.act_space,
+                device=device,
                 v_max=self.v_range,
                 v_min=-self.v_range,
                 atoms=self.atoms,

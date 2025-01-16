@@ -58,6 +58,7 @@ class DQN(nn.Module):
         self,
         obs_space: spaces.Box,
         act_space: spaces.Box,
+        device="cpu",
         noisy=True,
         atoms=51,
         v_min=-10,
@@ -66,6 +67,7 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space
+        self.device = device
         self.atoms = atoms
         self.v_min = v_min
         self.v_max = v_max
@@ -110,6 +112,9 @@ class DQN(nn.Module):
         self.value = LinearLayer(512, self.atoms)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.is_cuda if self.device == "cuda" else True
+        assert x.is_cpu if self.device == "cpu" else True
+
         # Convert the entire tensor to float
         x = x.float()
         x = x / (
@@ -141,7 +146,6 @@ class DQN(nn.Module):
         torch.save(self.state_dict(), filepath)
 
     def load(self, filepath: str) -> None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.load_state_dict(
-            torch.load(filepath, map_location=device, weights_only=True)
+            torch.load(filepath, map_location=self.device, weights_only=True)
         )

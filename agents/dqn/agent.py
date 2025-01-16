@@ -150,73 +150,6 @@ class DQNAgent:
 
             self.n_step_buffer[i].popleft()
 
-    def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
-        """Get the value estimate for the next state-action pair."""
-        with torch.no_grad():
-            next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
-            next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
-            target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
-            return self._get_expected_q_values(target_dists).squeeze()[next_action]
-
-    def _compute_n_step_reward(
-        self, rewards: List[Tensor], next_value: Tensor, done: Tensor
-    ) -> Tensor:
-        """Compute the n-step return for a given trajectory."""
-        n_step_reward = next_value
-        for reward in reversed(rewards):
-            n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
-                done
-            )
-        return n_step_reward
-
-    def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
-        """Get expected Q-values from distributional Q-values."""
-        assert q_dist.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
-        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2)
-
-    def _coord_to_index(self, x, y):
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-        return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
-
-    def _coord_to_index_batch(self, action0s_tensor: Tensor) -> Tensor:
-        # Calculate the width of the action space
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-
-        # Extract x and y coordinates from the tensor
-        x_coords = action0s_tensor[:, 0]
-        y_coords = action0s_tensor[:, 1]
-
-        # Compute the indices using tensor operations
-        indices = (y_coords - self.act_space.low[1]) * width + (
-            x_coords - self.act_space.low[0]
-        )
-
-        return indices
-
-    def _index_to_coord(self, action_index):
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-        x = action_index % width + self.act_space.low[0]
-        y = action_index // width + self.act_space.low[1]
-        return x, y
-
-    def _index_to_coord_batch(self, action_indices: Tensor) -> Tensor:
-        # Calculate the width of the action space
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-
-        # Ensure action_indices is a tensor and move it to the GPU
-        if not isinstance(action_indices, torch.Tensor):
-            action_indices = torch.tensor(action_indices, dtype=torch.long)
-        action_indices = action_indices.cuda()
-
-        # Compute x and y coordinates using tensor operations
-        x_coords = (action_indices % width) + self.act_space.low[0]
-        y_coords = (action_indices // width) + self.act_space.low[1]
-
-        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
-        coords = torch.stack((x_coords, y_coords), dim=1)
-
-        return coords
-
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)
 
@@ -462,3 +395,70 @@ class DQNAgent:
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
+
+    def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
+        """Get the value estimate for the next state-action pair."""
+        with torch.no_grad():
+            next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
+            next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
+            target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
+            return self._get_expected_q_values(target_dists).squeeze()[next_action]
+
+    def _compute_n_step_reward(
+        self, rewards: List[Tensor], next_value: Tensor, done: Tensor
+    ) -> Tensor:
+        """Compute the n-step return for a given trajectory."""
+        n_step_reward = next_value
+        for reward in reversed(rewards):
+            n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
+                done
+            )
+        return n_step_reward
+
+    def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
+        """Get expected Q-values from distributional Q-values."""
+        assert q_dist.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
+        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2)
+
+    def _coord_to_index(self, x, y):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
+
+    def _coord_to_index_batch(self, action0s_tensor: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Extract x and y coordinates from the tensor
+        x_coords = action0s_tensor[:, 0]
+        y_coords = action0s_tensor[:, 1]
+
+        # Compute the indices using tensor operations
+        indices = (y_coords - self.act_space.low[1]) * width + (
+            x_coords - self.act_space.low[0]
+        )
+
+        return indices
+
+    def _index_to_coord(self, action_index):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        x = action_index % width + self.act_space.low[0]
+        y = action_index // width + self.act_space.low[1]
+        return x, y
+
+    def _index_to_coord_batch(self, action_indices: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Ensure action_indices is a tensor and move it to the GPU
+        if not isinstance(action_indices, torch.Tensor):
+            action_indices = torch.tensor(action_indices, dtype=torch.long)
+        action_indices = action_indices.cuda()
+
+        # Compute x and y coordinates using tensor operations
+        x_coords = (action_indices % width) + self.act_space.low[0]
+        y_coords = (action_indices // width) + self.act_space.low[1]
+
+        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
+        coords = torch.stack((x_coords, y_coords), dim=1)
+
+        return coords

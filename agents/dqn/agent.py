@@ -279,62 +279,6 @@ class DQNAgent:
                 self.policy_net.reset_noise()
                 self.target_net.reset_noise()
 
-    def _update_target_network(self) -> None:
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-
-    def _project_distribution(
-        self, next_dists_batch: Tensor, reward_batch: Tensor, done_batch: Tensor
-    ):
-        assert (
-            next_dists_batch.is_cuda or self.device == "cpu"
-        ), "Expected next_dist to be on CUDA device."
-        assert (
-            reward_batch.is_cuda or self.device == "cpu"
-        ), "Expected rewards to be on CUDA device."
-        assert (
-            done_batch.is_cuda or self.device == "cpu"
-        ), "Expected dones to be on CUDA device."
-
-        v_min, v_max = -self.v_range, self.v_range
-        delta_z = (v_max - v_min) / (self.atoms - 1)
-
-        # Create a buffer for the projected distribution
-        projected_dist = torch.zeros(
-            (self.batch_size, self.atoms),
-            device=self.device,
-            dtype=next_dists_batch.dtype,
-        )
-
-        # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
-        t_z = reward_batch + (
-            torch.logical_not(done_batch)
-        ) * self.gamma_n * self.supports.unsqueeze(0)
-        t_z = torch.clamp(t_z, v_min, v_max)
-
-        # Distribute probabilities for each atom
-        b = (t_z - v_min) / delta_z
-        l = b.floor().long()
-        u = b.ceil().long()
-
-        # Compute the fractional part (pj)
-        pj = (b - l.float()).to(dtype=next_dists_batch.dtype)
-
-        # Create masks for valid upper bounds
-        valid_u_mask = u < self.atoms
-
-        # Use scatter_add_ to accumulate probabilities into the projected distribution
-        # For the lower bound (l)
-        projected_dist.scatter_add_(1, l, next_dists_batch * (1 - pj))
-
-        # For the upper bound (u), only where valid
-        projected_dist.scatter_add_(
-            1,
-            torch.where(valid_u_mask, u, torch.zeros_like(u)),
-            next_dists_batch * pj * valid_u_mask.float(),
-        )
-
-        return projected_dist
-
     def draw_model(self, save_path: str = "./training_history.png") -> None:
         # Create the directory if it does not exist
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -462,3 +406,59 @@ class DQNAgent:
         coords = torch.stack((x_coords, y_coords), dim=1)
 
         return coords
+
+    def _update_target_network(self) -> None:
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def _project_distribution(
+        self, next_dists_batch: Tensor, reward_batch: Tensor, done_batch: Tensor
+    ):
+        assert (
+            next_dists_batch.is_cuda or self.device == "cpu"
+        ), "Expected next_dist to be on CUDA device."
+        assert (
+            reward_batch.is_cuda or self.device == "cpu"
+        ), "Expected rewards to be on CUDA device."
+        assert (
+            done_batch.is_cuda or self.device == "cpu"
+        ), "Expected dones to be on CUDA device."
+
+        v_min, v_max = -self.v_range, self.v_range
+        delta_z = (v_max - v_min) / (self.atoms - 1)
+
+        # Create a buffer for the projected distribution
+        projected_dist = torch.zeros(
+            (self.batch_size, self.atoms),
+            device=self.device,
+            dtype=next_dists_batch.dtype,
+        )
+
+        # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
+        t_z = reward_batch + (
+            torch.logical_not(done_batch)
+        ) * self.gamma_n * self.supports.unsqueeze(0)
+        t_z = torch.clamp(t_z, v_min, v_max)
+
+        # Distribute probabilities for each atom
+        b = (t_z - v_min) / delta_z
+        l = b.floor().long()
+        u = b.ceil().long()
+
+        # Compute the fractional part (pj)
+        pj = (b - l.float()).to(dtype=next_dists_batch.dtype)
+
+        # Create masks for valid upper bounds
+        valid_u_mask = u < self.atoms
+
+        # Use scatter_add_ to accumulate probabilities into the projected distribution
+        # For the lower bound (l)
+        projected_dist.scatter_add_(1, l, next_dists_batch * (1 - pj))
+
+        # For the upper bound (u), only where valid
+        projected_dist.scatter_add_(
+            1,
+            torch.where(valid_u_mask, u, torch.zeros_like(u)),
+            next_dists_batch * pj * valid_u_mask.float(),
+        )
+
+        return projected_dist

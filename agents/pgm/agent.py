@@ -52,8 +52,7 @@ class PGAgent:
 
         # Update entropy coefficient
         self.entropy_coef = max(
-            self.entropy_coef
-            * (1 - np.exp(-5 * self.entropy_coef_history**self.steps)),
+            self.entropy_coef * (1 - np.exp(-5 * self.entropy_coef**self.steps)),
             self.min_entropy_coef,
         )
 

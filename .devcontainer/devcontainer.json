@@ -27,7 +27,9 @@
         }
     },
     "mounts": [
-        "source=${localWorkspaceFolder}/../game,target=/mnt/game,type=bind,consistency=cached"
+        "source=${localWorkspaceFolder}/../game,target=/mnt/game,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.ssh/id_rsa,target=/root/.ssh/id_rsa,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.ssh/id_rsa.pub,target=/root/.ssh/id_rsa.pub,type=bind,consistency=cached"
     ],
     "runArgs": [
         "--gpus",

@@ -1,4 +1,5 @@
 import gymnasium as gym
+import torch.multiprocessing as mp
 from gymnasium.wrappers.vector import RecordEpisodeStatistics
 from gymnasium.vector import AsyncVectorEnv
 from tqdm import tqdm
@@ -157,6 +158,7 @@ tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
 tracer.start()
 if __name__ == "__main__":
     try:
+        mp.set_start_method("spawn", force=True)
         main()
     finally:
         envs.close()

@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 from typing import Dict, List, Tuple, Optional
 from gymnasium import spaces
 from time import sleep
+import logging
 from dataclasses import dataclass, field
 
 from utils.logger import get_cli_logger, get_file_logger
@@ -96,6 +97,31 @@ class RimWorldEnv(gym.Env):
 
         self.logger = f_logger
 
+        if render_mode == "human":
+            command = [
+                "-quicktest",
+                f"-f-reset-interval={30}",
+                f"-server-addr={self._options.game.server_addr}",
+                f"-server-port={self._port}",
+                f"-agent-control={self._options.game.agent_control}",
+                f"-team-size={self._options.game.team_size}",
+                f"-map-size={self._options.game.map_size}",
+                f"-gen-trees={self._options.game.gen_trees}",
+                f"-gen-ruins={self._options.game.gen_ruins}",
+                f"-seed={self._options.game.random_seed}",
+                f"-can-flee={self._options.game.can_flee}",
+                f"-actively-attack={self._options.game.actively_attack}",
+                f"-interval={self._options.game.interval}",
+                f"-speed={self._options.game.speed}",
+            ]
+
+            print("Please launch the game with these arguments:")
+            print(
+                f"{' '.join(command)}",
+            )
+
+            f_logger.setLevel(logging.DEBUG)
+
         StateCollector.init(self._port)
         self._server_thread, self._server = GameServer.create_server_thread(
             self._options.is_remote,
@@ -112,9 +138,13 @@ class RimWorldEnv(gym.Env):
 
             self._game.launch()
 
-        while not StateCollector.receive_state(self._server, reseting=True):
-            self.logger.warning(f"Game init response time timeout, restarting...")
-            self._game.restart()
+        if not StateCollector.receive_state(self._server, reseting=True):
+            if self._render_mode == "headless":
+                self.logger.warning(f"Game init response time timeout, restarting...")
+                self._game.restart()
+            else:
+                while not StateCollector.receive_state(self._server, reseting=True):
+                    self.logger.warning(f"Game init response time timeout, waiting...")
 
         self._update_all()
 
@@ -134,7 +164,7 @@ class RimWorldEnv(gym.Env):
         Observation space has 6 layers:
         1. Ally positions layer (0 to len(allies), uint8)
         2. Enemy positions layer (0 to len(enemies), uint8)
-        3. Cover positions layer (0-1, uint8)
+        3. Cover positions layer (0-2, uint8)
         4. Aiming layer (0-1, uint8)
         5. Status layer (0-1, uint8)
         6. Danger layer (0-100, uint8)
@@ -145,7 +175,7 @@ class RimWorldEnv(gym.Env):
                 [
                     [[len(self._allies)] * self._map.width] * self._map.height,
                     [[len(self._enemies)] * self._map.width] * self._map.height,
-                    [[1] * self._map.width] * self._map.height,
+                    [[2] * self._map.width] * self._map.height,
                     [[1] * self._map.width] * self._map.height,
                     [[1] * self._map.width] * self._map.height,
                     [[100] * self._map.width] * self._map.height,
@@ -186,10 +216,9 @@ class RimWorldEnv(gym.Env):
         )  # We need the following line to seed self.np_random
 
         StateCollector.reset()
-        while not StateCollector.receive_state(self._server, reseting=True):
+        if not StateCollector.receive_state(self._server, reseting=True):
             self.logger.warning(f"Timeout to reset the game, restarting the game.")
             self._restart_game()
-            self.logger.info(f"Restarted the client game.")
         else:
             self._reset_times += 1
             self._steped_times = 0
@@ -198,7 +227,6 @@ class RimWorldEnv(gym.Env):
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
             self.logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
             self._restart_game()
-            self.logger.info(f"Restarted the client game.")
             self._reset_times = 0
 
         self._update_all()
@@ -333,6 +361,36 @@ class RimWorldEnv(gym.Env):
                     covers.append(cell)
         return covers
 
+    def _get_walls(self) -> List[CellState]:
+        """Get all wall locations in the map.
+
+        Returns a list of locations (Loc objects) where there are walls in the map.
+
+        Returns:
+            `List[Loc]`: A list of location objects representing positions of walls
+        """
+        walls = []
+        for cell_row in self._map.cells:
+            for cell in cell_row:
+                if cell.is_wall:
+                    walls.append(cell)
+        return walls
+
+    def _get_trees(self) -> List[CellState]:
+        """Get all tree locations in the map.
+
+        Returns a list of locations (Loc objects) where there are trees in the map.
+
+        Returns:
+            `List[Loc]`: A list of location objects representing positions of trees
+        """
+        trees = []
+        for cell_row in self._map.cells:
+            for cell in cell_row:
+                if cell.is_tree:
+                    trees.append(cell)
+        return trees
+
     def _update_valid_position(self):
         """
         Returns a Dict action space where each key is an ally ID mapping to their movement space.
@@ -375,7 +433,8 @@ class RimWorldEnv(gym.Env):
             - 1 to len(enemies): Enemy units
         3. Cover positions layer:
             - 0: No cover
-            - 1: Cover present
+            - 1: Trees
+            - 2: Walls
         4. Aiming layer:
             - 0: Not aiming
             - 1: Aiming
@@ -416,18 +475,21 @@ class RimWorldEnv(gym.Env):
         # Fill cover positions
         for cover in self._get_covers():
             x, y = cover.loc.x, cover.loc.y
-            cover_positions[x][y] = 1
-            # Return layers as separate arrays in a tuple
-            grid = np.array(
-                [
-                    ally_positions,
-                    enemy_positions,
-                    cover_positions,
-                    aiming_layer,
-                    status_layer,
-                    danger_layer,
-                ]
-            )
+            if cover.is_tree:
+                cover_positions[x][y] = 1
+            elif cover.is_wall:
+                cover_positions[x][y] = 2
+
+        grid = np.array(
+            [
+                ally_positions,
+                enemy_positions,
+                cover_positions,
+                aiming_layer,
+                status_layer,
+                danger_layer,
+            ]
+        )
         return grid
 
     def _get_info(self):

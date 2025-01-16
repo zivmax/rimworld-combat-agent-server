@@ -45,7 +45,7 @@ def main():
     env = RecordEpisodeStatistics(env, buffer_length=n_episodes)
     register_keyboard_interrupt(env)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[1])
-    for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+    for episode in tqdm(range(1, n_episodes + 1), desc="Training"):
         next_state, _ = env.reset()
         while True:
             current_state = next_state

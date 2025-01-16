@@ -46,7 +46,7 @@ def main():
     register_keyboard_interrupt(env)
     agent = Agent(obs_space=env.observation_space, act_space=env.action_space[0])
     try:
-        for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+        for episode in tqdm(range(1, n_episodes + 1), desc="Training"):
             next_state, _ = env.reset()
             while True:
                 current_state = next_state

@@ -70,7 +70,7 @@ def main():
     next_state, _ = env.reset()
 
     step_count = 0  # Initialize step counter
-    with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
+    with tqdm(total=N_STEPS, desc="Training (Steps)") as pbar:
         while step_count < N_STEPS:
             current_state = next_state
             actions = agent.act([current_state])

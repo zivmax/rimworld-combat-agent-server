@@ -46,7 +46,7 @@ def main():
     agent.epsilon_decay = 0
     agent.policy_net.train()
 
-    for episode in tqdm(range(1, n_episodes + 1), desc="Training Progress"):
+    for episode in tqdm(range(1, n_episodes + 1), desc="Training"):
         next_state, _ = env.reset()
         next_state.swapaxes(0, 1)
         while True:

@@ -76,7 +76,7 @@ def main():
     next_states, _ = envs.reset()
     steps = 0
     steps_since_last_update = 0  # Added accumulator for steps
-    with tqdm(total=N_STEPS, desc="Training Progress") as pbar:
+    with tqdm(total=N_STEPS, desc="Training") as pbar:
         while steps < N_STEPS:
             current_states = next_states
             raw_actions, log_probs = agent.act(current_states)

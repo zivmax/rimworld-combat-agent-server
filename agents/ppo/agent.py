@@ -26,9 +26,10 @@ class PPOAgent:
         self.act_space = act_space
         self.device = device
         self.gamma = 0.975
-        self.k_epochs = 5
+        self.k_epochs = 8
         self.eps_clip = 0.1
-        self.entropy_coef = 0.05
+        self.min_entropy_coef = 0.02
+        self.entropy_decay_rate = 0.99
         self.critic_coef = 1.0
         self.batch_size = 1024
         self.state_values_store = []
@@ -39,7 +40,7 @@ class PPOAgent:
         self.advantages_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.00015)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.0002)
         self.memory = PPOMemory()
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
@@ -182,6 +183,9 @@ class PPOAgent:
                 self.entropy_history.append(entropy.mean().item())
                 self.advantages_history.append(batch_advantages.mean().item())
 
+        self.entropy_coef = max(
+            self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
+        )
         self.state_values_store.clear()
         self.memory.clear()
 

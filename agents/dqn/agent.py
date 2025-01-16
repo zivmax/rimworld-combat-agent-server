@@ -56,8 +56,9 @@ class DQNAgent:
         self.gamma = 0.975
 
         self.batch_size = 1024
-        self.k_epochs = 5
-        self.learning_rate = 0.00015
+        self.k_epochs = 2
+        self.learning_rate = 0.0005
+        self.target_net_update_freq = 50
 
         self.epsilon_start = 1.0
         self.epsilon_final = 0.001
@@ -93,7 +94,6 @@ class DQNAgent:
         self.target_net = create_dqn()
         self._update_target_network()
         self.target_net.eval()
-        self.target_net_update_freq = 500
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 

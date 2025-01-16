@@ -186,10 +186,9 @@ class RimWorldEnv(gym.Env):
         )  # We need the following line to seed self.np_random
 
         StateCollector.reset()
-        while not StateCollector.receive_state(self._server, reseting=True):
+        if not StateCollector.receive_state(self._server, reseting=True):
             self.logger.warning(f"Timeout to reset the game, restarting the game.")
             self._restart_game()
-            self.logger.info(f"Restarted the client game.")
         else:
             self._reset_times += 1
             self._steped_times = 0
@@ -198,7 +197,6 @@ class RimWorldEnv(gym.Env):
         if self._reset_times >= RESTART_INTERVAL and RESTART_INTERVAL > 0:
             self.logger.info(f"Waiting for restart at tick {StateCollector.state.tick}")
             self._restart_game()
-            self.logger.info(f"Restarted the client game.")
             self._reset_times = 0
 
         self._update_all()

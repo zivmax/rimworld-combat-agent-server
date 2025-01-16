@@ -226,9 +226,11 @@ class DQNAgent:
 
             with torch.no_grad():
                 next_atoms_batch = self.target_net.forward(stateN_batch)
-                next_action_batch = self._get_expected_q_values(
-                    next_atoms_batch
-                ).argmax(dim=1)
+                next_action_batch = (
+                    self._get_expected_q_values(next_atoms_batch)
+                    .argmax(dim=1)
+                    .squeeze()
+                )
                 T_atoms_batch = next_atoms_batch[
                     torch.arange(next_atoms_batch.size(0)), next_action_batch, :
                 ]

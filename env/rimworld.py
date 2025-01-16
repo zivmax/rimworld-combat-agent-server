@@ -137,7 +137,11 @@ class RimWorldEnv(gym.Env):
 
         if not StateCollector.receive_state(self._server, reseting=True):
             self.logger.warning(f"Game init response time timeout, restarting...")
-            self._game.restart()
+            if self._render_mode == "headless":
+                self._game.restart()
+            else:
+                while not StateCollector.receive_state(self._server, reseting=True):
+                    self.logger.warning(f"Game init response time timeout, waiting...")
 
         self._update_all()
 

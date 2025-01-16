@@ -196,49 +196,54 @@ class DQNAgent:
         if len(self.memory.buffer) < self.batch_size:
             return
 
+
+        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
+
+        # Sample from prioritized replay buffer
+        transitions, indices, weights = self.memory.sample(
+            self.batch_size, self.beta
+        )
+        batch = self.Transition(*zip(*transitions))
+
+        # Stack batch elements
+        state0_batch = torch.stack(batch.state0s).to(self.device)
+        stateN_batch = torch.stack(batch.stateNs).to(self.device)
+        action0_batch = torch.stack(batch.action0s).to(self.device)
+        rewardN_batch = torch.stack(batch.rewardNs).to(self.device)
+        done_batch = torch.stack(batch.dones).to(self.device)
+
+        # Send weights to device
+        weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
+
+        # Convert 2D coordinates to action indices
+        action_idx_batch = self._coord_to_index_batch(action0_batch)
+
         for _ in range(self.k_epochs):
             self.updates += 1
 
-            self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
-
-            # Sample from prioritized replay buffer
-            transitions, indices, weights = self.memory.sample(
-                self.batch_size, self.beta
-            )
-            batch = self.Transition(*zip(*transitions))
-
-            # Stack batch elements
-            state0_batch = torch.stack(batch.state0s)
-            stateN_batch = torch.stack(batch.stateNs)
-            action0_batch = torch.stack(batch.action0s)
-            rewardN_batch = torch.stack(batch.rewardNs)
-            done_batch = torch.stack(batch.dones)
-
-            # Convert 2D coordinates to action indices
-            action_idx_batch = self._coord_to_index_batch(action0_batch)
             # Get Q-values for initial state-action pairs
-            Q_dists_batch = self.policy_net.forward(state0_batch.to(self.device))
+            Q_dists_batch = self.policy_net.forward(state0_batch)
             Q_dists_batch = Q_dists_batch[
                 torch.arange(Q_dists_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_dists_batch = self.target_net.forward(stateN_batch.to(self.device))
+                next_dists_batch = self.target_net.forward(stateN_batch)
                 next_action_batch = self._get_expected_q_values(
-                    next_dists_batch.to(self.device)
+                    next_dists_batch
                 ).argmax(dim=1)
                 next_dists_batch = next_dists_batch[
                     torch.arange(next_dists_batch.size(0)), next_action_batch, :
                 ]
                 T_dist_batch = self._project_distribution(
-                    next_dists_batch.to(self.device),
-                    rewardN_batch.to(self.device),
-                    done_batch.to(self.device),
+                    next_dists_batch,
+                    rewardN_batch,
+                    done_batch,
                 )
 
             # Calculate TD errors and loss
             loss = -torch.sum(
-                torch.Tensor(weights).to(self.device).unsqueeze(1)  # Apply weights
+                torch.Tensor(weights).unsqueeze(1)  # Apply weights
                 * T_dist_batch
                 * torch.log(
                     Q_dists_batch + 1e-8

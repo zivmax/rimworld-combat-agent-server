@@ -7,16 +7,12 @@ import torch.distributions as distributions
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, obs_space: Box, act_space: Dict) -> None:
+    def __init__(self, obs_space: Box, act_space: Box) -> None:
         super(ActorCritic, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space
         self.act_size = int(np.prod(self.act_space.high - self.act_space.low + 1))
-        self.dim_actions = (
-            self.act_space.shape[0] * len(self.act_space.spaces)
-            if isinstance(self.act_space, Dict)
-            else self.act_space.shape[0]
-        )
+        self.dim_actions = self.act_size  # Total number of possible actions (9)
 
         self.conv = nn.Sequential(
             nn.Conv3d(
@@ -40,15 +36,16 @@ class ActorCritic(nn.Module):
         conv_out = self.conv(dummy)
         conv_out_size = conv_out.view(conv_out.size(0), -1).size(1)
 
+        # Actor outputs logits for each possible action index (0 to 8)
         self.actor = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, self.dim_actions),
+            nn.Linear(256, self.dim_actions),  # Output logits for each action index
         )
-        self.log_std = nn.Parameter(torch.zeros(self.dim_actions))
 
+        # Critic remains unchanged
         self.critic = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
@@ -72,41 +69,18 @@ class ActorCritic(nn.Module):
         )
         x = self.conv(x)
         x = x.view(x.size(0), -1)  # Flatten
-        action_mean = self.actor(x)
-        action_mean = action_mean * self.act_size
-        action_log_std = self.log_std.expand_as(action_mean)
-        action_std = torch.exp(action_log_std)
+        action_logits = self.actor(x)  # Logits for each action index
         state_values = self.critic(x) if not eval else self.eval_critic(x)
-        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
-        return action_mean, action_std, state_values
-
-    def act(self, state: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(state)
-        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
-
-        dist_x, dist_y = distributions.Normal(
-            action_mean[0, 0], action_std[0, 0]
-        ), distributions.Normal(action_mean[0, 1], action_std[0, 1])
-
-        action_x, action_y = dist_x.sample(), dist_y.sample()
-
-        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
-        return (
-            [action_x.cpu().item(), action_y.cpu().item()],
-            action_log_prob,
-            state_values,
-        )
+        return action_logits, state_values
 
     def evaluate(self, states: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(states, eval=True)
-        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
-        dist_x, dist_y = distributions.Normal(
-            action_mean[0, 0], action_std[0, 0]
-        ), distributions.Normal(action_mean[0, 1], action_std[0, 1])
-        action_x, action_y = dist_x.sample(), dist_y.sample()
-        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
-        entropy = dist_x.entropy() + dist_y.entropy()
-
+        action_logits, state_values = self.forward(states, eval=True)
+        dist = distributions.Categorical(
+            logits=action_logits
+        )  # Categorical distribution
+        action = dist.sample()  # Sample action index
+        action_log_prob = dist.log_prob(action)  # Log probability of the sampled action
+        entropy = dist.entropy()  # Entropy of the distribution
         return action_log_prob, entropy, state_values
 
     def save(self, filepath: str) -> None:

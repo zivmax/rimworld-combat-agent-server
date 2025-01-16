@@ -25,11 +25,12 @@ class PGAgent:
         self.n_envs = n_envs
         self.act_space = act_space
         self.device = device
+
         self.gamma = 0.975
         self.entropy_coef = 0.3
         self.min_entropy_coef = 0.005
         self.entropy_decay_rate = 0.99
-        self.k_epochs = 5
+
         self.policy_loss_history = []
         self.entropy_histroy = []
         self.loss_history = []
@@ -88,53 +89,51 @@ class PGAgent:
         )
 
     def train(self) -> None:
-        for _ in range(self.k_epochs):
-            returns = []
-            G = 0
-            for transition in self.memory.transitions:
-                reward, done = transition.reward.to(self.device), transition.done.to(
-                    self.device
-                )
-                if done:
-                    G = 0
-                G = reward + self.gamma * G
-                returns.insert(0, G)
-            returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-
-            # Calculate policy loss
-            log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
+        returns = []
+        G = 0
+        for transition in self.memory.transitions:
+            reward, done = transition.reward.to(self.device), transition.done.to(
                 self.device
             )
-            policy_loss = -torch.sum(log_probs * returns) / len(returns)
+            if done:
+                G = 0
+            G = reward + self.gamma * G
+            returns.insert(0, G)
+        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
-            # Calculate entropy (optional for exploration)
-            entropy = torch.stack(
-                [log_prob.exp() * log_prob for log_prob in log_probs]
-            ).mean()
-            entropy_loss = -self.entropy_coef * entropy
+        # Calculate policy loss
+        log_probs = torch.stack([t.log_prob for t in self.memory.transitions]).to(
+            self.device
+        )
+        policy_loss = -torch.sum(log_probs * returns) / len(returns)
 
-            # Total loss
-            loss = policy_loss + entropy_loss
+        # Calculate entropy (optional for exploration)
+        entropy = torch.stack(
+            [log_prob.exp() * log_prob for log_prob in log_probs]
+        ).mean()
+        entropy_loss = -self.entropy_coef * entropy
 
-            # Backpropagation
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        # Total loss
+        loss = policy_loss + entropy_loss
 
-            # Logging
-            self.policy_loss_history.append(policy_loss.item())
-            self.entropy_histroy.append(entropy.item())
-            self.loss_history.append(loss.item())
-            self.n_returns_history.append(returns.mean().item())
-            self.entropy_coef_history.append(self.entropy_coef)
+        # Backpropagation
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Logging
+        self.policy_loss_history.append(policy_loss.item())
+        self.entropy_histroy.append(entropy.item())
+        self.loss_history.append(loss.item())
+        self.n_returns_history.append(returns.mean().item())
+        self.entropy_coef_history.append(self.entropy_coef)
 
         # Update entropy coefficient
         self.entropy_coef = max(
             self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
         )
 
-        # Clear memory
         self.memory.clear()
 
     def draw(self, save_path: str = "./training_history.png") -> None:

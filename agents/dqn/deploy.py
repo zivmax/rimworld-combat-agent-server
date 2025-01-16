@@ -9,7 +9,10 @@ from env.wrappers import (
     FrameStackObservation,
     SwapObservationAxes,
 )
+from env.config import RIMWORLD_LOGGING_LEVEL
+import logging
 
+RIMWORLD_LOGGING_LEVEL = logging.DEBUG
 
 N_EPISODES = int(5)  # Total number of steps to train for
 MODEL = "agents/dqn/models/500000.pth"
@@ -44,7 +47,12 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
-    env = gym.make(rimworld_env, options=ENV_OPTIONS, port=10086, render_mode="human")
+    env = gym.make(
+        rimworld_env,
+        options=ENV_OPTIONS,
+        port=ENV_OPTIONS.game.server_port,
+        render_mode="human",
+    )
 
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))

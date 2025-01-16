@@ -27,9 +27,12 @@ class PGAgent:
         self.device = device
 
         self.gamma = 0.975
-        self.entropy_coef = 0.3
+        self.entropy_coef_start = 1.0
         self.min_entropy_coef = 0.005
-        self.entropy_decay_rate = 0.99
+        self.entropy_decay_rate = 0.9999
+        self.entropy_coef = self.entropy_coef_start
+
+        self.steps = 0
 
         self.policy_loss_history = []
         self.entropy_histroy = []
@@ -44,6 +47,15 @@ class PGAgent:
     def act(self, states: NDArray):
         states_tensor = torch.FloatTensor(states).to(self.device)
         actions_list, log_probs_list = [], []
+
+        self.steps += self.n_envs
+
+        # Update entropy coefficient
+        self.entropy_coef = max(
+            self.entropy_coef
+            * (1 - np.exp(-5 * self.entropy_coef_history**self.steps)),
+            self.min_entropy_coef,
+        )
 
         for i in range(self.n_envs):
             action_mean, action_std = self.policy.forward(states_tensor[i])
@@ -128,11 +140,6 @@ class PGAgent:
         self.loss_history.append(loss.item())
         self.n_returns_history.append(returns.mean().item())
         self.entropy_coef_history.append(self.entropy_coef)
-
-        # Update entropy coefficient
-        self.entropy_coef = max(
-            self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
-        )
 
         self.memory.clear()
 

@@ -14,7 +14,7 @@ from utils.timestamp import timestamp
 
 envs: AsyncVectorEnv = None
 
-N_ENVS = 10
+N_ENVS = 40
 N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
@@ -69,7 +69,7 @@ def main():
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
         act_space=envs.single_action_space[0],
-        device="cuda",
+        device="cuda:0",
     )
 
     next_states, _ = envs.reset()

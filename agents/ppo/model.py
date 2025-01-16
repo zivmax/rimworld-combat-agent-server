@@ -79,26 +79,8 @@ class ActorCritic(nn.Module):
         action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
         return action_mean, action_std, state_values
 
-    def act(self, state: torch.Tensor):
-        action_mean, action_std, state_values = self.forward(state)
-        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
-
-        dist_x, dist_y = distributions.Normal(
-            action_mean[0, 0], action_std[0, 0]
-        ), distributions.Normal(action_mean[0, 1], action_std[0, 1])
-
-        action_x, action_y = dist_x.sample(), dist_y.sample()
-
-        action_log_prob = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
-        return (
-            [action_x.cpu().item(), action_y.cpu().item()],
-            action_log_prob,
-            state_values,
-        )
-
     def evaluate(self, states: torch.Tensor):
         action_mean, action_std, state_values = self.forward(states, eval=True)
-        action_mean = action_mean.view(-1, 2, self.dim_actions // 2)
         dist_x, dist_y = distributions.Normal(
             action_mean[0, 0], action_std[0, 0]
         ), distributions.Normal(action_mean[0, 1], action_std[0, 1])

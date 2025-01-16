@@ -285,31 +285,31 @@ class DQNAgent:
         stats_df = pd.DataFrame(
             {
                 "Update": range(len(self.loss_history)),
-                "Loss": self.loss_history,
                 "Q-Value": self.q_value_history,
-                "TD Error": self.td_error_history,
+                "Loss": self.loss_history,
                 "KL Divergence": self.kl_div_history,
+                "TD Error": self.td_error_history,
             }
         )
 
         # Create subplots for each metric
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 16))
 
-        # Plot loss
-        sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax1)
-        ax1.set_title("Loss over Updates")
-
         # Plot Q-values
-        sns.lineplot(data=stats_df, x="Update", y="Q-Value", ax=ax2)
+        sns.lineplot(data=stats_df, x="Update", y="Q-Value", ax=ax1)
         ax2.set_title("Q-Values over Updates")
 
-        # Plot TD errors
-        sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax3)
-        ax3.set_title("TD Error over Updates")
+        # Plot loss
+        sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax2)
+        ax1.set_title("Loss over Updates")
 
         # Plot KL divergence
-        sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax4)
+        sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax3)
         ax4.set_title("KL Divergence over Updates")
+
+        # Plot TD errors
+        sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax4)
+        ax3.set_title("TD Error over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

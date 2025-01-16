@@ -56,18 +56,18 @@ class PGAgent:
             self.min_entropy_coef,
         )
 
-        logits = self.policy.forward(states_tensor)
-        dist = distributions.Categorical(logits=logits)
-        action = dist.sample().unsqueeze(1)
-        log_prob = dist.log_prob(action)
+        logits_batch = self.policy.forward(states_tensor)
+        dists_batch = distributions.Categorical(logits=logits_batch)
+        raw_action_batch = dists_batch.sample().unsqueeze(1)
+        log_prob_batch = dists_batch.log_prob(raw_action_batch)
         batch_actions = (
-            index_to_coord_batch(self.act_space, action)
+            index_to_coord_batch(self.act_space, raw_action_batch)
             .cpu()
             .numpy()
             .astype(self.act_space.dtype)
         )
 
-        return batch_actions, log_prob
+        return batch_actions, log_prob_batch
 
     def remember(
         self,

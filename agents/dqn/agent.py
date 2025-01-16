@@ -304,11 +304,11 @@ class DQNAgent:
 
         # Plot Q-values
         sns.lineplot(data=stats_df, x="Update", y="Q-Value", ax=ax1)
-        ax2.set_title("Q-Values over Updates")
+        ax1.set_title("Q-Values over Updates")
 
         # Plot loss
         sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax2)
-        ax1.set_title("Loss over Updates")
+        ax2.set_title("Loss over Updates")
 
         # Plot KL divergence
         sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax3)

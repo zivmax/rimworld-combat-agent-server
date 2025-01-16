@@ -67,7 +67,12 @@ class PPOAgent:
             action_log_probs = dist.log_prob(action_indices)
 
             # Convert actions to numpy array
-            batch_actions = self._index_to_coord_batch(action_indices).cpu().numpy()
+            batch_actions = (
+                self._index_to_coord_batch(action_indices)
+                .cpu()
+                .numpy()
+                .astype(self.act_space.dtype)
+            )
 
             # Store state values
             self.state_values_store.extend(state_values.cpu().detach().numpy())

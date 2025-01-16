@@ -9,7 +9,7 @@ from env.wrappers import (
 )
 
 N_EPISODES = int(5)  # Total number of steps to train for
-MODEL = "agents/dqn/models/2025-01-17_01:47:30/120000.pth"
+MODEL = "agents/dqn/models/2025-01-17_01:47:30/200000.pth"
 
 
 ENV_OPTIONS = EnvOptions(
@@ -80,6 +80,7 @@ def main():
                 done = terminated or truncated
                 if done:
                     break
+            done = False
             next_state, _ = env.reset()
             pbar.update(1)
     env.close()

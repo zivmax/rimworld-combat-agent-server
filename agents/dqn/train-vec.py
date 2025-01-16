@@ -79,6 +79,7 @@ def main():
     next_states, _ = envs.reset()
 
     steps = 0  # Initialize step counter
+    steps_since_last_update = 0  # Added accumulator for steps
     with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
         while steps < N_STEPS:
             current_states = next_states
@@ -93,8 +94,10 @@ def main():
 
             agent.remember(current_states, next_states, actions[0], rewards, dones)
 
-            if steps % TRAIN_INTERVAL == 0 and steps > 0:
+            steps_since_last_update += N_ENVS  # Accumulate steps
+            if steps_since_last_update >= TRAIN_INTERVAL:
                 agent.train()
+                steps_since_last_update -= TRAIN_INTERVAL  # Reset accumulator
 
             # Update step count and progress bar
             steps += N_ENVS

@@ -7,13 +7,9 @@ from env.wrappers import (
     FrameStackObservation,
     SwapObservationAxes,
 )
-from env.config import RIMWORLD_LOGGING_LEVEL
-import logging
-
-RIMWORLD_LOGGING_LEVEL = logging.DEBUG
 
 N_EPISODES = int(5)  # Total number of steps to train for
-MODEL = "agents/dqn/models/500000.pth"
+MODEL = "agents/dqn/models/2025-01-17_01:47:30/120000.pth"
 
 
 ENV_OPTIONS = EnvOptions(
@@ -51,7 +47,6 @@ def main():
         port=ENV_OPTIONS.game.server_port,
         render_mode="human",
     )
-
     env = FrameStackObservation(env, stack_size=8)
     env = SwapObservationAxes(env, swap=(0, 1))
     register_keyboard_interrupt(env)
@@ -69,8 +64,9 @@ def main():
     next_state, _ = env.reset()
 
     done = False
+    rewards = [0] * N_EPISODES
     with tqdm(total=N_EPISODES, desc="Testing (Episodes)") as pbar:
-        for _ in range(N_EPISODES):
+        for i in range(N_EPISODES):
             while not done:
                 current_state = next_state
                 actions = agent.act([current_state])
@@ -80,11 +76,14 @@ def main():
                 }
 
                 next_state, reward, terminated, truncated, _ = env.step(action)
+                rewards[i] += reward
                 done = terminated or truncated
                 if done:
-                    next_state, _ = env.reset()
+                    break
+            next_state, _ = env.reset()
             pbar.update(1)
     env.close()
+    print(rewards)
 
 
 if __name__ == "__main__":

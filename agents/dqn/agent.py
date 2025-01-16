@@ -261,11 +261,15 @@ class DQNAgent:
             self.memory.update_priorities(indices, priorities)
 
             # Calculate Expected Q-values and TD errors
-            Q_values_batch = self._get_expected_q_values(Q_atoms_batch).gather(
-                1, action_idx_batch.long().unsqueeze(1)
+            Q_values_batch = (
+                self._get_expected_q_values(Q_atoms_batch)
+                .squeeze(-1)
+                .gather(1, action_idx_batch.long().unsqueeze(1))
             )
-            T_values_batch = self._get_expected_q_values(T_atoms_batch).gather(
-                1, next_action_batch.long().unsqueeze(1)
+            T_values_batch = (
+                self._get_expected_q_values(T_atoms_batch)
+                .squeeze(-1)
+                .gather(1, next_action_batch.long().unsqueeze(1))
             )
 
             TD_errors = Q_values_batch - T_values_batch

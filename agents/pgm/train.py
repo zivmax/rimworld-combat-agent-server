@@ -65,7 +65,7 @@ def main():
     )
 
     next_state, _ = env.reset()
-    for step in tqdm(range(1, n_steps + 1), desc="Training Progress (Steps)"):
+    for step in tqdm(range(1, n_steps + 1), desc="Training (Steps)"):
         current_state = next_state
         actions, log_probs = agent.act([current_state])
 

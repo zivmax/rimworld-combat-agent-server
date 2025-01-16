@@ -80,7 +80,7 @@ def main():
 
     steps = 0  # Initialize step counter
     steps_since_last_update = 0  # Added accumulator for steps
-    with tqdm(total=N_STEPS, desc="Training Progress (Steps)") as pbar:
+    with tqdm(total=N_STEPS, desc="Training (Steps)") as pbar:
         while steps < N_STEPS:
             current_states = next_states
             actions = agent.act(current_states)

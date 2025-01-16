@@ -56,22 +56,12 @@ class PPOAgent:
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
         self.steps += self.n_envs
         with torch.no_grad():
-            # Convert states to tensor and move to device
             states_tensor = torch.FloatTensor(np.array(states)).to(self.device)
-
-            # Get action logits and state values for all states at once
             action_logits, state_values = self.policy.forward(states_tensor)
-
-            # Create categorical distribution for all actions
             dist = distributions.Categorical(logits=action_logits)
-
-            # Sample actions for all environments at once
             action_indices = dist.sample().unsqueeze(1)
-
-            # Calculate log probabilities for all actions
             action_log_probs = dist.log_prob(action_indices)
 
-            # Convert actions to numpy array
             batch_actions = (
                 index_to_coord_batch(self.act_space, action_indices)
                 .cpu()

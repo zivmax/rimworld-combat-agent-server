@@ -188,8 +188,11 @@ class DQNAgent:
                 raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
-                batch_actions = index_to_coord_batch(
-                    self.act_space, raw_actions.cpu().numpy()
+                batch_actions = (
+                    index_to_coord_batch(self.act_space, raw_actions)
+                    .cpu()
+                    .numpy()
+                    .astype(self.act_space.dtype)
                 )
 
         return batch_actions

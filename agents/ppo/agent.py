@@ -29,8 +29,10 @@ class PPOAgent:
         self.k_epochs = 8
         self.eps_clip = 0.1
         self.min_entropy_coef = 0.02
-        self.entropy_decay_rate = 0.99
-        self.entropy_coef = 0.06
+        self.entropy_decay = 0.9999
+        self.entropy_coef_start = 1.0
+        self.entropy_coef = self.entropy_coef_start
+        self.steps = 0
         self.critic_coef = 1.0
         self.batch_size = 1024
         self.state_values_store = []
@@ -98,6 +100,7 @@ class PPOAgent:
             self.state_values_store.extend(
                 [v.cpu().detach().numpy() for v in batch_state_values]
             )
+            self.steps += self.n_envs
             return (
                 batch_actions,
                 torch.stack(batch_log_probs),
@@ -191,7 +194,8 @@ class PPOAgent:
                 self.surr_history.append(surr.mean().item())
 
         self.entropy_coef = max(
-            self.entropy_coef * self.entropy_decay_rate, self.min_entropy_coef
+            self.entropy_coef_start * (1 - np.exp(-5 * self.entropy_decay**self.steps)),
+            self.min_entropy_coef,
         )
         self.state_values_store.clear()
         self.memory.clear()

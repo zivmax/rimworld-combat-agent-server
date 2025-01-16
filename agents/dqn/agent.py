@@ -137,7 +137,6 @@ class DQNAgent:
             next_state_value = self._get_max_Q_estimate(stateN.to(self.device))
 
             return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
-            done = done.unsqueeze(0)
 
             # Store transition with n-step return
             max_priority = (
@@ -227,9 +226,11 @@ class DQNAgent:
 
             with torch.no_grad():
                 next_atoms_batch = self.target_net.forward(stateN_batch)
-                next_action_batch = self._get_expected_q_values(
-                    next_atoms_batch
-                ).argmax(dim=1)
+                next_action_batch = (
+                    self._get_expected_q_values(next_atoms_batch)
+                    .argmax(dim=1)
+                    .squeeze()
+                )
                 T_atoms_batch = next_atoms_batch[
                     torch.arange(next_atoms_batch.size(0)), next_action_batch, :
                 ]
@@ -260,11 +261,15 @@ class DQNAgent:
             self.memory.update_priorities(indices, priorities)
 
             # Calculate Expected Q-values and TD errors
-            Q_values_batch = self._get_expected_q_values(Q_atoms_batch).gather(
-                1, action_idx_batch.long().unsqueeze(1)
+            Q_values_batch = (
+                self._get_expected_q_values(Q_atoms_batch)
+                .squeeze(-1)
+                .gather(1, action_idx_batch.long().unsqueeze(1))
             )
-            T_values_batch = self._get_expected_q_values(T_atoms_batch).gather(
-                1, next_action_batch.long().unsqueeze(1)
+            T_values_batch = (
+                self._get_expected_q_values(T_atoms_batch)
+                .squeeze(-1)
+                .gather(1, next_action_batch.long().unsqueeze(1))
             )
 
             TD_errors = Q_values_batch - T_values_batch
@@ -359,7 +364,7 @@ class DQNAgent:
             n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
                 done
             )
-        return n_step_reward
+        return n_step_reward.squeeze()
 
     def _get_expected_q_values(self, q_atoms_batch: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values.
@@ -450,8 +455,8 @@ class DQNAgent:
         )
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
-        t_z = reward_batch + (
-            torch.logical_not(done_batch)
+        t_z = reward_batch.unsqueeze(1) + (
+            torch.logical_not(done_batch).unsqueeze(1)
         ) * self.gamma_n * self.supports.unsqueeze(0)
         t_z = torch.clamp(t_z, v_min, v_max)
 

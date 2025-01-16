@@ -29,13 +29,15 @@ class PPOAgent:
         self.gamma = 0.975
         self.k_epochs = 8
         self.eps_clip = 0.1
+        self.batch_size = 1024
+
         self.min_entropy_coef = 0.02
         self.entropy_decay = 0.9999
         self.entropy_coef_start = 1.0
         self.entropy_coef = self.entropy_coef_start
-        self.steps = 0
+
         self.critic_coef = 1.0
-        self.batch_size = 1024
+
         self.state_values_store = []
         self.policy_loss_history = []
         self.value_loss_history = []
@@ -45,6 +47,7 @@ class PPOAgent:
         self.entropy_bonus_history = []
         self.advantages_history = []
         self.surr_history = []
+        self.steps = 0
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-5)

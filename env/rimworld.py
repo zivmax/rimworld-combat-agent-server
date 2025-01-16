@@ -64,15 +64,6 @@ class RimWorldEnv(gym.Env):
         bootsleep: int = 0,
     ):
         super().__init__()
-
-        logging_level = RIMWORLD_LOGGING_LEVEL
-        f_logger = get_file_logger(
-            __name__, f"env/logs/rimworld/{timestamp}/{port}.log", logging_level
-        )
-        cli_logger = get_cli_logger(__name__, logging_level)
-
-        self.logger = f_logger
-
         sleep(bootsleep)
 
         if render_mode not in ["headless", "human"]:
@@ -96,6 +87,14 @@ class RimWorldEnv(gym.Env):
         self._game: Game = None
         self._options = options if options else EnvOptions()
         self._port = GameServer.find_available_port(port)
+
+        logging_level = RIMWORLD_LOGGING_LEVEL
+        f_logger = get_file_logger(
+            __name__, f"env/logs/rimworld/{timestamp}/{port}.log", logging_level
+        )
+        cli_logger = get_cli_logger(__name__, logging_level)
+
+        self.logger = f_logger
 
         StateCollector.init(self._port)
         self._server_thread, self._server = GameServer.create_server_thread(

@@ -30,6 +30,7 @@ class PPOAgent:
         self.eps_clip = 0.1
         self.min_entropy_coef = 0.02
         self.entropy_decay_rate = 0.99
+        self.entropy_coef = 0.06
         self.critic_coef = 1.0
         self.batch_size = 1024
         self.state_values_store = []
@@ -190,7 +191,7 @@ class PPOAgent:
         self.memory.clear()
 
     def compute_advantages(self, rewards, dones):
-        GAE_LAMBDA = 0.95
+        GAE_LAMBDA = 0.9
         GAMMA = self.gamma
         state_values = self.state_values_store
         advantages = []

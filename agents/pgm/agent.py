@@ -169,11 +169,11 @@ class PGAgent:
 
         # Plot Return History
         sns.lineplot(data=stats_df, x="Update", y="Norm Return", ax=ax3)
-        ax4.set_title("Return History over Updates")
+        ax3.set_title("Norm Return over Updates")
 
         # Plot Entropy
         sns.lineplot(data=stats_df, x="Update", y="Entropy", ax=ax4)
-        ax2.set_title("Entropy over Updates")
+        ax4.set_title("Entropy over Updates")
 
         # Plot Entropy Coefficient Decay
         sns.lineplot(data=stats_df, x="Update", y="Entropy Coefficient", ax=ax5)

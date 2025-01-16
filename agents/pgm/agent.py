@@ -58,10 +58,10 @@ class PGAgent:
 
         logits_batch = self.policy.forward(states_tensor_batch)
         dists_batch = distributions.Categorical(logits=logits_batch)
-        raw_action_batch = dists_batch.sample().unsqueeze(1)
+        raw_action_batch = dists_batch.sample()
         log_prob_batch = dists_batch.log_prob(raw_action_batch)
         batch_actions = (
-            index_to_coord_batch(self.act_space, raw_action_batch)
+            index_to_coord_batch(self.act_space, raw_action_batch.unsqueeze(1))
             .cpu()
             .numpy()
             .astype(self.act_space.dtype)

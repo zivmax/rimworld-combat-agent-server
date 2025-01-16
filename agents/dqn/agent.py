@@ -14,6 +14,7 @@ from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from torch.types import Tensor
 
+from env.utils import index_to_coord_batch, coord_to_index_batch
 from .memory import PrioritizedReplayBuffer
 from .model import DQN
 
@@ -187,7 +188,7 @@ class DQNAgent:
                 raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
-                x, y = self._index_to_coord(raw_actions.cpu().numpy())
+                x, y = index_to_coord_batch(self.act_space, raw_actions.cpu().numpy())
                 batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
@@ -213,7 +214,7 @@ class DQNAgent:
         weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
 
         # Convert 2D coordinates to action indices
-        action_idx_batch = self._coord_to_index_batch(action0_batch)
+        action_idx_batch = coord_to_index_batch(self.act_space, action0_batch)
 
         for _ in range(self.k_epochs):
             self.updates += 1
@@ -382,49 +383,6 @@ class DQNAgent:
         expected_values = (probs * self.supports).sum(dim=2, keepdim=True)
 
         return expected_values
-
-    def _coord_to_index(self, x, y):
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-        return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
-
-    def _coord_to_index_batch(self, action0s_tensor: Tensor) -> Tensor:
-        # Calculate the width of the action space
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-
-        # Extract x and y coordinates from the tensor
-        x_coords = action0s_tensor[:, 0]
-        y_coords = action0s_tensor[:, 1]
-
-        # Compute the indices using tensor operations
-        indices = (y_coords - self.act_space.low[1]) * width + (
-            x_coords - self.act_space.low[0]
-        )
-
-        return indices
-
-    def _index_to_coord(self, action_index):
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-        x = action_index % width + self.act_space.low[0]
-        y = action_index // width + self.act_space.low[1]
-        return x, y
-
-    def _index_to_coord_batch(self, action_indices: Tensor) -> Tensor:
-        # Calculate the width of the action space
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-
-        # Ensure action_indices is a tensor and move it to the GPU
-        if not isinstance(action_indices, torch.Tensor):
-            action_indices = torch.tensor(action_indices, dtype=torch.long)
-        action_indices = action_indices.cuda()
-
-        # Compute x and y coordinates using tensor operations
-        x_coords = (action_indices % width) + self.act_space.low[0]
-        y_coords = (action_indices // width) + self.act_space.low[1]
-
-        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
-        coords = torch.stack((x_coords, y_coords), dim=1)
-
-        return coords
 
     def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())

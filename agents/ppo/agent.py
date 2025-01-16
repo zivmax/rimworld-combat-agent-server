@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from env.utils import index_to_coord_batch
 from .memory import PPOMemory
 from .model import ActorCritic
 
@@ -68,7 +69,7 @@ class PPOAgent:
 
             # Convert actions to numpy array
             batch_actions = (
-                self._index_to_coord_batch(action_indices)
+                index_to_coord_batch(self.act_space, action_indices)
                 .cpu()
                 .numpy()
                 .astype(self.act_space.dtype)
@@ -270,21 +271,3 @@ class PPOAgent:
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
-
-    def _index_to_coord_batch(self, action_indices: torch.Tensor) -> torch.Tensor:
-        # Calculate the width of the action space
-        width = self.act_space.high[0] - self.act_space.low[0] + 1
-
-        # Ensure action_indices is a tensor and move it to the GPU
-        if not isinstance(action_indices, torch.Tensor):
-            action_indices = torch.tensor(action_indices, dtype=torch.long)
-        action_indices = action_indices.cuda()
-
-        # Compute x and y coordinates using tensor operations
-        x_coords = (action_indices % width) + self.act_space.low[0]
-        y_coords = (action_indices // width) + self.act_space.low[1]
-
-        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
-        coords = torch.stack((x_coords, y_coords), dim=1)
-
-        return coords

@@ -178,9 +178,9 @@ class DQNAgent:
         else:
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states)
-                # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
-                Q_dists = self.policy_net.forward(states_tensor.to(self.device))
 
+                # Get Q-value
+                Q_dists = self.policy_net.forward(states_tensor.to(self.device))
                 expected_Qs = self._get_expected_q_values(Q_dists)
 
                 # Get actions with highest expected Q-values
@@ -196,55 +196,57 @@ class DQNAgent:
         if len(self.memory.buffer) < self.batch_size:
             return
 
+        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
+
+        # Sample from prioritized replay buffer
+        transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
+        batch = self.Transition(*zip(*transitions))
+
+        # Stack batch elements
+        state0_batch = torch.stack(batch.state0s).to(self.device)
+        stateN_batch = torch.stack(batch.stateNs).to(self.device)
+        action0_batch = torch.stack(batch.action0s).to(self.device)
+        rewardN_batch = torch.stack(batch.rewardNs).to(self.device)
+        done_batch = torch.stack(batch.dones).to(self.device)
+
+        # Send weights to device
+        weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
+
+        # Convert 2D coordinates to action indices
+        action_idx_batch = self._coord_to_index_batch(action0_batch)
+
         for _ in range(self.k_epochs):
             self.updates += 1
 
-            self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
-
-            # Sample from prioritized replay buffer
-            transitions, indices, weights = self.memory.sample(
-                self.batch_size, self.beta
-            )
-            batch = self.Transition(*zip(*transitions))
-
-            # Stack batch elements
-            state0_batch = torch.stack(batch.state0s)
-            stateN_batch = torch.stack(batch.stateNs)
-            action0_batch = torch.stack(batch.action0s)
-            rewardN_batch = torch.stack(batch.rewardNs)
-            done_batch = torch.stack(batch.dones)
-
-            # Convert 2D coordinates to action indices
-            action_idx_batch = self._coord_to_index_batch(action0_batch)
             # Get Q-values for initial state-action pairs
-            Q_dists_batch = self.policy_net.forward(state0_batch.to(self.device))
+            Q_dists_batch = self.policy_net.forward(state0_batch)
             Q_dists_batch = Q_dists_batch[
                 torch.arange(Q_dists_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_dists_batch = self.target_net.forward(stateN_batch.to(self.device))
+                next_dists_batch = self.target_net.forward(stateN_batch)
                 next_action_batch = self._get_expected_q_values(
-                    next_dists_batch.to(self.device)
+                    next_dists_batch
                 ).argmax(dim=1)
                 next_dists_batch = next_dists_batch[
                     torch.arange(next_dists_batch.size(0)), next_action_batch, :
                 ]
                 T_dist_batch = self._project_distribution(
-                    next_dists_batch.to(self.device),
-                    rewardN_batch.to(self.device),
-                    done_batch.to(self.device),
+                    next_dists_batch,
+                    rewardN_batch,
+                    done_batch,
                 )
 
-            # Calculate TD errors and loss
-            loss = -torch.sum(
-                torch.Tensor(weights).to(self.device).unsqueeze(1)  # Apply weights
-                * T_dist_batch
-                * torch.log(
-                    Q_dists_batch + 1e-8
-                ),  # Add small epsilon for numerical stability
-                dim=1,
-            ).mean()
+            # Calculate loss using weighted KL divergence
+            kl_div = F.kl_div(
+                F.log_softmax(Q_dists_batch, dim=1),
+                F.softmax(T_dist_batch, dim=1),
+                reduction="none",
+            ).sum(dim=1)
+
+            # Apply importance weights to KL divergence
+            loss = (weights * kl_div).mean()
 
             # Optimize
             self.optimizer.zero_grad()
@@ -252,12 +254,7 @@ class DQNAgent:
             torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
             self.optimizer.step()
 
-            # Update priorities using KL divergence
-            kl_div = F.kl_div(
-                F.log_softmax(Q_dists_batch, dim=1),
-                F.softmax(T_dist_batch, dim=1),
-                reduction="none",
-            ).sum(dim=1)
+            # Update priorities using KL divergence (already calculated)
             priorities = kl_div.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
 

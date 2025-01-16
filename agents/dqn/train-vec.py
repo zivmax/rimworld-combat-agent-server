@@ -16,11 +16,11 @@ from utils.timestamp import timestamp
 
 envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 20
+N_ENVS = 10
 N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
-SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)
+SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
 
 TRAIN_INTERVAL = 100
 
@@ -72,7 +72,7 @@ def main():
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
         act_space=envs.single_action_space[0],
-        device="cuda:1",
+        device="cuda",
     )
     agent.policy_net.train()
 

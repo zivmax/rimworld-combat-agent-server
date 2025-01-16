@@ -93,7 +93,7 @@ class PGAgent:
         self.memory.store(
             state=torch.tensor(state).to(self.device),
             action=torch.tensor(action).to(self.device),
-            log_prob=log_prob,  # Keep as a Tensor with grad
+            log_prob=log_prob,
             reward=torch.tensor(reward).to(self.device),
             next_state=torch.tensor(next_state).to(self.device),
             done=torch.tensor(done).to(self.device),

@@ -178,9 +178,9 @@ class DQNAgent:
         else:
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states)
-                # Get Q-value distributions - shape: (batch_size, n_actions, n_atoms)
-                Q_dists = self.policy_net.forward(states_tensor.to(self.device))
 
+                # Get Q-value
+                Q_dists = self.policy_net.forward(states_tensor.to(self.device))
                 expected_Qs = self._get_expected_q_values(Q_dists)
 
                 # Get actions with highest expected Q-values

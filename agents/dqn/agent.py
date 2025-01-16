@@ -134,7 +134,7 @@ class DQNAgent:
             rewards_n = [transition[3] for transition in self.n_step_buffer[i]]
 
             # Get value estimate for final state
-            next_state_value = self._get_next_act_value_estimate(stateN.to(self.device))
+            next_state_value = self._get_max_Q_estimate(stateN.to(self.device))
 
             return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
             done = done.unsqueeze(0)
@@ -220,29 +220,29 @@ class DQNAgent:
             self.updates += 1
 
             # Get Q-values for initial state-action pairs
-            Q_dists_batch = self.policy_net.forward(state0_batch)
-            Q_dists_batch = Q_dists_batch[
-                torch.arange(Q_dists_batch.size(0)), action_idx_batch.long(), :
+            Q_atoms_batch = self.policy_net.forward(state0_batch)
+            Q_atoms_batch = Q_atoms_batch[
+                torch.arange(Q_atoms_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_dists_batch = self.target_net.forward(stateN_batch)
-                next_action_batch = self._get_expected_q_values(
-                    next_dists_batch
+                next_acts_atoms_batch = self.target_net.forward(stateN_batch)
+                maxQ_action_batch = self._get_expected_q_values(
+                    next_acts_atoms_batch
                 ).argmax(dim=1)
-                next_dists_batch = next_dists_batch[
-                    torch.arange(next_dists_batch.size(0)), next_action_batch, :
+                T_atoms_batch = next_acts_atoms_batch[
+                    torch.arange(next_acts_atoms_batch.size(0)), maxQ_action_batch, :
                 ]
-                T_dist_batch = self._project_distribution(
-                    next_dists_batch,
+                T_atoms_batch = self._project_distribution(
+                    T_atoms_batch,
                     rewardN_batch,
                     done_batch,
                 )
 
             # Calculate loss using weighted KL divergence
             kl_div = F.kl_div(
-                F.log_softmax(Q_dists_batch, dim=1),
-                F.softmax(T_dist_batch, dim=1),
+                F.log_softmax(Q_atoms_batch, dim=1),
+                F.softmax(T_atoms_batch, dim=1),
                 reduction="none",
             ).sum(dim=1)
 
@@ -260,8 +260,8 @@ class DQNAgent:
             self.memory.update_priorities(indices, priorities)
 
             # Calculate Expected Q-values and TD errors
-            Q_values_batch = self._get_expected_q_values(Q_dists_batch)
-            T_values_batch = self._get_expected_q_values(T_dist_batch)
+            Q_values_batch = self._get_expected_q_values(Q_atoms_batch)
+            T_values_batch = self._get_expected_q_values(T_atoms_batch)
 
             TD_errors = Q_values_batch - T_values_batch
 
@@ -338,13 +338,13 @@ class DQNAgent:
         plt.savefig(save_path)
         plt.close()
 
-    def _get_next_act_value_estimate(self, state: Tensor) -> Tensor:
+    def _get_max_Q_estimate(self, state: Tensor) -> Tensor:
         """Get the value estimate for the next state-action pair."""
         with torch.no_grad():
-            next_Q_dists = self.policy_net.forward(state.unsqueeze(0).to(self.device))
-            next_action = self._get_expected_q_values(next_Q_dists).argmax(dim=1)
-            target_dists = self.target_net.forward(state.unsqueeze(0).to(self.device))
-            return self._get_expected_q_values(target_dists).squeeze()[next_action]
+            next_Q_atoms = self.policy_net.forward(state.unsqueeze(0).to(self.device))
+            maxQ_action = self._get_expected_q_values(next_Q_atoms).argmax(dim=1)
+            T_atoms = self.target_net.forward(state.unsqueeze(0).to(self.device))
+            return self._get_expected_q_values(T_atoms).squeeze()[maxQ_action]
 
     def _compute_n_step_reward(
         self, rewards: List[Tensor], next_value: Tensor, done: Tensor
@@ -357,10 +357,22 @@ class DQNAgent:
             )
         return n_step_reward
 
-    def _get_expected_q_values(self, q_dist: Tensor) -> Tensor:
-        """Get expected Q-values from distributional Q-values."""
-        assert q_dist.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
-        return torch.sum(q_dist * self.supports.view(1, 1, -1), dim=2)
+    def _get_expected_q_values(self, q_atoms: Tensor) -> Tensor:
+        """Get expected Q-values from distributional Q-values.
+
+        Args:
+            q_atoms_batch: Probability distribution over atoms for each action (batch_size, action_size, num_atoms)
+
+        Returns:
+            Expected Q-values for each action (batch_size, action_size, 1)
+        """
+        assert q_atoms.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
+
+        # Ensure probabilities sum to 1 along atom dimension
+        probs = torch.softmax(q_atoms, dim=1)
+        expected_values = (probs * self.supports).sum(dim=1, keepdim=True)
+
+        return expected_values
 
     def _coord_to_index(self, x, y):
         width = self.act_space.high[0] - self.act_space.low[0] + 1

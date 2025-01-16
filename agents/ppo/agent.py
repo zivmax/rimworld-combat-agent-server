@@ -38,7 +38,7 @@ class PPOAgent:
 
         self.critic_coef = 1.0
 
-        self.state_values_store = []
+        self.state_values_buffer = []
         self.policy_loss_history = []
         self.value_loss_history = []
         self.loss_history = []
@@ -66,7 +66,7 @@ class PPOAgent:
             dist = distributions.Categorical(logits=action_logits)
 
             # Sample actions for all environments at once
-            action_indices = dist.sample()
+            action_indices = dist.sample().unsqueeze(1)
 
             # Calculate log probabilities for all actions
             action_log_probs = dist.log_prob(action_indices)
@@ -80,7 +80,7 @@ class PPOAgent:
             )
 
             # Store state values
-            self.state_values_store.extend(state_values.cpu().detach().numpy())
+            self.state_values_buffer.extend(state_values.cpu().detach().numpy())
 
             return (
                 batch_actions,
@@ -97,12 +97,12 @@ class PPOAgent:
         done: bool,
     ) -> None:
         self.memory.store_transition(
-            state=torch.tensor(state).to("cpu"),
-            action=torch.tensor(action).to("cpu"),
-            log_prob=log_prob.to("cpu"),
-            reward=torch.tensor(reward).to("cpu"),
-            next_state=torch.tensor(next_state).to("cpu"),
-            done=torch.tensor(done).to("cpu"),
+            state=torch.tensor(state).to(self.device),
+            action=torch.tensor(action).to(self.device),
+            log_prob=log_prob.to(self.device),
+            reward=torch.tensor(reward).to(self.device),
+            next_state=torch.tensor(next_state).to(self.device),
+            done=torch.tensor(done).to(self.device),
         )
 
     def train(self) -> None:
@@ -178,13 +178,13 @@ class PPOAgent:
             self.entropy_coef_start * (1 - np.exp(-5 * self.entropy_decay**self.steps)),
             self.min_entropy_coef,
         )
-        self.state_values_store.clear()
+        self.state_values_buffer.clear()
         self.memory.clear()
 
     def compute_advantages(self, rewards, dones):
         GAE_LAMBDA = 0.9
         GAMMA = self.gamma
-        state_values = self.state_values_store
+        state_values = self.state_values_buffer
         advantages = []
         returns = []
         advantage = 0

@@ -97,7 +97,7 @@ def main():
             if steps % TRAIN_BATCH_SIZE == 0 and steps > 0:
                 agent.train()
 
-            if steps % SAVING_INTERVAL == 0 and steps > 0:
+            if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
                 agent.policy.save(f"agents/pgm/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,

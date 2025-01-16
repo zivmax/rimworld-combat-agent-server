@@ -101,7 +101,7 @@ def main():
             pbar.update(N_ENVS)
 
             # Save model and plots at the specified interval
-            if steps % SAVING_INTERVAL == 0 and steps > 0:
+            if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
                 agent.policy_net.save(f"agents/dqn/models/{timestamp}/{steps}.pth")
                 agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{steps}.png")
                 agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{steps}.png")

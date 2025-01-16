@@ -29,7 +29,7 @@ class PGAgent:
         self.gamma = 0.975
         self.entropy_coef_start = 1.0
         self.min_entropy_coef = 0.005
-        self.entropy_decay_rate = 0.9999
+        self.entropy_decay = 0.9999
         self.entropy_coef = self.entropy_coef_start
 
         self.steps = 0
@@ -52,7 +52,7 @@ class PGAgent:
 
         # Update entropy coefficient
         self.entropy_coef = max(
-            self.entropy_coef * (1 - np.exp(-5 * self.entropy_coef**self.steps)),
+            self.entropy_coef_start * (1 - np.exp(-5 * self.entropy_decay**self.steps)),
             self.min_entropy_coef,
         )
 

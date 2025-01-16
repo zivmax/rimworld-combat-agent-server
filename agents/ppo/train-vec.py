@@ -15,7 +15,7 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 10
-N_STEPS = int(20e4)
+N_STEPS = int(200e4)
 SNAPSHOTS = 20
 
 SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
@@ -97,7 +97,7 @@ def main():
             if steps % TRAIN_INTERVAL == 0 and steps > 0:
                 agent.train()
 
-            if steps % SAVING_INTERVAL == 0 and steps > 0:
+            if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
                 agent.policy.save(f"agents/ppo/models/{timestamp}/{steps}.pth")
                 draw(
                     envs,

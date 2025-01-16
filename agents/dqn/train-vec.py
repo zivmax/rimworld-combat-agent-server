@@ -101,7 +101,7 @@ def main():
             pbar.update(N_ENVS)
 
             # Save model and plots at the specified interval
-            if steps % SAVING_INTERVAL == 0 and steps > 0:
+            if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
                 agent.policy_net.save(f"agents/dqn/models/{timestamp}/{steps}.pth")
                 agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{steps}.png")
                 agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{steps}.png")
@@ -132,17 +132,18 @@ def saving(
     # Create a DataFrame with the training statistics
     stats_df = pd.DataFrame(
         {
-            "Update": range(len(agent.loss_history)),
+            "Update": agent.updates,
             "Loss": agent.loss_history,
             "Q-Value": agent.q_value_history,
-            "TD-Error": agent.td_error_history,
+            "TD Error": agent.td_error_history,
+            "KL Divergence": agent.kl_div_history,
         }
     )
 
     # Create a DataFrame with the threshold history
     thres_df = pd.DataFrame(
         {
-            "Steps": range(len(agent.eps_threshold_history)),
+            "Steps": agent.steps,
             "Threshold": agent.eps_threshold_history,
         }
     )

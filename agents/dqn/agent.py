@@ -56,9 +56,9 @@ class DQNAgent:
         self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
         self.gamma = 0.975
 
-        self.batch_size = 1024
-        self.k_epochs = 2
-        self.learning_rate = 0.0005
+        self.batch_size = 2048
+        self.k_epochs = 1
+        self.learning_rate = 0.001
         self.target_net_update_freq = 50
 
         self.epsilon_start = 1.0
@@ -68,7 +68,7 @@ class DQNAgent:
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
 
-        self.n_step = 4
+        self.n_step = 2
         self.n_step_buffer: List[Deque[Tensor]] = [
             deque(maxlen=self.n_step) for _ in range(self.n_envs)
         ]

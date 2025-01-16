@@ -39,9 +39,10 @@ class PPOAgent:
         self.loss_history = []
         self.entropy_history = []
         self.advantages_history = []
+        self.entropy_coef_history = []
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=0.0002)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-4)
         self.memory = PPOMemory()
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
@@ -182,6 +183,7 @@ class PPOAgent:
                 self.value_loss_history.append(critic_loss.mean().item())
                 self.loss_history.append(loss.mean().item())
                 self.entropy_history.append(entropy.mean().item())
+                self.entropy_coef_history.append(self.entropy_coef)
                 self.advantages_history.append(batch_advantages.mean().item())
 
         self.entropy_coef = max(
@@ -237,11 +239,12 @@ class PPOAgent:
                 "Total Loss": self.loss_history,
                 "Entropy": self.entropy_history,
                 "Advantages": self.advantages_history,
+                "Entropy Coef": self.entropy_coef_history,
             }
         )
 
         # Create subplots for each metric
-        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(10, 20))
+        fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1, figsize=(10, 20))
 
         # Plot Policy Loss
         sns.lineplot(data=stats_df, x="Update", y="Policy Loss", ax=ax1)
@@ -262,6 +265,10 @@ class PPOAgent:
         # Plot Advantages
         sns.lineplot(data=stats_df, x="Update", y="Advantages", ax=ax5)
         ax5.set_title("Advantages over Updates")
+
+        # Plot Entropy Coef
+        sns.lineplot(data=stats_df, x="Update", y="Entropy Coef", ax=ax6)
+        ax6.set_title("Entropy Coef over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

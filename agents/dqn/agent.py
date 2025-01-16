@@ -196,13 +196,10 @@ class DQNAgent:
         if len(self.memory.buffer) < self.batch_size:
             return
 
-
         self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
         # Sample from prioritized replay buffer
-        transitions, indices, weights = self.memory.sample(
-            self.batch_size, self.beta
-        )
+        transitions, indices, weights = self.memory.sample(self.batch_size, self.beta)
         batch = self.Transition(*zip(*transitions))
 
         # Stack batch elements
@@ -241,15 +238,15 @@ class DQNAgent:
                     done_batch,
                 )
 
-            # Calculate TD errors and loss
-            loss = -torch.sum(
-                torch.Tensor(weights).unsqueeze(1)  # Apply weights
-                * T_dist_batch
-                * torch.log(
-                    Q_dists_batch + 1e-8
-                ),  # Add small epsilon for numerical stability
-                dim=1,
-            ).mean()
+            # Calculate loss using weighted KL divergence
+            kl_div = F.kl_div(
+                F.log_softmax(Q_dists_batch, dim=1),
+                F.softmax(T_dist_batch, dim=1),
+                reduction="none",
+            ).sum(dim=1)
+
+            # Apply importance weights to KL divergence
+            loss = (weights * kl_div).mean()
 
             # Optimize
             self.optimizer.zero_grad()
@@ -257,12 +254,7 @@ class DQNAgent:
             torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
             self.optimizer.step()
 
-            # Update priorities using KL divergence
-            kl_div = F.kl_div(
-                F.log_softmax(Q_dists_batch, dim=1),
-                F.softmax(T_dist_batch, dim=1),
-                reduction="none",
-            ).sum(dim=1)
+            # Update priorities using KL divergence (already calculated)
             priorities = kl_div.abs().detach().cpu().numpy() + 1e-5
             self.memory.update_priorities(indices, priorities)
 

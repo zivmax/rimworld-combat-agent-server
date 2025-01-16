@@ -56,25 +56,25 @@ class PPOAgent:
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
         self.steps += self.n_envs
         with torch.no_grad():
-            states_tensor = torch.FloatTensor(np.array(states)).to(self.device)
-            action_logits, state_values = self.policy.forward(states_tensor)
-            dist = distributions.Categorical(logits=action_logits)
-            action_indices = dist.sample().unsqueeze(1)
-            action_log_probs = dist.log_prob(action_indices)
+            states_tensor_batch = torch.FloatTensor(np.array(states)).to(self.device)
+            logits_batch, state_values_batch = self.policy.forward(states_tensor_batch)
+            dists_batch = distributions.Categorical(logits=logits_batch)
+            action_batch = dists_batch.sample().unsqueeze(1)
+            log_prob_batch = dists_batch.log_prob(action_batch)
 
             batch_actions = (
-                index_to_coord_batch(self.act_space, action_indices)
+                index_to_coord_batch(self.act_space, action_batch)
                 .cpu()
                 .numpy()
                 .astype(self.act_space.dtype)
             )
 
             # Store state values
-            self.state_values_store.extend(state_values.cpu().detach().numpy())
+            self.state_values_store.extend(state_values_batch.cpu().detach().numpy())
 
             return (
                 batch_actions,
-                action_log_probs,
+                log_prob_batch,
             )
 
     def remember(

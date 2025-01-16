@@ -47,7 +47,7 @@ class PGAgent:
         self.memory = PGMemory()
 
     def act(self, states: NDArray):
-        states_tensor = torch.FloatTensor(states).to(self.device)
+        states_tensor_batch = torch.FloatTensor(states).to(self.device)
         self.steps += self.n_envs
 
         # Update entropy coefficient
@@ -56,7 +56,7 @@ class PGAgent:
             self.min_entropy_coef,
         )
 
-        logits_batch = self.policy.forward(states_tensor)
+        logits_batch = self.policy.forward(states_tensor_batch)
         dists_batch = distributions.Categorical(logits=logits_batch)
         raw_action_batch = dists_batch.sample().unsqueeze(1)
         log_prob_batch = dists_batch.log_prob(raw_action_batch)

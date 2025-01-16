@@ -43,6 +43,6 @@ def index_to_coord_batch(act_space: Box, action_indices: Tensor) -> Tensor:
     y_coords = (action_indices // width) + act_space.low[1]
 
     # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
-    coords = torch.stack((x_coords, y_coords), dim=1).squeeze()
+    coords = torch.stack((x_coords, y_coords), dim=1).squeeze(-1)
 
     return coords

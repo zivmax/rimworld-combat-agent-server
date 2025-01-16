@@ -1,7 +1,5 @@
 import gymnasium as gym
 from tqdm import tqdm
-import pandas as pd
-import numpy as np
 
 from agents.dqn import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt

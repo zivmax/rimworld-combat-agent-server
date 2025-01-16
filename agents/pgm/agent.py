@@ -10,6 +10,7 @@ import torch.optim as optim
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 
+from env.utils import index_to_coord_batch
 from .memory import PGMemory
 from .model import PolicyNetwork
 
@@ -47,8 +48,6 @@ class PGAgent:
 
     def act(self, states: NDArray):
         states_tensor = torch.FloatTensor(states).to(self.device)
-        actions_list, log_probs_list = [], []
-
         self.steps += self.n_envs
 
         # Update entropy coefficient
@@ -57,30 +56,18 @@ class PGAgent:
             self.min_entropy_coef,
         )
 
-        for i in range(self.n_envs):
-            action_mean, action_std = self.policy.forward(states_tensor[i])
-            dist_x = distributions.Normal(action_mean[0, 0], action_std[0, 0])
-            dist_y = distributions.Normal(action_mean[0, 1], action_std[0, 1])
+        logits = self.policy.forward(states_tensor)
+        dist = distributions.Categorical(logits=logits)
+        action = dist.sample()
+        log_prob = dist.log_prob(action)
+        batch_actions = (
+            index_to_coord_batch(self.act_space, action)
+            .cpu()
+            .numpy()
+            .astype(self.act_space.dtype)
+        )
 
-            action_x = dist_x.sample()
-            action_y = dist_y.sample()
-            log_probs = dist_x.log_prob(action_x) + dist_y.log_prob(action_y)
-
-            actions = [
-                int(round(action_x.item())),
-                int(round(action_y.item())),
-            ]  # Changed to discrete
-            actions[0] = max(
-                min(actions[0], self.act_space.high[0]), self.act_space.low[0]
-            )
-            actions[1] = max(
-                min(actions[1], self.act_space.high[1]), self.act_space.low[1]
-            )
-
-            actions_list.append(actions)
-            log_probs_list.append(log_probs)
-
-        return np.array(actions_list, dtype=np.int8), torch.stack(log_probs_list)
+        return batch_actions, log_prob
 
     def remember(
         self,

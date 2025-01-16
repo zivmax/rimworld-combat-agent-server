@@ -309,11 +309,11 @@ class DQNAgent:
 
         # Plot KL divergence
         sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax3)
-        ax4.set_title("KL Divergence over Updates")
+        ax3.set_title("KL Divergence over Updates")
 
         # Plot TD errors
         sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax4)
-        ax3.set_title("TD Error over Updates")
+        ax4.set_title("TD Error over Updates")
 
         plt.tight_layout()
         plt.savefig(save_path)

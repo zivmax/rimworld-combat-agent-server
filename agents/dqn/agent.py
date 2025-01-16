@@ -221,19 +221,19 @@ class DQNAgent:
 
             # Get Q-values for initial state-action pairs
             Q_atoms_batch = self.policy_net.forward(state0_batch)
-            Q_atoms_batch = Q_atoms_batch[
+            Q_dist_batch = Q_atoms_batch[
                 torch.arange(Q_atoms_batch.size(0)), action_idx_batch.long(), :
             ]
 
             with torch.no_grad():
-                next_acts_atoms_batch = self.target_net.forward(stateN_batch)
-                maxQ_action_batch = self._get_expected_q_values(
-                    next_acts_atoms_batch
+                next_atoms_batch = self.target_net.forward(stateN_batch)
+                next_action_batch = self._get_expected_q_values(
+                    next_atoms_batch
                 ).argmax(dim=1)
-                T_atoms_batch = next_acts_atoms_batch[
-                    torch.arange(next_acts_atoms_batch.size(0)), maxQ_action_batch, :
+                T_atoms_batch = next_atoms_batch[
+                    torch.arange(next_atoms_batch.size(0)), next_action_batch, :
                 ]
-                T_atoms_batch = self._project_distribution(
+                T_dist_batch = self._project_distribution(
                     T_atoms_batch,
                     rewardN_batch,
                     done_batch,
@@ -241,8 +241,8 @@ class DQNAgent:
 
             # Calculate loss using weighted KL divergence
             kl_div = F.kl_div(
-                F.log_softmax(Q_atoms_batch, dim=1),
-                F.softmax(T_atoms_batch, dim=1),
+                F.log_softmax(Q_dist_batch, dim=1),
+                F.softmax(T_dist_batch, dim=1),
                 reduction="none",
             ).sum(dim=1)
 
@@ -260,8 +260,12 @@ class DQNAgent:
             self.memory.update_priorities(indices, priorities)
 
             # Calculate Expected Q-values and TD errors
-            Q_values_batch = self._get_expected_q_values(Q_atoms_batch)
-            T_values_batch = self._get_expected_q_values(T_atoms_batch)
+            Q_values_batch = self._get_expected_q_values(Q_atoms_batch).gather(
+                1, action_idx_batch.long().unsqueeze(1)
+            )
+            T_values_batch = self._get_expected_q_values(T_atoms_batch).gather(
+                1, next_action_batch.long().unsqueeze(1)
+            )
 
             TD_errors = Q_values_batch - T_values_batch
 
@@ -357,7 +361,7 @@ class DQNAgent:
             )
         return n_step_reward
 
-    def _get_expected_q_values(self, q_atoms: Tensor) -> Tensor:
+    def _get_expected_q_values(self, q_atoms_batch: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values.
 
         Args:
@@ -366,11 +370,13 @@ class DQNAgent:
         Returns:
             Expected Q-values for each action (batch_size, action_size, 1)
         """
-        assert q_atoms.is_cuda or self.device == "cpu", "Expected q_dist to be on CUDA."
+        assert (
+            q_atoms_batch.is_cuda or self.device == "cpu"
+        ), "Expected q_dist to be on CUDA."
 
         # Ensure probabilities sum to 1 along atom dimension
-        probs = torch.softmax(q_atoms, dim=1)
-        expected_values = (probs * self.supports).sum(dim=1, keepdim=True)
+        probs = torch.softmax(q_atoms_batch, dim=2)
+        expected_values = (probs * self.supports).sum(dim=2, keepdim=True)
 
         return expected_values
 

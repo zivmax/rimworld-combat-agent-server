@@ -182,7 +182,10 @@ from viztracer import VizTracer
 tracer = VizTracer(ignore_c_function=True, ignore_frozen=True)
 tracer.start()
 if __name__ == "__main__":
+    import torch.multiprocessing as mp
+
     try:
+        mp.set_start_method("spawn", force=True)
         main()
     finally:
         envs.close()

@@ -27,10 +27,10 @@
                 "console": "integratedTerminal"
             },
             {
-                "name": "Random-Eval",
+                "name": "Random-Eval-Vec",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.random.eval",
+                "module": "agents.random.eval-vec",
                 "console": "integratedTerminal"
             },
             {

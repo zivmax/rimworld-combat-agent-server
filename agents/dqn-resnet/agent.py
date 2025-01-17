@@ -57,7 +57,7 @@ class DQNAgent:
         self.gamma = 0.975
 
         self.batch_size = 1024
-        self.k_epochs = 20
+        self.k_epochs = 10
         self.learning_rate = 0.0015
         self.target_net_update_freq = 1000
 
@@ -74,8 +74,8 @@ class DQNAgent:
         ]
         self.gamma_n = self.gamma**self.n_step
 
-        self.v_range = 150
-        self.atoms = 102
+        self.v_range = 6.8
+        self.atoms = 21
 
         def create_dqn():
             net = DQN(

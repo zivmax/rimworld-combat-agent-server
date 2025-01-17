@@ -41,11 +41,11 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
+        self.memory = PrioritizedReplayBuffer(capacity=600000, alpha=0.6)
         self.gamma = 0.975
 
         self.batch_size = 512
-        self.k_epochs = 20
+        self.k_epochs = 10
         self.learning_rate = 0.00015
         self.target_net_update_freq = 1000
 
@@ -135,7 +135,7 @@ class DQNAgent:
         return batch_actions
 
     def train(self) -> None:
-        if self.explore or len(self.memory.buffer) < self.batch_size:
+        if len(self.memory.buffer) < self.batch_size:
             return
 
         for _ in range(self.k_epochs):

@@ -50,7 +50,7 @@ class DQNAgent:
 
         self.epsilon_start = 0.5
         self.epsilon_final = 0.001
-        self.epsilon_decay = 0.999995
+        self.epsilon_decay = 0.9999935
 
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001

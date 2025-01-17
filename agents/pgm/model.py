@@ -58,5 +58,5 @@ class PolicyNetwork(nn.Module):
         torch.save(self.state_dict(), filepath)
 
     def load(self, filepath: str) -> None:
-        self.load_state_dict(torch.load(filepath))
+        self.load_state_dict(torch.load(filepath, weights_only=True))
         self.eval()

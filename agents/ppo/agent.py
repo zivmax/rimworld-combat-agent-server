@@ -31,7 +31,7 @@ class PPOAgent:
         self.eps_clip = 0.1
         self.batch_size = 1024
 
-        self.entropy_coef_start = 0.005
+        self.entropy_coef_start = 0.05
         self.min_entropy_coef = self.entropy_coef_start
         self.entropy_decay = 0.99999
         self.entropy_coef = self.entropy_coef_start
@@ -50,7 +50,8 @@ class PPOAgent:
         self.steps = 0
 
         self.policy = ActorCritic(obs_space, act_space).to(self.device)
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1.5e-5)
+        self.actor_optimizer = optim.Adam(self.policy.actor.parameters(), lr=3e-4)
+        self.critic_optimizer = optim.Adam(self.policy.critic.parameters(), lr=1e-3)
         self.memory = PPOMemory()
 
     def act(self, states: NDArray) -> tuple[NDArray, torch.Tensor, torch.Tensor]:
@@ -144,16 +145,18 @@ class PPOAgent:
                 actor_loss = -torch.min(surr, surr_clamp) - entropy_bonus
 
                 critic_loss = (
-                    self.critic_coef * 0.5 * torch.abs(batch_returns - state_values)
+                    self.critic_coef * 0.5 * (batch_returns - state_values) ** 2
                 )
 
                 loss = actor_loss + critic_loss
 
-                self.optimizer.zero_grad()
+                self.actor_optimizer.zero_grad()
+                self.critic_optimizer.zero_grad()
                 loss.mean().backward()
                 torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=1.0)
 
-                self.optimizer.step()
+                self.actor_optimizer.step()
+                self.critic_optimizer.step()
 
                 self.policy_loss_history.append(actor_loss.mean().item())
                 self.value_loss_history.append(critic_loss.mean().item())

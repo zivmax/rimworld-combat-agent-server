@@ -53,13 +53,13 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
+        self.memory = PrioritizedReplayBuffer(capacity=6000000, alpha=0.6)
         self.gamma = 0.975
 
-        self.batch_size = 2048
-        self.k_epochs = 1
-        self.learning_rate = 0.001
-        self.target_net_update_freq = 50
+        self.batch_size = 1024
+        self.k_epochs = 20
+        self.learning_rate = 0.0015
+        self.target_net_update_freq = 1000
 
         self.epsilon_start = 1.0
         self.epsilon_final = 0.001
@@ -118,11 +118,11 @@ class DQNAgent:
         dones: NDArray,
     ) -> None:
         for i in range(self.n_envs):
-            state = torch.from_numpy(states[i]).cpu()
-            next_state = torch.from_numpy(next_states[i]).cpu()
-            action = torch.tensor(actions[i]).cpu()
-            reward = torch.tensor(rewards[i]).cpu()
-            done = torch.tensor(dones[i]).cpu()
+            state = torch.from_numpy(states[i]).to(self.device)
+            next_state = torch.from_numpy(next_states[i]).to(self.device)
+            action = torch.tensor(actions[i]).to(self.device)
+            reward = torch.tensor(rewards[i]).to(self.device)
+            done = torch.tensor(dones[i]).to(self.device)
 
             # Store single-step transition
             max_priority = (
@@ -130,7 +130,7 @@ class DQNAgent:
             )
 
             self.memory.push(
-                (state.cpu(), next_state.cpu(), action.cpu(), reward.cpu(), done.cpu()),
+                (state, next_state, action, reward, done),
                 max_priority,
             )
 

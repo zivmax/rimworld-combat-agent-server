@@ -42,13 +42,14 @@ class DQNAgent:
         self.act_space = act_space
 
         self.memory = PrioritizedReplayBuffer(capacity=300000, alpha=0.6)
-        self.gamma = 0.85
+        self.gamma = 0.975
 
         self.batch_size = 512
-        self.learning_rate = 0.00015
         self.k_epochs = 20
+        self.learning_rate = 0.00015
+        self.target_net_update_freq = 1000
 
-        self.epsilon_start = 0.5
+        self.epsilon_start = 1.0
         self.epsilon_final = 0.001
         self.epsilon_decay = 0.9999935
 
@@ -63,7 +64,6 @@ class DQNAgent:
         self.target_net = DQN(self.obs_space, self.act_space).to(device)
         self.update_target_network()
         self.target_net.eval()
-        self.target_net_update_freq = 3000
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 

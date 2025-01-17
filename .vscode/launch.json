@@ -88,6 +88,13 @@
                 "request": "launch",
                 "module": "agents.pgm.train",
                 "console": "integratedTerminal"
+            },
+            {
+                "name": "PG-Train-Vec",
+                "type": "debugpy",
+                "request": "launch",
+                "module": "agents.pgm.train-vec",
+                "console": "integratedTerminal"
             }
         ]
     }

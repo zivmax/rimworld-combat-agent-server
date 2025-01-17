@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from agents.dqn import DQNAgent as Agent
+from .agent import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from env.wrappers import (
     FrameStackObservation,
@@ -24,6 +24,8 @@ SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)  # Save every N steps
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=300,
+    optimal_range=5,
+    range_tolerance=1,
     rewarding=EnvOptions.Rewarding(
         original=0,
         win=50,
@@ -32,7 +34,11 @@ ENV_OPTIONS = EnvOptions(
         enemy_defeated=0,
         ally_danger=-200,
         enemy_danger=200,
-        invalid_action=-0.25,
+        invalid_action=-0.5,
+        too_close=-0.1,
+        too_far=-0.1,
+        optimal_distance=0.1,
+        cover_reward=0.15,
     ),
     game=GameOptions(
         agent_control=True,

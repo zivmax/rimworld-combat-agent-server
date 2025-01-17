@@ -4,7 +4,7 @@ from tqdm import tqdm
 import pandas as pd
 import os
 
-from agents.dqn import DQNAgent as Agent
+from .agent import DQNAgent as Agent
 from env import rimworld_env
 from utils.draw import draw
 from utils.timestamp import timestamp

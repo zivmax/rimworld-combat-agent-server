@@ -16,8 +16,8 @@ from utils.timestamp import timestamp
 envs: AsyncVectorEnv = None
 
 N_ENVS = 10
-N_STEPS = int(200e4)
-SNAPSHOTS = 40
+N_STEPS = int(100e4)
+SNAPSHOTS = 20
 
 SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
 TRAIN_INTERVAL = 200
@@ -25,6 +25,8 @@ TRAIN_INTERVAL = 200
 ENV_OPTIONS = EnvOptions(
     action_range=1,
     max_steps=300,
+    optimal_range=5,
+    range_tolerance=1,
     rewarding=EnvOptions.Rewarding(
         original=0,
         win=50,
@@ -33,7 +35,11 @@ ENV_OPTIONS = EnvOptions(
         enemy_defeated=0,
         ally_danger=-200,
         enemy_danger=200,
-        invalid_action=-0.25,
+        invalid_action=-0.5,
+        too_close=-0.1,
+        too_far=-0.1,
+        optimal_distance=0.1,
+        cover_reward=0.15,
     ),
     game=GameOptions(
         agent_control=True,

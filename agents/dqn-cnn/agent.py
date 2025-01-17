@@ -14,7 +14,6 @@ from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from torch.types import Tensor
 
-from env.utils import index_to_coord_batch, coord_to_index_batch
 from .memory import PrioritizedReplayBuffer
 from .model import DQN
 
@@ -53,22 +52,21 @@ class DQNAgent:
         self.obs_space = obs_space
         self.act_space = act_space
 
-        self.memory = PrioritizedReplayBuffer(capacity=1000000, alpha=0.6)
+        self.memory = PrioritizedReplayBuffer(capacity=6000000, alpha=0.6)
         self.gamma = 0.975
 
-        self.batch_size = 2048
-        self.k_epochs = 1
-        self.learning_rate = 0.001
-        self.target_net_update_freq = 50
+        self.batch_size = 1024
+        self.k_epochs = 20
+        self.learning_rate = 0.00015
 
         self.epsilon_start = 1.0
         self.epsilon_final = 0.001
-        self.epsilon_decay = 0.999995
+        self.epsilon_decay = 0.9999935
 
         self.beta = 0.4
         self.beta_increment_per_sampling = 0.001
 
-        self.n_step = 2
+        self.n_step = 4
         self.n_step_buffer: List[Deque[Tensor]] = [
             deque(maxlen=self.n_step) for _ in range(self.n_envs)
         ]
@@ -95,6 +93,7 @@ class DQNAgent:
         self.target_net = create_dqn()
         self._update_target_network()
         self.target_net.eval()
+        self.target_net_update_freq = 100
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 
@@ -138,6 +137,7 @@ class DQNAgent:
             next_state_value = self._get_max_Q_estimate(stateN.to(self.device))
 
             return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
+            done = done.unsqueeze(0)
 
             # Store transition with n-step return
             max_priority = (
@@ -188,12 +188,8 @@ class DQNAgent:
                 raw_actions = expected_Qs.argmax(dim=1)
 
                 # Convert to 2D coordinates
-                batch_actions = (
-                    index_to_coord_batch(self.act_space, raw_actions)
-                    .cpu()
-                    .numpy()
-                    .astype(self.act_space.dtype)
-                )
+                x, y = self._index_to_coord(raw_actions.cpu().numpy())
+                batch_actions = np.column_stack([x, y]).astype(self.act_space.dtype)
 
         return batch_actions
 
@@ -218,7 +214,7 @@ class DQNAgent:
         weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
 
         # Convert 2D coordinates to action indices
-        action_idx_batch = coord_to_index_batch(self.act_space, action0_batch)
+        action_idx_batch = self._coord_to_index_batch(action0_batch)
 
         for _ in range(self.k_epochs):
             self.updates += 1
@@ -230,15 +226,15 @@ class DQNAgent:
             ]
 
             with torch.no_grad():
-                T_atoms_batch = self.target_net.forward(stateN_batch)
-                next_action_batch = (
-                    self._get_expected_q_values(T_atoms_batch).argmax(dim=1).squeeze()
-                )
-                T_dist_batch = T_atoms_batch[
-                    torch.arange(T_atoms_batch.size(0)), next_action_batch, :
+                next_atoms_batch = self.target_net.forward(stateN_batch)
+                next_action_batch = self._get_expected_q_values(
+                    next_atoms_batch
+                ).argmax(dim=1)
+                T_atoms_batch = next_atoms_batch[
+                    torch.arange(next_atoms_batch.size(0)), next_action_batch, :
                 ]
                 T_dist_batch = self._project_distribution(
-                    T_dist_batch,
+                    T_atoms_batch,
                     rewardN_batch,
                     done_batch,
                 )
@@ -264,15 +260,11 @@ class DQNAgent:
             self.memory.update_priorities(indices, priorities)
 
             # Calculate Expected Q-values and TD errors
-            Q_values_batch = (
-                self._get_expected_q_values(Q_atoms_batch)
-                .squeeze(-1)
-                .gather(1, action_idx_batch.long().unsqueeze(1))
+            Q_values_batch = self._get_expected_q_values(Q_atoms_batch).gather(
+                1, action_idx_batch.long().unsqueeze(1)
             )
-            T_values_batch = (
-                self._get_expected_q_values(T_atoms_batch)
-                .squeeze(-1)
-                .gather(1, next_action_batch.long().unsqueeze(1))
+            T_values_batch = self._get_expected_q_values(T_atoms_batch).gather(
+                1, next_action_batch.long().unsqueeze(1)
             )
 
             TD_errors = Q_values_batch - T_values_batch
@@ -309,21 +301,20 @@ class DQNAgent:
 
         # Plot Q-values
         sns.lineplot(data=stats_df, x="Update", y="Q-Value", ax=ax1)
-        ax1.set_title("Q-Values over Updates")
+        ax2.set_title("Q-Values over Updates")
 
         # Plot loss
         sns.lineplot(data=stats_df, x="Update", y="Loss", ax=ax2)
-        ax2.set_title("Loss over Updates")
+        ax1.set_title("Loss over Updates")
 
         # Plot KL divergence
         sns.lineplot(data=stats_df, x="Update", y="KL Divergence", ax=ax3)
-        ax3.set_title("KL Divergence over Updates")
+        ax4.set_title("KL Divergence over Updates")
 
         # Plot TD errors
         sns.lineplot(data=stats_df, x="Update", y="TD Error", ax=ax4)
-        ax4.set_title("TD Error over Updates")
+        ax3.set_title("TD Error over Updates")
 
-        plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
@@ -347,7 +338,6 @@ class DQNAgent:
         sns.lineplot(data=stats_df, x="Step", y="Epsilon", ax=ax)
         ax.set_title("Epsilon Decay over Steps")
 
-        plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
@@ -369,7 +359,7 @@ class DQNAgent:
             n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
                 done
             )
-        return n_step_reward.squeeze()
+        return n_step_reward
 
     def _get_expected_q_values(self, q_atoms_batch: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values.
@@ -389,6 +379,49 @@ class DQNAgent:
         expected_values = (probs * self.supports).sum(dim=2, keepdim=True)
 
         return expected_values
+
+    def _coord_to_index(self, x, y):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        return (y - self.act_space.low[1]) * width + (x - self.act_space.low[0])
+
+    def _coord_to_index_batch(self, action0s_tensor: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Extract x and y coordinates from the tensor
+        x_coords = action0s_tensor[:, 0]
+        y_coords = action0s_tensor[:, 1]
+
+        # Compute the indices using tensor operations
+        indices = (y_coords - self.act_space.low[1]) * width + (
+            x_coords - self.act_space.low[0]
+        )
+
+        return indices
+
+    def _index_to_coord(self, action_index):
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+        x = action_index % width + self.act_space.low[0]
+        y = action_index // width + self.act_space.low[1]
+        return x, y
+
+    def _index_to_coord_batch(self, action_indices: Tensor) -> Tensor:
+        # Calculate the width of the action space
+        width = self.act_space.high[0] - self.act_space.low[0] + 1
+
+        # Ensure action_indices is a tensor and move it to the GPU
+        if not isinstance(action_indices, torch.Tensor):
+            action_indices = torch.tensor(action_indices, dtype=torch.long)
+        action_indices = action_indices.cuda()
+
+        # Compute x and y coordinates using tensor operations
+        x_coords = (action_indices % width) + self.act_space.low[0]
+        y_coords = (action_indices // width) + self.act_space.low[1]
+
+        # Stack x and y coordinates into a single tensor of shape (batch_size, 2)
+        coords = torch.stack((x_coords, y_coords), dim=1)
+
+        return coords
 
     def _update_target_network(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -417,8 +450,8 @@ class DQNAgent:
         )
 
         # Calculate the projected support: Tz_j = r + (1 - done) * gamma^n * z_j
-        t_z = reward_batch.unsqueeze(1) + (
-            torch.logical_not(done_batch).unsqueeze(1)
+        t_z = reward_batch + (
+            torch.logical_not(done_batch)
         ) * self.gamma_n * self.supports.unsqueeze(0)
         t_z = torch.clamp(t_z, v_min, v_max)
 

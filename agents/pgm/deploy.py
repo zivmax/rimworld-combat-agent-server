@@ -67,7 +67,7 @@ def main():
         for i in range(N_EPISODES):
             while not done:
                 current_state = next_state
-                actions = agent.act([current_state])
+                actions, _ = agent.act([current_state])
 
                 action = {
                     0: actions[0],

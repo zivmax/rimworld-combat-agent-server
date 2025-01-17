@@ -108,13 +108,15 @@ class PGAgent:
         policy_loss = -torch.sum(log_probs * returns) / len(returns)
 
         # Calculate entropy (optional for exploration)
-        entropy = torch.stack(
-            [log_prob.exp() * log_prob for log_prob in log_probs]
-        ).mean()
-        entropy_bonus = -self.entropy_coef * entropy
+        states = torch.stack([t.state for t in self.memory.transitions]).to(self.device)
+        logits = self.policy.forward(states)  # Get logits for all actions
+        probs = torch.softmax(logits, dim=-1)  # Convert logits to probabilities
+        entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1).mean()
+        # Compute entropy
+        entropy_bonus = self.entropy_coef * entropy
 
         # Total loss
-        loss = policy_loss + entropy_bonus
+        loss = policy_loss - entropy_bonus
 
         # Backpropagation
         self.optimizer.zero_grad()
@@ -165,7 +167,7 @@ class PGAgent:
 
         # Plot Total Loss
         sns.lineplot(data=stats_df, x="Update", y="Total Loss", ax=ax2)
-        ax3.set_title("Total Loss over Updates")
+        ax2.set_title("Total Loss over Updates")
 
         # Plot Return History
         sns.lineplot(data=stats_df, x="Update", y="Norm Return", ax=ax3)

@@ -16,7 +16,7 @@ from utils.timestamp import timestamp
 
 envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 20
+N_ENVS = 50
 N_STEPS = int(100e4)
 SNAPSHOTS = 40
 
@@ -78,7 +78,7 @@ def main():
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
         act_space=envs.single_action_space[0],
-        device="cuda:1",
+        device="cuda:0",
     )
     agent.policy_net.train()
 
@@ -151,7 +151,6 @@ def saving(
             "Loss": agent.loss_history,
             "Q-Value": agent.q_value_history,
             "TD Error": agent.td_error_history,
-            "KL Divergence": agent.kl_div_history,
         }
     )
 

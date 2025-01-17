@@ -18,11 +18,6 @@ envs: gym.vector.AsyncVectorEnv = None
 
 N_ENVS = 50
 N_STEPS = int(10e4)
-SNAPSHOTS = 40
-
-SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
-
-TRAIN_INTERVAL = 100
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,

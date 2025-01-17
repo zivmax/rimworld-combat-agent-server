@@ -16,8 +16,8 @@ from utils.timestamp import timestamp
 
 envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 1
-N_STEPS = int(200e4)
+N_ENVS = 20
+N_STEPS = int(100e4)
 SNAPSHOTS = 40
 
 SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS

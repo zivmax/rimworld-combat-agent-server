@@ -1,26 +1,81 @@
-import os
-
 import torch.nn as nn
 import torch
+import os
+import torch.nn.functional as F
 from gymnasium import spaces
 import numpy as np
+import math
+
+
+class NoisyLinear(nn.Module):
+    def __init__(self, in_features, out_features, std_init=0.5):
+        super(NoisyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.std_init = std_init
+
+        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
+        self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
+        self.register_buffer("weight_epsilon", torch.empty(out_features, in_features))
+
+        self.bias_mu = nn.Parameter(torch.empty(out_features))
+        self.bias_sigma = nn.Parameter(torch.empty(out_features))
+        self.register_buffer("bias_epsilon", torch.empty(out_features))
+
+        self.reset_parameters()
+        self.reset_noise()
+
+    def reset_parameters(self):
+        mu_range = 1 / math.sqrt(self.in_features)
+        self.weight_mu.data.uniform_(-mu_range, mu_range)
+        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
+        self.bias_mu.data.uniform_(-mu_range, mu_range)
+        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
+
+    def reset_noise(self):
+        epsilon_in = self._scale_noise(self.in_features)
+        epsilon_out = self._scale_noise(self.out_features)
+        self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
+        self.bias_epsilon.copy_(epsilon_out)
+
+    def _scale_noise(self, size):
+        x = torch.randn(size)
+        return x.sign().mul_(x.abs().sqrt_())
+
+    def forward(self, x):
+        if self.training:
+            return F.linear(
+                x,
+                self.weight_mu + self.weight_sigma * self.weight_epsilon,
+                self.bias_mu + self.bias_sigma * self.bias_epsilon,
+            )
+        else:
+            return F.linear(x, self.weight_mu, self.bias_mu)
 
 
 class DQN(nn.Module):
-    def __init__(self, obs_space: spaces.Box, act_space: spaces.Box):
-        """
-        Initialize Deep Q Network
-
-        Args:
-            obs_shape (tuple): (height, width, channels)
-            act_n (int): number of actions
-        """
+    def __init__(
+        self,
+        obs_space: spaces.Box,
+        act_space: spaces.Box,
+        device="cpu",
+        noisy=True,
+        atoms=51,
+        v_min=-10,
+        v_max=10,
+    ):
         super(DQN, self).__init__()
         self.obs_space = obs_space
         self.act_space = act_space
+        self.device = device
+        self.atoms = atoms
+        self.v_min = v_min
+        self.v_max = v_max
+        self.supports = torch.linspace(self.v_min, self.v_max, self.atoms)
+        self.act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
+        # Convolutional layers remain the same
         self.conv = nn.Sequential(
-            # First conv block: 6 -> 32 channels
             nn.Conv3d(
                 in_channels=obs_space.shape[0],
                 out_channels=32,
@@ -29,13 +84,10 @@ class DQN(nn.Module):
             ),
             nn.ReLU(),
             nn.BatchNorm3d(32),
-            # Second conv block: 32 -> 64 channels
             nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm3d(64),
-            # Max pooling to reduce spatial dimensions by 2
             nn.MaxPool3d(2),
-            # Third conv block: 64 -> 64 channels
             nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm3d(64),
@@ -45,31 +97,48 @@ class DQN(nn.Module):
         out = self.conv(dummy)
         conv_out_size = out.view(out.size(0), -1).size(1)
 
-        # Calculate total number of actions from the Box space dimensions
-        act_space_size = int(np.prod(act_space.high - act_space.low + 1))
+        # Dueling networks architecture
+        LinearLayer = NoisyLinear if noisy else nn.Linear
 
-        self.fc = nn.Sequential(
-            nn.Linear(in_features=conv_out_size, out_features=2048),
-            nn.ReLU(),
-            nn.Linear(in_features=2048, out_features=1024),
-            nn.ReLU(),
-            nn.Linear(in_features=1024, out_features=512),
-            nn.ReLU(),
-            nn.Linear(in_features=512, out_features=act_space_size),
+        self.advantage_hidden = nn.Sequential(
+            LinearLayer(conv_out_size, 512), nn.ReLU(), LinearLayer(512, 512), nn.ReLU()
         )
+
+        self.value_hidden = nn.Sequential(
+            LinearLayer(conv_out_size, 512), nn.ReLU(), LinearLayer(512, 512), nn.ReLU()
+        )
+
+        self.advantage = LinearLayer(512, self.act_space_size * self.atoms)
+        self.value = LinearLayer(512, self.atoms)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.is_cuda if self.device == "cuda" else True
+        assert x.is_cpu if self.device == "cpu" else True
+
         # Convert the entire tensor to float
         x = x.float()
-
-        x = x / (torch.tensor(self.obs_space.high, device=x.device)).repeat(
-            x.shape[0], *(len(self.obs_space.high.shape) * [1])
-        )
+        x = x / (
+            torch.tensor(self.obs_space.high - self.obs_space.low, device=x.device)
+        ).repeat(x.shape[0], *(len(self.obs_space.shape) * [1]))
 
         x = self.conv(x)
-        x = x.view(x.size(0), -1)  # Flatten
-        x = self.fc(x)
-        return x
+        x = x.view(x.size(0), -1)
+
+        advantage = self.advantage_hidden(x)
+        value = self.value_hidden(x)
+
+        advantage = self.advantage(advantage).view(-1, self.act_space_size, self.atoms)
+        value = self.value(value).view(-1, 1, self.atoms)
+
+        # Combine value and advantage using dueling formula
+        q_dist = value + advantage - advantage.mean(dim=1, keepdim=True)
+
+        return q_dist
+
+    def reset_noise(self):
+        for module in self.modules():
+            if isinstance(module, NoisyLinear):
+                module.reset_noise()
 
     def save(self, filepath: str) -> None:
         directory = os.path.dirname(filepath) if os.path.dirname(filepath) else "."
@@ -77,4 +146,6 @@ class DQN(nn.Module):
         torch.save(self.state_dict(), filepath)
 
     def load(self, filepath: str) -> None:
-        self.load_state_dict(torch.load(filepath, weights_only=True))
+        self.load_state_dict(
+            torch.load(filepath, map_location=self.device, weights_only=True)
+        )

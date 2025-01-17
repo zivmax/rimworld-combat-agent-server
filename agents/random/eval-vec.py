@@ -72,7 +72,7 @@ def main():
     agent = Agent(
         n_envs=N_ENVS,
         obs_space=envs.single_observation_space,
-        act_space=envs.single_action_space[0],
+        act_space=envs.action_space,
     )
 
     next_states, _ = envs.reset()

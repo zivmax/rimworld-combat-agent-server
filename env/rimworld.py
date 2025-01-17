@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from utils.logger import get_cli_logger, get_file_logger
 from utils.timestamp import timestamp
 from utils.json import to_json
+from utils.math import eclidean_dist
 from .server import GameServer
 from .state import StateCollector, CellState, MapState, PawnState, GameStatus, Loc
 from .action import GameAction, PawnAction
@@ -40,6 +41,10 @@ class EnvOptions:
         enemy_danger: float = 0
         invalid_action: int = 0
         remain_still: int = 0
+        cover_reward: int = 0
+        optimal_distance: int = 0
+        too_close: int = 0
+        too_far: int = 0
         win: int = 0
         lose: int = 0
 
@@ -49,6 +54,8 @@ class EnvOptions:
     max_steps: Optional[int] = None
     is_remote: bool = False
     remain_still_threshold: int = 100
+    optimal_range: int = 5
+    range_tolerance: int = 1
     rewarding: Rewarding = field(default_factory=Rewarding)
     game: GameOptions = field(default_factory=GameOptions)
 
@@ -530,15 +537,6 @@ class RimWorldEnv(gym.Env):
 
         return reward
 
-    def _calculate_allies_reward(self) -> float:
-        """Calculate reward component for allies."""
-        reward = 0
-        for idx, ally in enumerate(self._allies):
-            reward += self._calculate_position_penalty(ally)
-            reward += self._calculate_ally_state_change(idx, ally)
-            reward += self._calculate_still_penalty(ally)
-        return reward
-
     def _calculate_enemies_reward(self) -> float:
         """Calculate reward component for enemies."""
         reward = 0
@@ -590,3 +588,111 @@ class RimWorldEnv(gym.Env):
         if excess_still_count > 0:
             return self._options.rewarding.remain_still
         return 0
+
+    def _calculate_allies_reward(self) -> float:
+        """Calculate reward component for allies."""
+        reward = 0
+        for idx, ally in enumerate(self._allies):
+            reward += self._calculate_position_penalty(ally)
+            reward += self._calculate_ally_state_change(idx, ally)
+            reward += self._calculate_still_penalty(ally)
+            reward += self._calculate_cover_reward(ally)
+            reward += self._calculate_distance_reward(ally)
+        return reward
+
+    def _calculate_cover_reward(self, ally: PawnState) -> float:
+        """Calculate reward based on the number of covers in the direction of the nearest enemy."""
+        nearest_enemy = self._find_nearest_enemy(ally)
+        if not nearest_enemy:
+            return 0
+
+        # Determine the direction quadrant
+        dx = nearest_enemy.loc.x - ally.loc.x
+        dy = nearest_enemy.loc.y - ally.loc.y
+
+        if dx >= 0 and dy >= 0:
+            quadrant = "top-right"
+        elif dx >= 0 and dy < 0:
+            quadrant = "bottom-right"
+        elif dx < 0 and dy >= 0:
+            quadrant = "top-left"
+        else:
+            quadrant = "bottom-left"
+
+        # Count covers in the quadrant
+        cover_count = self._count_covers_in_quadrant(ally, quadrant)
+        return self._options.rewarding.cover_reward * min(cover_count, 3)
+
+    def _find_nearest_enemy(self, ally: PawnState) -> PawnState:
+        """Find the nearest enemy to the given ally."""
+        nearest_enemy = None
+        min_distance = float("inf")
+
+        for enemy in self._enemies:
+            distance = eclidean_dist(ally.loc, enemy.loc)
+            if distance < min_distance:
+                min_distance = distance
+                nearest_enemy = enemy
+
+        return nearest_enemy
+
+    def _count_covers_in_quadrant(self, ally: PawnState, quadrant: str) -> int:
+        """Count the number of covers in the specified quadrant around the ally."""
+        covers = self._get_covers()
+        cover_count = 0
+
+        for cover in covers:
+            dx = cover.loc.x - ally.loc.x
+            dy = cover.loc.y - ally.loc.y
+
+            if quadrant == "top-right" and dx >= 0 and dy >= 0:
+                cover_count += 1
+            elif quadrant == "bottom-right" and dx >= 0 and dy < 0:
+                cover_count += 1
+            elif quadrant == "top-left" and dx < 0 and dy >= 0:
+                cover_count += 1
+            elif quadrant == "bottom-left" and dx < 0 and dy < 0:
+                cover_count += 1
+
+        return cover_count
+
+    def _calculate_distance_reward(self, ally: PawnState) -> float:
+        """Calculate reward based on the distance to the nearest enemy."""
+        nearest_enemy = self._find_nearest_enemy(ally)
+        if not nearest_enemy:
+            return 0
+
+        current_distance = eclidean_dist(ally.loc, nearest_enemy.loc)
+        previous_distance = self._calculate_previous_distance(ally, nearest_enemy)
+
+        if previous_distance is None:
+            return 0
+
+        optimal_range = self._options.optimal_range
+        range_tolerance = self._options.range_tolerance
+
+        # If distance is closing to optimal range +- tolerance, give reward
+        if previous_distance > current_distance:
+            if previous_distance > optimal_range + range_tolerance:
+                return self._options.rewarding.optimal_distance
+            elif previous_distance < optimal_range - range_tolerance:
+                return self._options.rewarding.too_close
+
+        elif previous_distance < current_distance:
+            if previous_distance > optimal_range + range_tolerance:
+                return self._options.rewarding.optimal_distance
+            elif previous_distance < optimal_range - range_tolerance:
+                return self._options.rewarding.too_far
+
+        return 0
+
+    def _calculate_previous_distance(self, ally: PawnState, enemy: PawnState) -> float:
+        """Calculate the previous distance between the ally and the enemy."""
+        if not self._allies_prev:
+            return None
+
+        for prev_ally in self._allies_prev:
+            if prev_ally.label == ally.label:
+                return eclidean_dist(prev_ally.loc, enemy.loc)
+
+        return None

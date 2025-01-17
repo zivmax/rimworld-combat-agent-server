@@ -22,9 +22,10 @@ logger = f_logger
 
 class RandomAgent(Agent):
 
-    def __init__(self, act_space: Box, obs_space: Box):
+    def __init__(self, act_space: Box, obs_space: Box, n_envs: int):
         self.act_space = act_space
         self.obs_space = obs_space
+        self.n_envs = n_envs
 
     def act(
         self,
@@ -32,9 +33,9 @@ class RandomAgent(Agent):
     ) -> GameAction:
         space = self.act_space
 
-        act = space.sample()
+        acts = space.sample()
 
-        return act
+        return acts
 
     def save(self):
         pass

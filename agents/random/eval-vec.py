@@ -16,7 +16,7 @@ from utils.timestamp import timestamp
 
 envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 50
+N_ENVS = 20
 N_STEPS = int(10e4)
 
 ENV_OPTIONS = EnvOptions(
@@ -79,7 +79,7 @@ def main():
 
     steps = 0  # Initialize step counter
     step_rewards = []
-    with tqdm(total=N_STEPS, desc="Training (Steps)") as pbar:
+    with tqdm(total=N_STEPS, desc="Testing (Steps)") as pbar:
         while steps < N_STEPS:
             current_states = next_states
             actions = agent.act(current_states)

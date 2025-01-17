@@ -17,10 +17,10 @@ envs: AsyncVectorEnv = None
 
 N_ENVS = 10
 N_STEPS = int(200e4)
-SNAPSHOTS = 20
+SNAPSHOTS = 40
 
 SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
-TRAIN_INTERVAL = 100
+TRAIN_INTERVAL = 200
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,

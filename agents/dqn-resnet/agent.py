@@ -74,8 +74,8 @@ class DQNAgent:
         ]
         self.gamma_n = self.gamma**self.n_step
 
-        self.v_range = 150
-        self.atoms = 102
+        self.v_range = 6.8
+        self.atoms = 21
 
         def create_dqn():
             net = DQN(

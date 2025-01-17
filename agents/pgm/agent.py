@@ -61,7 +61,7 @@ class PGAgent:
         raw_action_batch = dists_batch.sample()
         log_prob_batch = dists_batch.log_prob(raw_action_batch)
         batch_actions = (
-            index_to_coord_batch(self.act_space, raw_action_batch.unsqueeze(1))
+            index_to_coord_batch(self.act_space, raw_action_batch.unsqueeze(-1))
             .cpu()
             .numpy()
             .astype(self.act_space.dtype)

@@ -31,8 +31,8 @@ class PPOAgent:
         self.eps_clip = 0.1
         self.batch_size = 1024
 
-        self.entropy_coef_start = 1.0
-        self.min_entropy_coef = 0.005
+        self.entropy_coef_start = 0.005
+        self.min_entropy_coef = self.entropy_coef_start
         self.entropy_decay = 0.99999
         self.entropy_coef = self.entropy_coef_start
 

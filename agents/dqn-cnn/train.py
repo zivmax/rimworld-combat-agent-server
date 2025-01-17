@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 import os
 
-from agents.dqn import DQNAgent as Agent
+from .agent import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
-from env.wrappers.vector import (
+from env.wrappers import (
     FrameStackObservation,
     SwapObservationAxes,
     RecordEpisodeStatistics,
@@ -14,15 +14,12 @@ from env.wrappers.vector import (
 from utils.draw import draw
 from utils.timestamp import timestamp
 
-envs: gym.vector.AsyncVectorEnv = None
 
-N_ENVS = 10
-N_STEPS = int(200e4)
-SNAPSHOTS = 20
+N_ENVS = 1
+N_STEPS = int(40e4)  # Total number of steps to train for
+SNAPSHOTS = 5
 
-SAVING_INTERVAL = (N_STEPS // SNAPSHOTS) // N_ENVS * N_ENVS
-
-TRAIN_INTERVAL = 100
+SAVING_INTERVAL = int(N_STEPS / SNAPSHOTS)  # Save every N steps
 
 ENV_OPTIONS = EnvOptions(
     action_range=1,
@@ -53,68 +50,65 @@ ENV_OPTIONS = EnvOptions(
 
 
 def main():
-    global envs
     ports = [np.random.randint(10000, 20000) for _ in range(N_ENVS)]
-    envs = gym.vector.AsyncVectorEnv(
-        [
-            lambda port=port: gym.make(rimworld_env, options=ENV_OPTIONS, port=port)
-            for port in ports
-        ],
-        daemon=True,
-        shared_memory=True,
+    env = gym.make(
+        rimworld_env, options=ENV_OPTIONS, port=ports[0], render_mode="headless"
     )
 
-    envs = FrameStackObservation(envs, stack_size=8)
-    envs = SwapObservationAxes(envs, swap=(0, 1))
-    envs = RecordEpisodeStatistics(envs, buffer_length=N_STEPS)
-    register_keyboard_interrupt(envs)
+    env = FrameStackObservation(env, stack_size=8)
+    env = SwapObservationAxes(env, swap=(0, 1))
+    env = RecordEpisodeStatistics(env, buffer_length=N_STEPS)
+    register_keyboard_interrupt(env)
     agent = Agent(
         n_envs=N_ENVS,
-        obs_space=envs.single_observation_space,
-        act_space=envs.single_action_space[0],
-        device="cuda",
+        obs_space=env.observation_space,
+        act_space=env.action_space[0],
+        device="cuda:0",
     )
     agent.policy_net.train()
 
-    next_states, _ = envs.reset()
+    next_state, _ = env.reset()
 
-    steps = 0  # Initialize step counter
-    steps_since_last_update = 0  # Added accumulator for steps
+    step_count = 0  # Initialize step counter
     with tqdm(total=N_STEPS, desc="Training (Steps)") as pbar:
-        while steps < N_STEPS:
-            current_states = next_states
-            actions = agent.act(current_states)
+        while step_count < N_STEPS:
+            current_state = next_state
+            actions = agent.act([current_state])
 
-            actions = {
-                0: [actions[i] for i in range(N_ENVS)],
+            action = {
+                0: actions[0],
             }
 
-            next_states, rewards, terminateds, truncateds, _ = envs.step(actions)
-            dones: np.typing.NDArray = np.logical_or(terminateds, truncateds)
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
 
-            agent.remember(current_states, next_states, actions[0], rewards, dones)
+            agent.remember([current_state], [next_state], [action[0]], [reward], [done])
 
-            steps_since_last_update += N_ENVS  # Accumulate steps
-            if steps_since_last_update >= TRAIN_INTERVAL:
-                agent.train()
-                steps_since_last_update -= TRAIN_INTERVAL  # Reset accumulator
+            agent.train()
 
             # Update step count and progress bar
-            steps += N_ENVS
-            pbar.update(N_ENVS)
+            step_count += 1
+            pbar.update(1)
+
+            if done:
+                next_state, _ = env.reset()
 
             # Save model and plots at the specified interval
-            if (steps % SAVING_INTERVAL == 0 and steps > 0) or steps >= N_STEPS:
-                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{steps}.pth")
-                agent.draw_model(f"agents/dqn/plots/training/{timestamp}/{steps}.png")
-                agent.draw_agent(f"agents/dqn/plots/threshold/{timestamp}/{steps}.png")
-                draw(
-                    envs,
-                    save_path=f"agents/dqn/plots/env/{timestamp}/{steps}.png",
+            if step_count % SAVING_INTERVAL == 0 and step_count > 0:
+                agent.policy_net.save(f"agents/dqn/models/{timestamp}/{step_count}.pth")
+                agent.draw_model(
+                    f"agents/dqn/plots/training/{timestamp}/{step_count}.png"
                 )
-                saving(envs, agent, timestamp, steps)
+                agent.draw_agent(
+                    f"agents/dqn/plots/threshold/{timestamp}/{step_count}.png"
+                )
+                draw(
+                    env,
+                    save_path=f"agents/dqn/plots/env/{timestamp}/{step_count}.png",
+                )
+                saving(env, agent, timestamp, step_count)
 
-    envs.close()
+    env.close()
 
 
 def saving(
@@ -135,18 +129,17 @@ def saving(
     # Create a DataFrame with the training statistics
     stats_df = pd.DataFrame(
         {
-            "Update": agent.updates,
+            "Update": range(len(agent.loss_history)),
             "Loss": agent.loss_history,
             "Q-Value": agent.q_value_history,
-            "TD Error": agent.td_error_history,
-            "KL Divergence": agent.kl_div_history,
+            "TD-Error": agent.td_error_history,
         }
     )
 
     # Create a DataFrame with the threshold history
     thres_df = pd.DataFrame(
         {
-            "Steps": agent.steps,
+            "Steps": range(len(agent.eps_threshold_history)),
             "Threshold": agent.eps_threshold_history,
         }
     )
@@ -175,6 +168,5 @@ if __name__ == "__main__":
     try:
         main()
     finally:
-        envs.close()
         tracer.stop()
         tracer.save(f"agents/dqn/tracings/{timestamp}.json")

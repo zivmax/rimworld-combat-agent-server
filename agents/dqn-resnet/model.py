@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from gymnasium import spaces
 import numpy as np
 import math
+import torchvision.models.video as models
 
 
 class NoisyLinear(nn.Module):
@@ -74,24 +75,30 @@ class DQN(nn.Module):
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms)
         self.act_space_size = int(np.prod(act_space.high - act_space.low + 1))
 
-        # Convolutional layers remain the same
-        self.conv = nn.Sequential(
-            nn.Conv3d(
-                in_channels=obs_space.shape[0],
-                out_channels=32,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.ReLU(),
-            nn.BatchNorm3d(32),
-            nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm3d(64),
-            nn.MaxPool3d(2),
-            nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm3d(64),
+        self.conv = models.r3d_18()
+
+        def replace_bn_with_gn(module):
+            for name, child in module.named_children():
+                if isinstance(child, nn.BatchNorm3d):
+                    setattr(
+                        module,
+                        name,
+                        nn.GroupNorm(num_groups=32, num_channels=child.num_features),
+                    )
+                else:
+                    replace_bn_with_gn(child)
+
+        replace_bn_with_gn(self.conv)
+
+        self.conv.stem = nn.Conv3d(
+            in_channels=obs_space.shape[0],
+            out_channels=64,
+            kernel_size=(3, 7, 7),
+            stride=(1, 2, 2),
+            padding=(1, 3, 3),
+            bias=False,
         )
+        self.conv.fc = nn.Identity()
 
         dummy = torch.zeros(1, *obs_space.shape)
         out = self.conv(dummy)
@@ -101,15 +108,25 @@ class DQN(nn.Module):
         LinearLayer = NoisyLinear if noisy else nn.Linear
 
         self.advantage_hidden = nn.Sequential(
-            LinearLayer(conv_out_size, 512), nn.ReLU(), LinearLayer(512, 512), nn.ReLU()
+            LinearLayer(conv_out_size, 1024),
+            nn.ReLU(),
+            LinearLayer(1024, 1024),
+            nn.ReLU(),
+            LinearLayer(1024, 1024),
+            nn.ReLU(),
         )
 
         self.value_hidden = nn.Sequential(
-            LinearLayer(conv_out_size, 512), nn.ReLU(), LinearLayer(512, 512), nn.ReLU()
+            LinearLayer(conv_out_size, 1024),
+            nn.ReLU(),
+            LinearLayer(1024, 1024),
+            nn.ReLU(),
+            LinearLayer(1024, 1024),
+            nn.ReLU(),
         )
 
-        self.advantage = LinearLayer(512, self.act_space_size * self.atoms)
-        self.value = LinearLayer(512, self.atoms)
+        self.advantage = LinearLayer(1024, self.act_space_size * self.atoms)
+        self.value = LinearLayer(1024, self.atoms)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert x.is_cuda if self.device == "cuda" else True

@@ -1,7 +1,7 @@
 import gymnasium as gym
 from tqdm import tqdm
 
-from agents.dqn import DQNAgent as Agent
+from .agent import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from env.wrappers import (
     FrameStackObservation,

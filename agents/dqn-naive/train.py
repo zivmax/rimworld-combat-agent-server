@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from agents.dqn import DQNAgent as Agent
+from .agent import DQNAgent as Agent
 from env import rimworld_env, GameOptions, EnvOptions, register_keyboard_interrupt
 from env.wrappers import (
     FrameStackObservation,

@@ -124,32 +124,15 @@ class DQNAgent:
             reward = torch.tensor(rewards[i]).cpu()
             done = torch.tensor(dones[i]).cpu()
 
-            # N-step returns
-            self.n_step_buffer[i].append((state, next_state, action, reward, done))
-            if len(self.n_step_buffer[i]) < self.n_step:
-                return
-
-            # Calculate n-step return
-            state0, _, action0, _, _ = self.n_step_buffer[i][0]
-            stateN = next_state
-            rewards_n = [transition[3] for transition in self.n_step_buffer[i]]
-
-            # Get value estimate for final state
-            next_state_value = self._get_max_Q_estimate(stateN.to(self.device))
-
-            return_n = self._compute_n_step_reward(rewards_n, next_state_value, done)
-
-            # Store transition with n-step return
+            # Store single-step transition
             max_priority = (
                 max(self.memory.priorities) if self.memory.priorities else 1.0
             )
 
             self.memory.push(
-                (state0.cpu(), stateN.cpu(), action0.cpu(), return_n.cpu(), done.cpu()),
+                (state.cpu(), next_state.cpu(), action.cpu(), reward.cpu(), done.cpu()),
                 max_priority,
             )
-
-            self.n_step_buffer[i].popleft()
 
     def act(self, states: NDArray) -> NDArray:
         states = np.array(states)
@@ -177,6 +160,7 @@ class DQNAgent:
 
         # Handle exploitation using distributional Q-values
         else:
+            self.policy_net.eval()
             with torch.no_grad():
                 states_tensor = torch.from_numpy(states)
 
@@ -194,13 +178,12 @@ class DQNAgent:
                     .numpy()
                     .astype(self.act_space.dtype)
                 )
-
         return batch_actions
 
     def train(self) -> None:
         if len(self.memory.buffer) < self.batch_size:
             return
-
+        self.policy_net.train()
         self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
 
         # Sample from prioritized replay buffer
@@ -354,22 +337,12 @@ class DQNAgent:
 
     def _get_max_Q_estimate(self, state: Tensor) -> Tensor:
         """Get the value estimate for the next state-action pair."""
+        self.policy_net.eval()
         with torch.no_grad():
             next_Q_atoms = self.policy_net.forward(state.unsqueeze(0).to(self.device))
             maxQ_action = self._get_expected_q_values(next_Q_atoms).argmax(dim=1)
             T_atoms = self.target_net.forward(state.unsqueeze(0).to(self.device))
             return self._get_expected_q_values(T_atoms).squeeze()[maxQ_action]
-
-    def _compute_n_step_reward(
-        self, rewards: List[Tensor], next_value: Tensor, done: Tensor
-    ) -> Tensor:
-        """Compute the n-step return for a given trajectory."""
-        n_step_reward = next_value
-        for reward in reversed(rewards):
-            n_step_reward = reward + self.gamma * n_step_reward * torch.logical_not(
-                done
-            )
-        return n_step_reward.squeeze()
 
     def _get_expected_q_values(self, q_atoms_batch: Tensor) -> Tensor:
         """Get expected Q-values from distributional Q-values.

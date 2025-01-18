@@ -9,11 +9,31 @@ A reinforcement learning project that trains combat agents for RimWorld using va
 - [Visual Studio Code](https://code.visualstudio.com/)
 - [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VSCode
 
+## Setup the files
+
+1. Create a empty folder
+```sh
+mkdir combat-agent
+```
+
+2. Clone the repository into the folder
+```sh
+git clone https://github.com/zivmax/rimworld-combat-agent-server.git combat-agent/agent-server
+```
+
+3. Put the game into the folder and make sure the game folder just named `game`, and `game/RimWorldLinux` is the game executable.
+```sh
+if [ -x combat-agent/game/RimWorldLinux ]; then
+  echo "Game is ready."
+else
+  echo "Game not found or misnamed."
+fi
+```
+
 ## Quick Start with Dev Container
 
-1. Clone the repository
-2. Open the project in VSCode
-3. When prompted, click "Reopen in Container" or:
+1. Open the project in VSCode
+2. When prompted, click "Reopen in Container" or:
    - Press F1
    - Select "Dev Containers: Reopen in Container"
 

@@ -37,28 +37,28 @@
                 "name": "DQN-Train",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.train",
+                "module": "agents.dqn-resnet.train",
                 "console": "integratedTerminal"
             },
             {
                 "name": "DQN-Train-Vec",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.train-vec",
+                "module": "agents.dqn-resnet.train-vec",
                 "console": "integratedTerminal"
             },
             {
                 "name": "DQN-Deploy",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.deploy",
+                "module": "agents.dqn-resnet.deploy",
                 "console": "integratedTerminal"
             },
             {
                 "name": "DQN-Retrain",
                 "type": "debugpy",
                 "request": "launch",
-                "module": "agents.dqn.retrain",
+                "module": "agents.dqn-resnet.retrain",
                 "console": "integratedTerminal"
             },
             {

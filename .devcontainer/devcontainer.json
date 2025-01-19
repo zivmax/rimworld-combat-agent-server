@@ -35,6 +35,5 @@
         "--gpus",
         "all"
     ],
-    "postCreateCommand": "bash .devcontainer/init-mod.sh",
-    "postAttachCommand": "bash .devcontainer/git.sh && bash .devcontainer/safe.sh"
+    "postCreateCommand": "bash .devcontainer/init-mod.sh && bash .devcontainer/safe.sh"
 }

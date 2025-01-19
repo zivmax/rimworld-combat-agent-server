@@ -30,6 +30,12 @@ else
 fi
 ```
 
+4. Clone the `agent-client` repo into game's mod folder
+
+```sh
+git clone https://github.com/zivmax/rimworld-combat-agent-client.git combat-agent/game/Mods/agent-client
+```
+
 ## Quick Start with Dev Container
 
 1. Open the project in VSCode
@@ -42,6 +48,8 @@ The devcontainer will automatically:
 - Install all Python dependencies
 - Configure Git settings
 - Set up RimWorld mod configurations
+3. Open the file `.vscode/combat-agent.code-workspace` and open the multi-root workspace.
+4. Run the Debug Configuration `Build-Linux (agent-client)` to build and install the agent-client mod.
 
 ## Project Structure
 
